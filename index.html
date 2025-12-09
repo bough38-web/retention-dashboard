@@ -564,33 +564,13 @@
         if (s === 75) return v >= 75 && v <= 100;
         return true;
     }
-
-    // **[수정] CSV 로딩 함수: voc.csv의 헤더가 2행부터 시작하도록 수정**
     async function loadCsv(url) {
         const res = await fetch(url);
         const text = await res.text();
-
-        if (url === VOC_CSV_URL) {
-            // VOC_CSV_URL일 경우, 첫 번째 줄을 건너뛰고 파싱
-            const lines = text.split('\n');
-            const contentWithoutFirstLine = lines.slice(1).join('\n'); 
-            
-            return new Promise(resolve => {
-                Papa.parse(contentWithoutFirstLine, { 
-                    header: true, 
-                    skipEmptyLines: true, 
-                    complete: r => resolve(r.data) 
-                });
-            });
-        }
-        
-        // 그 외 파일 (pipeline.csv)은 기존 방식대로 첫 번째 줄을 헤더로 파싱
         return new Promise(resolve => {
             Papa.parse(text, { header: true, skipEmptyLines: true, complete: r => resolve(r.data) });
         });
     }
-    // **[수정 끝]**
-
     function destroyChart(id) {
         if (chartInstances[id]) {
             chartInstances[id].destroy();
@@ -1123,7 +1103,7 @@
     function updatePipelineDashboard() {
         filterPipelineData();
         updatePipelineKPIs();
-        // generatePipelineReview(); // AI 분석 제외
+        // generatePipelineReview(); // **AI 분석 제외 요청 반영**
         drawPipelineBranchStageChart();
         drawPipelineRiskBubbleChart();
         drawPipelineDefenseSuccessRateChart();
