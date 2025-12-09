@@ -904,8 +904,6 @@ function drawPipelineBranchStageChart() {
             };
         });
 
-        destroyChart("pipelineRiskBubbleChart");
-
         chartInstances.pipelineRiskBubbleChart = new Chart(document.getElementById("pipelineRiskBubbleChart").getContext("2d"), {
             type: "bubble",
             data: { datasets: data },
