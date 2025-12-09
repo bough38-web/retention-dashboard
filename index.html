@@ -492,7 +492,7 @@
     }
 
     // [핵심] CSV 로드 함수: VOC는 1행 스킵(2행부터 헤더)
-    async function loadCsv(url, skipRows = 0) {
+    async function loadCsv(url, skipRows = 1) {
         const res = await fetch(url);
         let text = await res.text();
         if (skipRows > 0) {
