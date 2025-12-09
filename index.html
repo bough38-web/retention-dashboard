@@ -67,11 +67,11 @@
   </div>
 
   <script>
-    const VOC_CSV_URL =
-      "https://raw.githubusercontent.com/USER_NAME/REPO_NAME/BRANCH/voc.csv";
-    const PIPELINE_CSV_URL =
-      "https://raw.githubusercontent.com/USER_NAME/REPO_NAME/BRANCH/pipeline.csv";
+ const VOC_CSV_URL =
+  "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/VOC정보조회_clean.csv";
 
+const PIPELINE_CSV_URL =
+  "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/해지파이프라인조회_clean.csv";
     async function loadCsv(url) {
       const response = await fetch(url);
       const text = await response.text();
