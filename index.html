@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>관리고객 · 해지 파이프라인 대시보드</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PapaParse (CSV 파서) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f7;
+    }
+    h1 {
+      margin-bottom: 4px;
+    }
+    h2 {
+      margin-top: 32px;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 16px;
+    }
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    canvas {
+      max-height: 360px;
+    }
+    @media (min-width: 1000px) {
+      .charts {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>관리고객 · 해지 파이프라인 대시보드</h1>
+  <div class="subtitle">VOC 및 해지 파이프라인 CSV를 기반으로 한 웹 대시보드</div>
+
+  <div class="charts">
+    <div class="card">
+      <h2>관리지사별 해지고객 VOC 건수</h2>
+      <p class="subtitle">VOC정보조회 데이터 기준</p>
+      <canvas id="vocByBranch"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>방어진행단계별 해지 파이프라인 건수</h2>
+      <p class="subtitle">해지 파이프라인 조회 데이터 기준</p>
+      <canvas id="pipelineByStage"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const VOC_CSV_URL =
+      "https://raw.githubusercontent.com/USER_NAME/REPO_NAME/BRANCH/voc.csv";
+    const PIPELINE_CSV_URL =
+      "https://raw.githubusercontent.com/USER_NAME/REPO_NAME/BRANCH/pipeline.csv";
+
+    async function loadCsv(url) {
+      const response = await fetch(url);
+      const text = await response.text();
+      return new Promise((resolve) => {
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+        });
+      });
+    }
+
+    function countBy(data, keyName) {
+      const result = {};
+      data.forEach((row) => {
+        const key = (row[keyName] || "").trim();
+        if (!key) return;
+        result[key] = (result[key] || 0) + 1;
+      });
+      return result;
+    }
+
+    function toChartArrays(countObj, limit = 30) {
+      const entries = Object.entries(countObj)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+      return {
+        labels: entries.map((e) => e[0]),
+        data: entries.map((e) => e[1]),
+      };
+    }
+
+    async function drawCharts() {
+      const [vocData, pipelineData] = await Promise.all([
+        loadCsv(VOC_CSV_URL),
+        loadCsv(PIPELINE_CSV_URL),
+      ]);
+
+      const vocByBranchCounts = countBy(vocData, "관리지사");
+      const vocByBranch = toChartArrays(vocByBranchCounts, 20);
+
+      const vocCtx = document.getElementById("vocByBranch").getContext("2d");
+      new Chart(vocCtx, {
+        type: "bar",
+        data: {
+          labels: vocByBranch.labels,
+          datasets: [
+            {
+              label: "건수",
+              data: vocByBranch.data,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y} 건`,
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { autoSkip: false, maxRotation: 70, minRotation: 30 },
+            },
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+
+      const pipelineByStageCounts = countBy(pipelineData, "방어진행단계");
+      const pipelineByStage = toChartArrays(pipelineByStageCounts, 20);
+
+      const pipelineCtx = document
+        .getElementById("pipelineByStage")
+        .getContext("2d");
+      new Chart(pipelineCtx, {
+        type: "bar",
+        data: {
+          labels: pipelineByStage.labels,
+          datasets: [
+            {
+              label: "건수",
+              data: pipelineByStage.data,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y} 건`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    }
+
+    drawCharts().catch((e) => {
+      console.error(e);
+      alert("데이터를 불러오는 중 오류가 발생했습니다. CSV 경로를 다시 확인해주세요.");
+    });
+  </script>
+</body>
+</html>
