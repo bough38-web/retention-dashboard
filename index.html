@@ -7,8 +7,10 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <!-- PapaParse (CSV 파서) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
   <!-- Kakao 지도 -->
   <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=af04a0a8e5416c95eaa04cccc060031d"></script>
 
@@ -137,9 +139,8 @@
 
 <script>
 /* ---------------------------------------------------------
-   📌 데이터 경로
+   📌 CSV 데이터 경로 (수정됨!)
 --------------------------------------------------------- */
-
 const VOC_CSV_URL =
   "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
 
@@ -149,52 +150,48 @@ const PIPELINE_CSV_URL =
 /* ---------------------------------------------------------
    📌 전역 상태값
 --------------------------------------------------------- */
-let mode = "count"; // count 또는 amount
+let mode = "count"; 
 let vocData = [];
 let pipelineData = [];
 
-// 차트 인스턴스
 let pipelineBranchChart = null;
 let pipelineStageChart = null;
 let vocBranchChart = null;
 let vocAgentChart = null;
 
-// 카카오맵
 let map;
 let markers = [];
 
 /* ---------------------------------------------------------
-   📌 도우미 함수들
+   📌 공통 함수들
 --------------------------------------------------------- */
 
-// 지사명 정규화 ("지사" 제거)
+// 지사명 정규화
 function normalizeBranch(name) {
   if (!name) return "";
   return String(name).replace("지사", "").trim();
 }
 
-// 계약번호 정규화 (숫자만 8자리)
+// 계약번호 정규화
 function cleanContractNumber(raw) {
   if (!raw) return "";
-  const digits = String(raw).replace(/\D/g, "");
-  return digits.slice(0, 8);
+  return String(raw).replace(/\D/g, "").slice(0, 8);
 }
 
-// 금액을 천원 단위로 변환
+// 금액 → 천원
 function toThousandWon(raw) {
   if (!raw) return 0;
   const num = parseFloat(String(raw).replace(/,/g, ""));
-  if (isNaN(num)) return 0;
-  return Math.round(num / 1000);
+  return isNaN(num) ? 0 : Math.round(num / 1000);
 }
 
-// 위험도 구간 체크
+// 해지위험도 체크
 function checkRisk(value, selected) {
   if (selected === "ALL") return true;
   const v = parseFloat(value);
   if (isNaN(v)) return false;
-  const s = parseInt(selected);
 
+  const s = parseInt(selected);
   if (s === 0) return v >= 0 && v < 25;
   if (s === 25) return v >= 25 && v < 50;
   if (s === 50) return v >= 50 && v < 75;
@@ -202,21 +199,21 @@ function checkRisk(value, selected) {
   return true;
 }
 
-// CSV 로딩
+// CSV로드
 async function loadCsv(url) {
-  const response = await fetch(url);
-  const text = await response.text();
-  return new Promise((resolve) => {
+  const res = await fetch(url);
+  const text = await res.text();
+  return new Promise(resolve => {
     Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => resolve(results.data),
+      complete: r => resolve(r.data)
     });
   });
 }
 
 /* ---------------------------------------------------------
-   📌 카카오 지도 관련
+   📌 지도 관련
 --------------------------------------------------------- */
 function initMap() {
   const container = document.getElementById("map");
@@ -226,25 +223,17 @@ function initMap() {
   });
 }
 
-// 지도링크에서 위경도 추출 (구글맵 q=lat,lng 형식 가정)
 function extractLatLng(url) {
   if (!url || !url.includes("q=")) return null;
   try {
     const coords = url.split("q=")[1].split(",");
-    return {
-      lat: parseFloat(coords[0]),
-      lng: parseFloat(coords[1]),
-    };
+    return { lat: parseFloat(coords[0]), lng: parseFloat(coords[1]) };
   } catch {
     return null;
   }
 }
 
-// VOC 지도 마커 표시
 function drawVocMarkers() {
-  if (!map) return;
-
-  // 기존 마커 제거
   markers.forEach(m => m.setMap(null));
   markers = [];
 
@@ -254,7 +243,7 @@ function drawVocMarkers() {
 
     const marker = new kakao.maps.Marker({
       position: new kakao.maps.LatLng(pos.lat, pos.lng),
-      map: map
+      map
     });
 
     markers.push(marker);
@@ -262,16 +251,14 @@ function drawVocMarkers() {
 }
 
 /* ---------------------------------------------------------
-   📌 필터 값 가져오기 & 모드 변경
+   📌 필터 값
 --------------------------------------------------------- */
 function getSelectedChannel() {
-  const sel = document.getElementById("channelFilter");
-  return sel ? sel.value : "ALL";
+  return document.getElementById("channelFilter").value;
 }
 
 function getSelectedRisk() {
-  const radio = document.querySelector('input[name="risk"]:checked');
-  return radio ? radio.value : "ALL";
+  return document.querySelector('input[name="risk"]:checked').value;
 }
 
 function setMode(m) {
@@ -280,15 +267,15 @@ function setMode(m) {
 }
 
 /* ---------------------------------------------------------
-   📌 해지파이프라인: 관리본부/지사 집계
+   📌 해지파이프라인 — 본부/지사 집계
 --------------------------------------------------------- */
 function getPipelineBranchAgg() {
   const channel = getSelectedChannel();
   const risk = getSelectedRisk();
+
   const agg = {};
 
   pipelineData.forEach(row => {
-    // 필터 적용
     if (channel !== "ALL" && row["담당영업채널"] !== channel) return;
     if (!checkRisk(row["해지위험도"], risk)) return;
 
@@ -296,91 +283,62 @@ function getPipelineBranchAgg() {
     const branch = normalizeBranch(row["관리지사"]);
     if (!head || !branch) return;
 
-    const key = head + " / " + branch;
+    const key = `${head} / ${branch}`;
+    if (!agg[key]) agg[key] = { count: 0, amount: 0 };
 
-    if (!agg[key]) {
-      agg[key] = { count: 0, amount: 0 };
+    if (cleanContractNumber(row["계약번호"])) {
+      agg[key].count++;
     }
 
-    // 건수: 계약번호 기준
-    const cleaned = cleanContractNumber(row["계약번호"]);
-    if (cleaned) {
-      agg[key].count += 1;
-    }
-
-    // 금액: KTT월정료(조정)
     agg[key].amount += toThousandWon(row["KTT월정료(조정)"]);
   });
 
   const entries = Object.entries(agg);
-  // 정렬은 현재 모드 기준으로
   entries.sort((a, b) => {
     const av = mode === "count" ? a[1].count : a[1].amount;
     const bv = mode === "count" ? b[1].count : b[1].amount;
     return bv - av;
   });
 
-  const labels = entries.map(e => e[0]);
-  const counts = entries.map(e => e[1].count);
-  const amounts = entries.map(e => e[1].amount);
-
-  return { labels, counts, amounts };
+  return {
+    labels: entries.map(e => e[0]),
+    counts: entries.map(e => e[1].count),
+    amounts: entries.map(e => e[1].amount)
+  };
 }
 
 function drawPipelineBranchChart() {
   const ctx = document.getElementById("pipelineBranchChart").getContext("2d");
   const { labels, counts, amounts } = getPipelineBranchAgg();
 
-  const dataArray = mode === "count" ? counts : amounts;
-  const label = mode === "count" ? "건수" : "금액(천원)";
+  if (pipelineBranchChart) pipelineBranchChart.destroy();
 
-  if (pipelineBranchChart) {
-    pipelineBranchChart.destroy();
-  }
+  const dataArray = mode === "count" ? counts : amounts;
 
   pipelineBranchChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels,
       datasets: [{
-        label,
-        data: dataArray,
+        label: mode === "count" ? "건수" : "금액(천원)",
+        data: dataArray
       }]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const v = ctx.parsed.y;
-              if (mode === "count") return v + " 건";
-              return v + " 천원";
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { autoSkip: false, maxRotation: 60, minRotation: 20 }
-        },
-        y: {
-          beginAtZero: true
-        }
-      }
+      scales: { y: { beginAtZero: true } }
     }
   });
 }
 
 /* ---------------------------------------------------------
-   📌 해지파이프라인: 방어진행단계 적층 막대
+   📌 해지파이프라인 — 방어진행단계 적층
 --------------------------------------------------------- */
 function getPipelineStageAgg() {
   const channel = getSelectedChannel();
   const risk = getSelectedRisk();
-
   const stages = ["진행중", "방어실패", "방어성공"];
+
   const agg = {};
 
   pipelineData.forEach(row => {
@@ -388,52 +346,43 @@ function getPipelineStageAgg() {
     if (!checkRisk(row["해지위험도"], risk)) return;
 
     const branch = normalizeBranch(row["관리지사"]);
-    if (!branch) return;
-    const stage = (row["방어진행단계"] || "").trim() || "기타";
+    const stage = (row["방어진행단계"] || "").trim();
+
     if (!agg[branch]) {
-      agg[branch] = { "진행중": 0, "방어실패": 0, "방어성공": 0 };
+      agg[branch] = { 진행중: 0, 방어실패: 0, 방어성공: 0 };
     }
-    if (stages.includes(stage)) {
-      agg[branch][stage] += 1;
-    }
+
+    if (stages.includes(stage)) agg[branch][stage]++;
   });
 
   const labels = Object.keys(agg);
-  const 진행중 = labels.map(b => agg[b]["진행중"]);
-  const 방어실패 = labels.map(b => agg[b]["방어실패"]);
-  const 방어성공 = labels.map(b => agg[b]["방어성공"]);
 
-  return { labels, 진행중, 방어실패, 방어성공 };
+  return {
+    labels,
+    진행중: labels.map(b => agg[b]["진행중"]),
+    방어실패: labels.map(b => agg[b]["방어실패"]),
+    방어성공: labels.map(b => agg[b]["방어성공"]),
+  };
 }
 
 function drawPipelineStageChart() {
   const ctx = document.getElementById("pipelineStageChart").getContext("2d");
   const { labels, 진행중, 방어실패, 방어성공 } = getPipelineStageAgg();
 
-  if (pipelineStageChart) {
-    pipelineStageChart.destroy();
-  }
+  if (pipelineStageChart) pipelineStageChart.destroy();
 
   pipelineStageChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels,
       datasets: [
-        { label: "진행중", data: 진행중, stack: "stage" },
-        { label: "방어실패", data: 방어실패, stack: "stage" },
-        { label: "방어성공", data: 방어성공, stack: "stage" },
+        { label: "진행중", data: 진행중, stack: "s" },
+        { label: "방어실패", data: 방어실패, stack: "s" },
+        { label: "방어성공", data: 방어성공, stack: "s" },
       ]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
-          }
-        }
-      },
       scales: {
         x: { stacked: true },
         y: { stacked: true, beginAtZero: true }
@@ -443,76 +392,59 @@ function drawPipelineStageChart() {
 }
 
 /* ---------------------------------------------------------
-   📌 VOC: 관리지사/담당자 상태 적층 막대
+   📌 VOC 시각화
 --------------------------------------------------------- */
-function aggregateVocBy(fieldName, limit = 20) {
+function aggregateVocBy(field, limit = 20) {
   const agg = {};
   const statuses = ["처리완료", "접수", "미접수"];
 
   vocData.forEach(row => {
-    let key;
-    if (fieldName === "관리지사") {
-      key = normalizeBranch(row["관리지사"]);
-    } else {
-      key = (row[fieldName] || "").trim();
-    }
+    let key = field === "관리지사"
+      ? normalizeBranch(row["관리지사"])
+      : (row[field] || "").trim();
+
     if (!key) return;
 
-    const status = (row["상태"] || "").trim();
-    if (!agg[key]) {
-      agg[key] = { "처리완료": 0, "접수": 0, "미접수": 0 };
-    }
-    if (statuses.includes(status)) {
-      agg[key][status] += 1;
-    }
+    const st = (row["상태"] || "").trim();
+
+    if (!agg[key]) agg[key] = { 처리완료: 0, 접수: 0, 미접수: 0 };
+    if (statuses.includes(st)) agg[key][st]++;
   });
 
   const entries = Object.entries(agg);
-  // 총 건수 기준 상위 limit
-  entries.sort((a, b) => {
-    const at = a[1]["처리완료"] + a[1]["접수"] + a[1]["미접수"];
-    const bt = b[1]["처리완료"] + b[1]["접수"] + b[1]["미접수"];
-    return bt - at;
-  });
+  entries.sort((a, b) =>
+    (b[1].처리완료 + b[1].접수 + b[1].미접수) -
+    (a[1].처리완료 + a[1].접수 + a[1].미접수)
+  );
 
   const sliced = entries.slice(0, limit);
 
-  const labels = sliced.map(e => e[0]);
-  const 처리완료 = sliced.map(e => e[1]["처리완료"]);
-  const 접수 = sliced.map(e => e[1]["접수"]);
-  const 미접수 = sliced.map(e => e[1]["미접수"]);
-
-  return { labels, 처리완료, 접수, 미접수 };
+  return {
+    labels: sliced.map(e => e[0]),
+    처리완료: sliced.map(e => e[1].처리완료),
+    접수: sliced.map(e => e[1].접수),
+    미접수: sliced.map(e => e[1].미접수),
+  };
 }
 
 function drawVocBranchChart() {
   const ctx = document.getElementById("vocBranchChart").getContext("2d");
   const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("관리지사", 30);
 
-  if (vocBranchChart) {
-    vocBranchChart.destroy();
-  }
+  if (vocBranchChart) vocBranchChart.destroy();
 
   vocBranchChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels,
       datasets: [
-        { label: "처리완료", data: 처리완료, stack: "voc" },
-        { label: "접수", data: 접수, stack: "voc" },
-        { label: "미접수", data: 미접수, stack: "voc" },
+        { label: "처리완료", data: 처리완료, stack: "v" },
+        { label: "접수", data: 접수, stack: "v" },
+        { label: "미접수", data: 미접수, stack: "v" },
       ]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
-          }
-        }
-      },
       scales: {
         x: { stacked: true },
         y: { stacked: true, beginAtZero: true }
@@ -525,30 +457,20 @@ function drawVocAgentChart() {
   const ctx = document.getElementById("vocAgentChart").getContext("2d");
   const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("담당자", 20);
 
-  if (vocAgentChart) {
-    vocAgentChart.destroy();
-  }
+  if (vocAgentChart) vocAgentChart.destroy();
 
   vocAgentChart = new Chart(ctx, {
     type: "bar",
     data: {
       labels,
       datasets: [
-        { label: "처리완료", data: 처리완료, stack: "voc-agent" },
-        { label: "접수", data: 접수, stack: "voc-agent" },
-        { label: "미접수", data: 미접수, stack: "voc-agent" },
+        { label: "처리완료", data: 처리완료, stack: "va" },
+        { label: "접수", data: 접수, stack: "va" },
+        { label: "미접수", data: 미접수, stack: "va" },
       ]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
-          }
-        }
-      },
       scales: {
         x: { stacked: true },
         y: { stacked: true, beginAtZero: true }
@@ -558,7 +480,7 @@ function drawVocAgentChart() {
 }
 
 /* ---------------------------------------------------------
-   📌 차트 전체 업데이트
+   📌 전체 차트 업데이트
 --------------------------------------------------------- */
 function updatePipelineCharts() {
   drawPipelineBranchChart();
@@ -566,37 +488,28 @@ function updatePipelineCharts() {
 }
 
 /* ---------------------------------------------------------
-   📌 초기화
+   📌 초기 로드
 --------------------------------------------------------- */
 async function initDashboard() {
-  // 지도 먼저 초기화
   initMap();
 
-  // CSV 데이터 로드
   vocData = await loadCsv(VOC_CSV_URL);
   pipelineData = await loadCsv(PIPELINE_CSV_URL);
 
-  // VOC 지도 마커
   drawVocMarkers();
 
-  // 차트들 렌더링
   drawPipelineBranchChart();
   drawPipelineStageChart();
   drawVocBranchChart();
   drawVocAgentChart();
 
-  // 필터 변경 이벤트
-  const channelSel = document.getElementById("channelFilter");
-  if (channelSel) {
-    channelSel.addEventListener("change", updatePipelineCharts);
-  }
-  const riskRadios = document.querySelectorAll('input[name="risk"]');
-  riskRadios.forEach(r => {
-    r.addEventListener("change", updatePipelineCharts);
-  });
+  document.getElementById("channelFilter")
+    .addEventListener("change", updatePipelineCharts);
+
+  document.querySelectorAll('input[name="risk"]')
+    .forEach(r => r.addEventListener("change", updatePipelineCharts));
 }
 
-// 페이지 로드 시 실행
 window.addEventListener("load", initDashboard);
 </script>
 
