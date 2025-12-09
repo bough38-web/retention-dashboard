@@ -2,190 +2,602 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>관리고객 · 해지 파이프라인 대시보드</title>
+  <title>KTT 통합 대시보드 (VOC + 해지파이프라인)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- PapaParse (CSV 파서) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- Kakao 지도 -->
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=af04a0a8e5416c95eaa04cccc060031d"></script>
+
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
-      padding: 20px;
+      display: flex;
       background: #f5f5f7;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
     }
-    h1 {
-      margin-bottom: 4px;
-    }
-    h2 {
-      margin-top: 32px;
-      margin-bottom: 8px;
-      font-size: 18px;
-    }
-    .subtitle {
-      color: #666;
-      margin-bottom: 16px;
-    }
-    .charts {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 32px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 16px;
+
+    /* 좌측 필터 패널 */
+    .sidebar {
+      width: 260px;
+      background: #ffffff;
       padding: 20px;
+      border-right: 1px solid #ddd;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 6px;
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .chart-box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
     }
-    canvas {
-      max-height: 360px;
+
+    #map {
+      width: 100%;
+      height: 420px;
+      border-radius: 12px;
     }
-    @media (min-width: 1000px) {
-      .charts {
-        grid-template-columns: 1fr 1fr;
-      }
+
+    button, select {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fafafa;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    label {
+      display: block;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+
+    h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
     }
   </style>
 </head>
+
 <body>
-  <h1>관리고객 · 해지 파이프라인 대시보드</h1>
-  <div class="subtitle">VOC 및 해지 파이프라인 CSV를 기반으로 한 웹 대시보드</div>
 
-  <div class="charts">
-    <div class="card">
-      <h2>관리지사별 해지고객 VOC 건수</h2>
-      <p class="subtitle">VOC정보조회 데이터 기준</p>
-      <canvas id="vocByBranch"></canvas>
-    </div>
+<div class="sidebar">
+  <h2>📌 필터</h2>
 
-    <div class="card">
-      <h2>방어진행단계별 해지 파이프라인 건수</h2>
-      <p class="subtitle">해지 파이프라인 조회 데이터 기준</p>
-      <canvas id="pipelineByStage"></canvas>
-    </div>
+  <label>담당영업채널</label>
+  <select id="channelFilter">
+      <option value="ALL">전체</option>
+      <option value="SP">SP</option>
+      <option value="SC">SC</option>
+      <option value="AM">AM</option>
+  </select>
+
+  <label>해지위험도 (%)</label>
+  <label><input type="radio" name="risk" value="ALL" checked> 전체</label>
+  <label><input type="radio" name="risk" value="0"> 0 ~ 25%</label>
+  <label><input type="radio" name="risk" value="25"> 25 ~ 50%</label>
+  <label><input type="radio" name="risk" value="50"> 50 ~ 75%</label>
+  <label><input type="radio" name="risk" value="75"> 75 ~ 100%</label>
+
+  <label>표시 기준 (해지파이프라인)</label>
+  <button onclick="setMode('count')">건수</button>
+  <button onclick="setMode('amount')">금액(천원)</button>
+</div>
+
+<div class="content">
+
+  <div class="chart-box">
+      <h3>📍 VOC 설치 주소 지도</h3>
+      <div id="map"></div>
   </div>
 
-  <script>
- const VOC_CSV_URL =
+  <div class="chart-box">
+      <h3>📊 관리본부 / 관리지사별 해지 현황 (건수 또는 금액)</h3>
+      <canvas id="pipelineBranchChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+      <h3>📊 방어진행단계 (진행중 / 방어실패 / 방어성공)</h3>
+      <canvas id="pipelineStageChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+      <h3>📊 VOC 관리지사별 상태 (적층 막대)</h3>
+      <canvas id="vocBranchChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+      <h3>📊 VOC 담당자별 상태 (Top 20, 적층 막대)</h3>
+      <canvas id="vocAgentChart"></canvas>
+  </div>
+
+</div>
+
+<script>
+/* ---------------------------------------------------------
+   📌 데이터 경로
+--------------------------------------------------------- */
+const VOC_CSV_URL =
   "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/VOC정보조회_clean.csv";
 
 const PIPELINE_CSV_URL =
   "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/해지파이프라인조회_clean.csv";
-    async function loadCsv(url) {
-      const response = await fetch(url);
-      const text = await response.text();
-      return new Promise((resolve) => {
-        Papa.parse(text, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => resolve(results.data),
-        });
-      });
-    }
 
-    function countBy(data, keyName) {
-      const result = {};
-      data.forEach((row) => {
-        const key = (row[keyName] || "").trim();
-        if (!key) return;
-        result[key] = (result[key] || 0) + 1;
-      });
-      return result;
-    }
+/* ---------------------------------------------------------
+   📌 전역 상태값
+--------------------------------------------------------- */
+let mode = "count"; // count 또는 amount
+let vocData = [];
+let pipelineData = [];
 
-    function toChartArrays(countObj, limit = 30) {
-      const entries = Object.entries(countObj)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, limit);
-      return {
-        labels: entries.map((e) => e[0]),
-        data: entries.map((e) => e[1]),
-      };
-    }
+// 차트 인스턴스
+let pipelineBranchChart = null;
+let pipelineStageChart = null;
+let vocBranchChart = null;
+let vocAgentChart = null;
 
-    async function drawCharts() {
-      const [vocData, pipelineData] = await Promise.all([
-        loadCsv(VOC_CSV_URL),
-        loadCsv(PIPELINE_CSV_URL),
-      ]);
+// 카카오맵
+let map;
+let markers = [];
 
-      const vocByBranchCounts = countBy(vocData, "관리지사");
-      const vocByBranch = toChartArrays(vocByBranchCounts, 20);
+/* ---------------------------------------------------------
+   📌 도우미 함수들
+--------------------------------------------------------- */
 
-      const vocCtx = document.getElementById("vocByBranch").getContext("2d");
-      new Chart(vocCtx, {
-        type: "bar",
-        data: {
-          labels: vocByBranch.labels,
-          datasets: [
-            {
-              label: "건수",
-              data: vocByBranch.data,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `${ctx.parsed.y} 건`,
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: { autoSkip: false, maxRotation: 70, minRotation: 30 },
-            },
-            y: {
-              beginAtZero: true,
-            },
-          },
-        },
-      });
+// 지사명 정규화 ("지사" 제거)
+function normalizeBranch(name) {
+  if (!name) return "";
+  return String(name).replace("지사", "").trim();
+}
 
-      const pipelineByStageCounts = countBy(pipelineData, "방어진행단계");
-      const pipelineByStage = toChartArrays(pipelineByStageCounts, 20);
+// 계약번호 정규화 (숫자만 8자리)
+function cleanContractNumber(raw) {
+  if (!raw) return "";
+  const digits = String(raw).replace(/\D/g, "");
+  return digits.slice(0, 8);
+}
 
-      const pipelineCtx = document
-        .getElementById("pipelineByStage")
-        .getContext("2d");
-      new Chart(pipelineCtx, {
-        type: "bar",
-        data: {
-          labels: pipelineByStage.labels,
-          datasets: [
-            {
-              label: "건수",
-              data: pipelineByStage.data,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `${ctx.parsed.y} 건`,
-              },
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-            },
-          },
-        },
-      });
-    }
+// 금액을 천원 단위로 변환
+function toThousandWon(raw) {
+  if (!raw) return 0;
+  const num = parseFloat(String(raw).replace(/,/g, ""));
+  if (isNaN(num)) return 0;
+  return Math.round(num / 1000);
+}
 
-    drawCharts().catch((e) => {
-      console.error(e);
-      alert("데이터를 불러오는 중 오류가 발생했습니다. CSV 경로를 다시 확인해주세요.");
+// 위험도 구간 체크
+function checkRisk(value, selected) {
+  if (selected === "ALL") return true;
+  const v = parseFloat(value);
+  if (isNaN(v)) return false;
+  const s = parseInt(selected);
+
+  if (s === 0) return v >= 0 && v < 25;
+  if (s === 25) return v >= 25 && v < 50;
+  if (s === 50) return v >= 50 && v < 75;
+  if (s === 75) return v >= 75 && v <= 100;
+  return true;
+}
+
+// CSV 로딩
+async function loadCsv(url) {
+  const response = await fetch(url);
+  const text = await response.text();
+  return new Promise((resolve) => {
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => resolve(results.data),
     });
-  </script>
+  });
+}
+
+/* ---------------------------------------------------------
+   📌 카카오 지도 관련
+--------------------------------------------------------- */
+function initMap() {
+  const container = document.getElementById("map");
+  map = new kakao.maps.Map(container, {
+    center: new kakao.maps.LatLng(37.5665, 126.9780),
+    level: 7,
+  });
+}
+
+// 지도링크에서 위경도 추출 (구글맵 q=lat,lng 형식 가정)
+function extractLatLng(url) {
+  if (!url || !url.includes("q=")) return null;
+  try {
+    const coords = url.split("q=")[1].split(",");
+    return {
+      lat: parseFloat(coords[0]),
+      lng: parseFloat(coords[1]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// VOC 지도 마커 표시
+function drawVocMarkers() {
+  if (!map) return;
+
+  // 기존 마커 제거
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  vocData.forEach(row => {
+    const pos = extractLatLng(row["지도링크"]);
+    if (!pos) return;
+
+    const marker = new kakao.maps.Marker({
+      position: new kakao.maps.LatLng(pos.lat, pos.lng),
+      map: map
+    });
+
+    markers.push(marker);
+  });
+}
+
+/* ---------------------------------------------------------
+   📌 필터 값 가져오기 & 모드 변경
+--------------------------------------------------------- */
+function getSelectedChannel() {
+  const sel = document.getElementById("channelFilter");
+  return sel ? sel.value : "ALL";
+}
+
+function getSelectedRisk() {
+  const radio = document.querySelector('input[name="risk"]:checked');
+  return radio ? radio.value : "ALL";
+}
+
+function setMode(m) {
+  mode = m;
+  updatePipelineCharts();
+}
+
+/* ---------------------------------------------------------
+   📌 해지파이프라인: 관리본부/지사 집계
+--------------------------------------------------------- */
+function getPipelineBranchAgg() {
+  const channel = getSelectedChannel();
+  const risk = getSelectedRisk();
+  const agg = {};
+
+  pipelineData.forEach(row => {
+    // 필터 적용
+    if (channel !== "ALL" && row["담당영업채널"] !== channel) return;
+    if (!checkRisk(row["해지위험도"], risk)) return;
+
+    const head = (row["관리본부"] || "").trim();
+    const branch = normalizeBranch(row["관리지사"]);
+    if (!head || !branch) return;
+
+    const key = head + " / " + branch;
+
+    if (!agg[key]) {
+      agg[key] = { count: 0, amount: 0 };
+    }
+
+    // 건수: 계약번호 기준
+    const cleaned = cleanContractNumber(row["계약번호"]);
+    if (cleaned) {
+      agg[key].count += 1;
+    }
+
+    // 금액: KTT월정료(조정)
+    agg[key].amount += toThousandWon(row["KTT월정료(조정)"]);
+  });
+
+  const entries = Object.entries(agg);
+  // 정렬은 현재 모드 기준으로
+  entries.sort((a, b) => {
+    const av = mode === "count" ? a[1].count : a[1].amount;
+    const bv = mode === "count" ? b[1].count : b[1].amount;
+    return bv - av;
+  });
+
+  const labels = entries.map(e => e[0]);
+  const counts = entries.map(e => e[1].count);
+  const amounts = entries.map(e => e[1].amount);
+
+  return { labels, counts, amounts };
+}
+
+function drawPipelineBranchChart() {
+  const ctx = document.getElementById("pipelineBranchChart").getContext("2d");
+  const { labels, counts, amounts } = getPipelineBranchAgg();
+
+  const dataArray = mode === "count" ? counts : amounts;
+  const label = mode === "count" ? "건수" : "금액(천원)";
+
+  if (pipelineBranchChart) {
+    pipelineBranchChart.destroy();
+  }
+
+  pipelineBranchChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data: dataArray,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.parsed.y;
+              if (mode === "count") return v + " 건";
+              return v + " 천원";
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { autoSkip: false, maxRotation: 60, minRotation: 20 }
+        },
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   📌 해지파이프라인: 방어진행단계 적층 막대
+--------------------------------------------------------- */
+function getPipelineStageAgg() {
+  const channel = getSelectedChannel();
+  const risk = getSelectedRisk();
+
+  const stages = ["진행중", "방어실패", "방어성공"];
+  const agg = {};
+
+  pipelineData.forEach(row => {
+    if (channel !== "ALL" && row["담당영업채널"] !== channel) return;
+    if (!checkRisk(row["해지위험도"], risk)) return;
+
+    const branch = normalizeBranch(row["관리지사"]);
+    if (!branch) return;
+    const stage = (row["방어진행단계"] || "").trim() || "기타";
+    if (!agg[branch]) {
+      agg[branch] = { "진행중": 0, "방어실패": 0, "방어성공": 0 };
+    }
+    if (stages.includes(stage)) {
+      agg[branch][stage] += 1;
+    }
+  });
+
+  const labels = Object.keys(agg);
+  const 진행중 = labels.map(b => agg[b]["진행중"]);
+  const 방어실패 = labels.map(b => agg[b]["방어실패"]);
+  const 방어성공 = labels.map(b => agg[b]["방어성공"]);
+
+  return { labels, 진행중, 방어실패, 방어성공 };
+}
+
+function drawPipelineStageChart() {
+  const ctx = document.getElementById("pipelineStageChart").getContext("2d");
+  const { labels, 진행중, 방어실패, 방어성공 } = getPipelineStageAgg();
+
+  if (pipelineStageChart) {
+    pipelineStageChart.destroy();
+  }
+
+  pipelineStageChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        { label: "진행중", data: 진행중, stack: "stage" },
+        { label: "방어실패", data: 방어실패, stack: "stage" },
+        { label: "방어성공", data: 방어성공, stack: "stage" },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   📌 VOC: 관리지사/담당자 상태 적층 막대
+--------------------------------------------------------- */
+function aggregateVocBy(fieldName, limit = 20) {
+  const agg = {};
+  const statuses = ["처리완료", "접수", "미접수"];
+
+  vocData.forEach(row => {
+    let key;
+    if (fieldName === "관리지사") {
+      key = normalizeBranch(row["관리지사"]);
+    } else {
+      key = (row[fieldName] || "").trim();
+    }
+    if (!key) return;
+
+    const status = (row["상태"] || "").trim();
+    if (!agg[key]) {
+      agg[key] = { "처리완료": 0, "접수": 0, "미접수": 0 };
+    }
+    if (statuses.includes(status)) {
+      agg[key][status] += 1;
+    }
+  });
+
+  const entries = Object.entries(agg);
+  // 총 건수 기준 상위 limit
+  entries.sort((a, b) => {
+    const at = a[1]["처리완료"] + a[1]["접수"] + a[1]["미접수"];
+    const bt = b[1]["처리완료"] + b[1]["접수"] + b[1]["미접수"];
+    return bt - at;
+  });
+
+  const sliced = entries.slice(0, limit);
+
+  const labels = sliced.map(e => e[0]);
+  const 처리완료 = sliced.map(e => e[1]["처리완료"]);
+  const 접수 = sliced.map(e => e[1]["접수"]);
+  const 미접수 = sliced.map(e => e[1]["미접수"]);
+
+  return { labels, 처리완료, 접수, 미접수 };
+}
+
+function drawVocBranchChart() {
+  const ctx = document.getElementById("vocBranchChart").getContext("2d");
+  const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("관리지사", 30);
+
+  if (vocBranchChart) {
+    vocBranchChart.destroy();
+  }
+
+  vocBranchChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        { label: "처리완료", data: 처리완료, stack: "voc" },
+        { label: "접수", data: 접수, stack: "voc" },
+        { label: "미접수", data: 미접수, stack: "voc" },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function drawVocAgentChart() {
+  const ctx = document.getElementById("vocAgentChart").getContext("2d");
+  const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("담당자", 20);
+
+  if (vocAgentChart) {
+    vocAgentChart.destroy();
+  }
+
+  vocAgentChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        { label: "처리완료", data: 처리완료, stack: "voc-agent" },
+        { label: "접수", data: 접수, stack: "voc-agent" },
+        { label: "미접수", data: 미접수, stack: "voc-agent" },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y + " 건"
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   📌 차트 전체 업데이트
+--------------------------------------------------------- */
+function updatePipelineCharts() {
+  drawPipelineBranchChart();
+  drawPipelineStageChart();
+}
+
+/* ---------------------------------------------------------
+   📌 초기화
+--------------------------------------------------------- */
+async function initDashboard() {
+  // 지도 먼저 초기화
+  initMap();
+
+  // CSV 데이터 로드
+  vocData = await loadCsv(VOC_CSV_URL);
+  pipelineData = await loadCsv(PIPELINE_CSV_URL);
+
+  // VOC 지도 마커
+  drawVocMarkers();
+
+  // 차트들 렌더링
+  drawPipelineBranchChart();
+  drawPipelineStageChart();
+  drawVocBranchChart();
+  drawVocAgentChart();
+
+  // 필터 변경 이벤트
+  const channelSel = document.getElementById("channelFilter");
+  if (channelSel) {
+    channelSel.addEventListener("change", updatePipelineCharts);
+  }
+  const riskRadios = document.querySelectorAll('input[name="risk"]');
+  riskRadios.forEach(r => {
+    r.addEventListener("change", updatePipelineCharts);
+  });
+}
+
+// 페이지 로드 시 실행
+window.addEventListener("load", initDashboard);
+</script>
+
 </body>
 </html>
