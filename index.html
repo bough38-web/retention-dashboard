@@ -1278,42 +1278,36 @@ function drawVocBranchChart() {
         });
     }
 
-    function drawVocAgentChart() {
-        const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("담당자", 20);
-        destroyChart("vocAgentChart");
+function drawVocAgentChart() {
+        const agg = {};
+        filteredVocData.forEach(row => {
+            const ag = (row["담당자"]||"").trim();
+            if (!ag) return;
+            if (!agg[ag]) agg[ag] = { done:0, total:0 };
+            agg[ag].total++;
+            if (row["상태"]==="처리완료") agg[ag].done++;
+        });
 
-        chartInstances.vocAgentChart = new Chart(document.getElementById("vocAgentChart").getContext("2d"), {
-            type: "bar",
+        const sorted = Object.entries(agg)
+            // ⭐️ 수정: total 건수가 0인 에이전트 제외
+            .filter(e => e[1].total > 0)
+            .sort((a,b) => b[1].total - a[1].total).slice(0, 20);
+        
+        destroyChart("vocAgentChart");
+        chartInstances.vocAgentChart = new Chart(document.getElementById("vocAgentChart"), {
+            type: 'bar',
+            indexAxis: 'y',
             data: {
-                labels,
+                labels: sorted.map(e=>e[0]),
                 datasets: [
-                    { label: "처리완료", data: 처리완료, stack: "va", backgroundColor: '#3b82f6' },
-                    { label: "접수", data: 접수, stack: "va", backgroundColor: '#f59e0b' },
-                    { label: "미접수", data: 미접수, stack: "va", backgroundColor: '#ef4444' },
+                    { label: '처리완료', data: sorted.map(e=>e[1].done), backgroundColor: '#3b82f6', stack:'va' },
+                    { label: '미완료', data: sorted.map(e=>e[1].total - e[1].done), backgroundColor: '#e5e7eb', stack:'va' }
                 ]
             },
             options: {
-                indexAxis: 'y',
-                responsive: true,
-                animation: { duration: 1000 },
-                layout: { padding: { right: 30 } },
-                scales: {
-                    x: { stacked: true, beginAtZero: true, title: { display: true, text: "건수" } },
-                    y: { stacked: true, }
-                },
-                plugins: {
-                    legend: { position: 'bottom' },
-                    datalabels: { 
-                        anchor: 'end', 
-                        align: 'right', 
-                        formatter: formatNumber, 
-                        color: '#333',
-                        font: { weight: 'bold' },
-                        display: 'auto'
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
+                scales: { x:{stacked:true}, y:{stacked:true} },
+                plugins: { legend: { position:'bottom' } }
+            }
         });
     }
 
