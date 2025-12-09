@@ -974,11 +974,36 @@
     /* ==========================================================================
        6. 초기화
        ========================================================================== */
-    async function initDashboard() {
-        // 1. 데이터 로드 (VOC는 1행 스킵)
-        vocData = await loadCsv(VOC_CSV_URL, 1);
-        pipelineData = await loadCsv(PIPELINE_CSV_URL, 0);
+  
 
+// [핵심 수정] CSV 로드 함수: 줄바꿈 문자를 확실하게 찾아서 잘라내는 방식
+    async function loadCsv(url, skipRows = 0) {
+        const res = await fetch(url);
+        let text = await res.text();
+
+        // skipRows가 0보다 크면, 그만큼 줄을 건너뜁니다.
+        if (skipRows > 0) {
+            for (let i = 0; i < skipRows; i++) {
+                // 첫 번째 줄바꿈(\n)의 위치를 찾습니다.
+                const firstNewLineIndex = text.indexOf('\n');
+                
+                // 줄바꿈이 존재한다면, 그 다음 글자부터 끝까지 잘라냅니다.
+                if (firstNewLineIndex !== -1) {
+                    text = text.substring(firstNewLineIndex + 1);
+                }
+            }
+        }
+
+        return new Promise(resolve => {
+            Papa.parse(text, { 
+                header: true, 
+                skipEmptyLines: true, 
+                complete: r => resolve(r.data) 
+            });
+        });
+    }
+
+        
         // 2. Pipeline 버튼 생성 (디폴트값 반영)
         // 강북/강원이 실제 데이터에 없으면 'ALL'로 fallback
         const hqCheck = pipelineData.some(r => (r["관리본부"]||"").trim() === pipelineSelectedHQ);
