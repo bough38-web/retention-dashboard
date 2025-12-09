@@ -1093,7 +1093,6 @@ function drawPipelineBranchStageChart() {
         sortedData.slice(0, 100).forEach(row => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${cleanContractNumber(row["계약번호"])}</td>
                 <td>${(row["관리본부"] || "").trim()}</td>
                 <td>${normalizeBranch(row["관리지사"])}</td>
                 <td>${(parseFloat(row["해지위험도"]) || 0).toFixed(1)}</td>
