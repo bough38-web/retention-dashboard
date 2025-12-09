@@ -819,68 +819,52 @@
     }
     
     // **시각화 1: 지사별 파이프라인 진행 단계 (계단형 누적 막대)**
-    function drawPipelineBranchStageChart() {
-        const stages = ["진행중", "방어실패", "방어성공"];
+function drawPipelineBranchStageChart() {
         const agg = {};
+        const stages = ["진행중", "방어실패", "방어성공"];
         
         filteredPipelineData.forEach(row => {
-            const branch = normalizeBranch(row["관리지사"]);
-            if (!branch) return;
-            const stage = (row["방어진행단계"] || "").trim();
-            if (!agg[branch]) agg[branch] = { 진행중: 0, 방어실패: 0, 방어성공: 0, total: 0 };
-            if (stages.includes(stage)) {
-                agg[branch][stage]++;
-                agg[branch].total++;
+            const br = normalizeBranch(row["관리지사"]);
+            if (!br) return;
+            if (!agg[br]) agg[br] = { "진행중":0, "방어실패":0, "방어성공":0, total:0 };
+            
+            const st = (row["방어진행단계"] || "").trim();
+            if (stages.includes(st)) {
+                const val = pipelineMode === 'amount' ? toThousandWon(row["KTT월정료(조정)"]) : 1;
+                agg[br][st] += val;
+                agg[br].total += val;
             }
         });
+
+        const sorted = Object.entries(agg)
+            // ⭐️ 수정: total 값이 0인 지사 제외
+            .filter(e => e[1].total > 0) 
+            .sort((a,b) => b[1].total - a[1].total).slice(0, 10);
+        const labels = sorted.map(e => e[0]);
         
-        const sortedEntries = Object.entries(agg)
-            .sort((a, b) => b[1].total - a[1].total)
-            .slice(0, 10);
-
-        const labels = sortedEntries.map(e => e[0]);
-
         destroyChart("pipelineBranchStageChart");
-
-        chartInstances.pipelineBranchStageChart = new Chart(document.getElementById("pipelineBranchStageChart").getContext("2d"), {
-            type: "bar",
+        chartInstances.pipelineBranchStageChart = new Chart(document.getElementById("pipelineBranchStageChart"), {
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [
-                    { label: "방어성공", data: sortedEntries.map(e => e[1]["방어성공"] || 0), stack: "s", backgroundColor: '#10b981' },
-                    { label: "진행중", data: sortedEntries.map(e => e[1]["진행중"] || 0), stack: "s", backgroundColor: '#f59e0b' },
-                    { label: "방어실패", data: sortedEntries.map(e => e[1]["방어실패"] || 0), stack: "s", backgroundColor: '#ef4444' },
+                    { label: '방어성공', data: sorted.map(e=>e[1]['방어성공']), backgroundColor: '#10b981', stack: 's' },
+                    { label: '진행중', data: sorted.map(e=>e[1]['진행중']), backgroundColor: '#f59e0b', stack: 's' },
+                    { label: '방어실패', data: sorted.map(e=>e[1]['방어실패']), backgroundColor: '#ef4444', stack: 's' }
                 ]
             },
             options: {
                 responsive: true,
-                animation: { duration: 1200 },
-                layout: {
-                    padding: { top: 30 } // 상단 여백 추가
-                },
-                scales: {
-                    x: {
-                        stacked: true, 
-                        ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 },
-                    },
+                animation: { duration: 800 },
+                plugins: { legend: { position:'bottom' } },
+                scales: { 
+                    x: { stacked: true }, 
                     y: { 
                         stacked: true, 
-                        beginAtZero: true, 
-                        title: { display: true, text: "건수" },
-                        padding: 10
-                    }
-                },
-                plugins: {
-                    legend: { position: 'bottom' },
-                    datalabels: { 
-                        formatter: formatNumber, 
-                        color: '#fff',
-                        font: { weight: 'bold', size: 10 },
-                        display: 'auto'
-                    }
+                        title: { display: true, text: pipelineMode === 'amount' ? '금액(천원)' : '건수' } 
+                    } 
                 }
-            },
-            plugins: [ChartDataLabels]
+            }
         });
     }
 
