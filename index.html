@@ -2,41 +2,33 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>KTT 통합 대시보드 (VOC + 해지파이프라인)</title>
+  <title>KTT 통합 대시보드</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- PapaParse (CSV 파서) -->
+  <!-- PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- Kakao 지도 -->
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=af04a0a8e5416c95eaa04cccc060031d"></script>
+  <!-- Kakao Maps -->
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=af04a0a8e5416c95eaa04cccc060031d"></script>
 
   <style>
     body {
       margin: 0;
       display: flex;
       background: #f5f5f7;
-      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      font-family: "Apple SD Gothic Neo", "Segoe UI", sans-serif;
     }
 
-    /* 좌측 필터 패널 */
     .sidebar {
       width: 260px;
-      background: #ffffff;
       padding: 20px;
+      background: #fff;
       border-right: 1px solid #ddd;
       height: 100vh;
       overflow-y: auto;
-    }
-
-    .sidebar h2 {
-      font-size: 18px;
-      margin-bottom: 10px;
-      border-bottom: 2px solid #eee;
-      padding-bottom: 6px;
     }
 
     .content {
@@ -47,10 +39,10 @@
 
     .chart-box {
       background: #fff;
-      padding: 15px;
       border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      padding: 15px;
       margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
     #map {
@@ -59,87 +51,85 @@
       border-radius: 12px;
     }
 
-    button, select {
+    select, button {
       width: 100%;
       padding: 10px;
       margin: 6px 0;
-      border: 1px solid #ccc;
       border-radius: 8px;
-      background: #fafafa;
-      font-size: 14px;
+      border: 1px solid #bbb;
       cursor: pointer;
     }
 
-    label {
-      display: block;
-      padding: 5px 0;
-      font-size: 13px;
-    }
-
-    h3 {
-      margin-top: 0;
-      margin-bottom: 10px;
-    }
+    label { display:block; padding:4px 0; }
   </style>
 </head>
 
 <body>
+
+<!-- --------------------------------------- -->
+<!-- 좌측 필터 패널 -->
+<!-- --------------------------------------- -->
 
 <div class="sidebar">
   <h2>📌 필터</h2>
 
   <label>담당영업채널</label>
   <select id="channelFilter">
-      <option value="ALL">전체</option>
-      <option value="SP">SP</option>
-      <option value="SC">SC</option>
-      <option value="AM">AM</option>
+    <option value="ALL">전체</option>
+    <option value="SP">SP</option>
+    <option value="SC">SC</option>
+    <option value="AM">AM</option>
   </select>
 
   <label>해지위험도 (%)</label>
   <label><input type="radio" name="risk" value="ALL" checked> 전체</label>
-  <label><input type="radio" name="risk" value="0"> 0 ~ 25%</label>
-  <label><input type="radio" name="risk" value="25"> 25 ~ 50%</label>
-  <label><input type="radio" name="risk" value="50"> 50 ~ 75%</label>
-  <label><input type="radio" name="risk" value="75"> 75 ~ 100%</label>
+  <label><input type="radio" name="risk" value="0"> 0~25%</label>
+  <label><input type="radio" name="risk" value="25"> 25~50%</label>
+  <label><input type="radio" name="risk" value="50"> 50~75%</label>
+  <label><input type="radio" name="risk" value="75"> 75~100%</label>
 
-  <label>표시 기준 (해지파이프라인)</label>
+  <label>표시 기준</label>
   <button onclick="setMode('count')">건수</button>
   <button onclick="setMode('amount')">금액(천원)</button>
 </div>
 
+
+<!-- --------------------------------------- -->
+<!-- 우측 대시보드 영역 -->
+<!-- --------------------------------------- -->
+
 <div class="content">
 
   <div class="chart-box">
-      <h3>📍 VOC 설치 주소 지도</h3>
-      <div id="map"></div>
+    <h3>📍 VOC 설치 주소 지도</h3>
+    <div id="map"></div>
   </div>
 
   <div class="chart-box">
-      <h3>📊 관리본부 / 관리지사별 해지 현황 (건수 또는 금액)</h3>
-      <canvas id="pipelineBranchChart"></canvas>
+    <h3>📊 관리본부/지사별 해지 현황</h3>
+    <canvas id="pipelineBranchChart"></canvas>
   </div>
 
   <div class="chart-box">
-      <h3>📊 방어진행단계 (진행중 / 방어실패 / 방어성공)</h3>
-      <canvas id="pipelineStageChart"></canvas>
+    <h3>📊 방어진행단계 적층</h3>
+    <canvas id="pipelineStageChart"></canvas>
   </div>
 
   <div class="chart-box">
-      <h3>📊 VOC 관리지사별 상태 (적층 막대)</h3>
-      <canvas id="vocBranchChart"></canvas>
+    <h3>📊 VOC 관리지사별 상태</h3>
+    <canvas id="vocBranchChart"></canvas>
   </div>
 
   <div class="chart-box">
-      <h3>📊 VOC 담당자별 상태 (Top 20, 적층 막대)</h3>
-      <canvas id="vocAgentChart"></canvas>
+    <h3>📊 VOC 담당자 TOP20</h3>
+    <canvas id="vocAgentChart"></canvas>
   </div>
 
 </div>
 
 <script>
-/* ---------------------------------------------------------
-   📌 CSV 데이터 경로 (수정됨!)
+/* ------------------------------------------------------
+   CSV 경로 (영문 파일만 사용해야 로딩됨)
 --------------------------------------------------------- */
 const VOC_CSV_URL =
   "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
@@ -147,370 +137,294 @@ const VOC_CSV_URL =
 const PIPELINE_CSV_URL =
   "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv";
 
-/* ---------------------------------------------------------
-   📌 전역 상태값
---------------------------------------------------------- */
-let mode = "count"; 
 let vocData = [];
 let pipelineData = [];
+let mode = "count";
 
-let pipelineBranchChart = null;
-let pipelineStageChart = null;
-let vocBranchChart = null;
-let vocAgentChart = null;
+let pipelineBranchChart, pipelineStageChart, vocBranchChart, vocAgentChart;
+let map, markers = [];
 
-let map;
-let markers = [];
 
-/* ---------------------------------------------------------
-   📌 공통 함수들
+/* ------------------------------------------------------
+   데이터 유틸 함수
 --------------------------------------------------------- */
-
-// 지사명 정규화
 function normalizeBranch(name) {
-  if (!name) return "";
-  return String(name).replace("지사", "").trim();
+  return String(name || "").replace("지사", "").trim();
 }
 
-// 계약번호 정규화
-function cleanContractNumber(raw) {
-  if (!raw) return "";
-  return String(raw).replace(/\D/g, "").slice(0, 8);
+function cleanContractNumber(n) {
+  return String(n || "").replace(/\D/g, "").slice(0, 8);
 }
 
-// 금액 → 천원
-function toThousandWon(raw) {
-  if (!raw) return 0;
-  const num = parseFloat(String(raw).replace(/,/g, ""));
-  return isNaN(num) ? 0 : Math.round(num / 1000);
+function toThousand(n) {
+  const v = parseFloat(String(n || "").replace(/,/g, ""));
+  return isNaN(v) ? 0 : Math.round(v / 1000);
 }
 
-// 해지위험도 체크
-function checkRisk(value, selected) {
-  if (selected === "ALL") return true;
-  const v = parseFloat(value);
-  if (isNaN(v)) return false;
-
-  const s = parseInt(selected);
-  if (s === 0) return v >= 0 && v < 25;
-  if (s === 25) return v >= 25 && v < 50;
-  if (s === 50) return v >= 50 && v < 75;
-  if (s === 75) return v >= 75 && v <= 100;
-  return true;
+function checkRisk(val, mode) {
+  if (mode === "ALL") return true;
+  const v = parseFloat(val);
+  const m = parseFloat(mode);
+  if (m === 0) return v < 25;
+  if (m === 25) return v >= 25 && v < 50;
+  if (m === 50) return v >= 50 && v < 75;
+  if (m === 75) return v >= 75;
 }
 
-// CSV로드
 async function loadCsv(url) {
   const res = await fetch(url);
   const text = await res.text();
-  return new Promise(resolve => {
-    Papa.parse(text, {
-      header: true,
-      skipEmptyLines: true,
-      complete: r => resolve(r.data)
-    });
+  return new Promise(ok=>{
+    Papa.parse(text, {header:true, skipEmptyLines:true, complete:r=>ok(r.data)});
   });
 }
 
-/* ---------------------------------------------------------
-   📌 지도 관련
+
+/* ------------------------------------------------------
+   지도 기능
 --------------------------------------------------------- */
 function initMap() {
-  const container = document.getElementById("map");
-  map = new kakao.maps.Map(container, {
-    center: new kakao.maps.LatLng(37.5665, 126.9780),
-    level: 7,
+  map = new kakao.maps.Map(document.getElementById("map"), {
+    center: new kakao.maps.LatLng(37.5665,126.9780),
+    level: 7
   });
 }
 
-function extractLatLng(url) {
+function extractCoords(url){
   if (!url || !url.includes("q=")) return null;
   try {
-    const coords = url.split("q=")[1].split(",");
-    return { lat: parseFloat(coords[0]), lng: parseFloat(coords[1]) };
-  } catch {
-    return null;
-  }
+    const p = url.split("q=")[1].split(",");
+    return { lat: parseFloat(p[0]), lng: parseFloat(p[1]) };
+  } catch { return null; }
 }
 
-function drawVocMarkers() {
-  markers.forEach(m => m.setMap(null));
+function drawMarkers(){
+  markers.forEach(m=>m.setMap(null));
   markers = [];
 
-  vocData.forEach(row => {
-    const pos = extractLatLng(row["지도링크"]);
+  vocData.forEach(r=>{
+    const pos = extractCoords(r["지도링크"]);
     if (!pos) return;
-
-    const marker = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(pos.lat, pos.lng),
-      map
-    });
-
-    markers.push(marker);
+    markers.push(new kakao.maps.Marker({
+      map,
+      position: new kakao.maps.LatLng(pos.lat,pos.lng)
+    }));
   });
 }
 
-/* ---------------------------------------------------------
-   📌 필터 값
+
+/* ------------------------------------------------------
+   해지 파이프라인 - 집계
 --------------------------------------------------------- */
-function getSelectedChannel() {
-  return document.getElementById("channelFilter").value;
-}
+function aggPipelineBranch() {
+  const ch = document.getElementById("channelFilter").value;
+  const risk = document.querySelector("input[name='risk']:checked").value;
 
-function getSelectedRisk() {
-  return document.querySelector('input[name="risk"]:checked').value;
-}
+  const agg={};
 
-function setMode(m) {
-  mode = m;
-  updatePipelineCharts();
-}
+  pipelineData.forEach(r=>{
+    if (ch!=="ALL" && r["담당영업채널"]!==ch) return;
+    if (!checkRisk(r["해지위험도"], risk)) return;
 
-/* ---------------------------------------------------------
-   📌 해지파이프라인 — 본부/지사 집계
---------------------------------------------------------- */
-function getPipelineBranchAgg() {
-  const channel = getSelectedChannel();
-  const risk = getSelectedRisk();
-
-  const agg = {};
-
-  pipelineData.forEach(row => {
-    if (channel !== "ALL" && row["담당영업채널"] !== channel) return;
-    if (!checkRisk(row["해지위험도"], risk)) return;
-
-    const head = (row["관리본부"] || "").trim();
-    const branch = normalizeBranch(row["관리지사"]);
-    if (!head || !branch) return;
-
+    const head = (r["관리본부"]||"").trim();
+    const branch = normalizeBranch(r["관리지사"]);
     const key = `${head} / ${branch}`;
-    if (!agg[key]) agg[key] = { count: 0, amount: 0 };
 
-    if (cleanContractNumber(row["계약번호"])) {
-      agg[key].count++;
-    }
+    if (!agg[key]) agg[key]={count:0,amount:0};
 
-    agg[key].amount += toThousandWon(row["KTT월정료(조정)"]);
+    if (cleanContractNumber(r["계약번호"])) agg[key].count++;
+    agg[key].amount += toThousand(r["KTT월정료(조정)"]);
   });
 
-  const entries = Object.entries(agg);
-  entries.sort((a, b) => {
-    const av = mode === "count" ? a[1].count : a[1].amount;
-    const bv = mode === "count" ? b[1].count : b[1].amount;
-    return bv - av;
+  const arr = Object.entries(agg).sort((a,b)=>{
+    const av = mode==="count" ? a[1].count : a[1].amount;
+    const bv = mode==="count" ? b[1].count : b[1].amount;
+    return bv-av;
   });
 
   return {
-    labels: entries.map(e => e[0]),
-    counts: entries.map(e => e[1].count),
-    amounts: entries.map(e => e[1].amount)
+    labels: arr.map(e=>e[0]),
+    counts: arr.map(e=>e[1].count),
+    amounts: arr.map(e=>e[1].amount)
   };
 }
 
-function drawPipelineBranchChart() {
-  const ctx = document.getElementById("pipelineBranchChart").getContext("2d");
-  const { labels, counts, amounts } = getPipelineBranchAgg();
+function drawPipelineBranch() {
+  const ctx=document.getElementById("pipelineBranchChart").getContext("2d");
+  const {labels, counts, amounts} = aggPipelineBranch();
+  const data = mode==="count" ? counts : amounts;
 
   if (pipelineBranchChart) pipelineBranchChart.destroy();
 
-  const dataArray = mode === "count" ? counts : amounts;
-
-  pipelineBranchChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: mode === "count" ? "건수" : "금액(천원)",
-        data: dataArray
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
-    }
+  pipelineBranchChart = new Chart(ctx,{
+    type:"bar",
+    data:{ labels, datasets:[{label:mode==="count"?"건수":"금액(천원)", data}]},
+    options:{responsive:true, scales:{y:{beginAtZero:true}}}
   });
 }
 
-/* ---------------------------------------------------------
-   📌 해지파이프라인 — 방어진행단계 적층
+
+/* ------------------------------------------------------
+   해지 파이프라인 - 방어 단계 적층
 --------------------------------------------------------- */
-function getPipelineStageAgg() {
-  const channel = getSelectedChannel();
-  const risk = getSelectedRisk();
-  const stages = ["진행중", "방어실패", "방어성공"];
+function aggStages(){
+  const ch = document.getElementById("channelFilter").value;
+  const risk = document.querySelector("input[name='risk']:checked").value;
 
-  const agg = {};
+  const agg={}, stages=["진행중","방어실패","방어성공"];
 
-  pipelineData.forEach(row => {
-    if (channel !== "ALL" && row["담당영업채널"] !== channel) return;
-    if (!checkRisk(row["해지위험도"], risk)) return;
+  pipelineData.forEach(r=>{
+    if (ch!=="ALL" && r["담당영업채널"]!==ch) return;
+    if (!checkRisk(r["해지위험도"], risk)) return;
 
-    const branch = normalizeBranch(row["관리지사"]);
-    const stage = (row["방어진행단계"] || "").trim();
+    const br = normalizeBranch(r["관리지사"]);
+    const st = (r["방어진행단계"]||"").trim();
 
-    if (!agg[branch]) {
-      agg[branch] = { 진행중: 0, 방어실패: 0, 방어성공: 0 };
-    }
-
-    if (stages.includes(stage)) agg[branch][stage]++;
+    if (!agg[br]) agg[br]={진행중:0,방어실패:0,방어성공:0};
+    if (stages.includes(st)) agg[br][st]++;
   });
 
   const labels = Object.keys(agg);
 
   return {
     labels,
-    진행중: labels.map(b => agg[b]["진행중"]),
-    방어실패: labels.map(b => agg[b]["방어실패"]),
-    방어성공: labels.map(b => agg[b]["방어성공"]),
+    진행중: labels.map(b=>agg[b]["진행중"]),
+    방어실패: labels.map(b=>agg[b]["방어실패"]),
+    방어성공: labels.map(b=>agg[b]["방어성공"]),
   };
 }
 
-function drawPipelineStageChart() {
-  const ctx = document.getElementById("pipelineStageChart").getContext("2d");
-  const { labels, 진행중, 방어실패, 방어성공 } = getPipelineStageAgg();
+function drawPipelineStage(){
+  const ctx=document.getElementById("pipelineStageChart").getContext("2d");
+  const {labels, 진행중, 방어실패, 방어성공} = aggStages();
 
   if (pipelineStageChart) pipelineStageChart.destroy();
 
-  pipelineStageChart = new Chart(ctx, {
-    type: "bar",
-    data: {
+  pipelineStageChart = new Chart(ctx,{
+    type:"bar",
+    data:{
       labels,
-      datasets: [
-        { label: "진행중", data: 진행중, stack: "s" },
-        { label: "방어실패", data: 방어실패, stack: "s" },
-        { label: "방어성공", data: 방어성공, stack: "s" },
+      datasets:[
+        {label:"진행중", data:진행중, stack:"s"},
+        {label:"방어실패", data:방어실패, stack:"s"},
+        {label:"방어성공", data:방어성공, stack:"s"},
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true }
-      }
+    options:{
+      responsive:true,
+      scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}
     }
   });
 }
 
-/* ---------------------------------------------------------
-   📌 VOC 시각화
+
+/* ------------------------------------------------------
+   VOC 차트
 --------------------------------------------------------- */
-function aggregateVocBy(field, limit = 20) {
-  const agg = {};
-  const statuses = ["처리완료", "접수", "미접수"];
+function aggVoc(field, limit=20){
+  const agg={};
 
-  vocData.forEach(row => {
-    let key = field === "관리지사"
-      ? normalizeBranch(row["관리지사"])
-      : (row[field] || "").trim();
-
+  vocData.forEach(r=>{
+    const key = field==="관리지사"
+      ? normalizeBranch(r["관리지사"])
+      : (r[field]||"").trim();
     if (!key) return;
 
-    const st = (row["상태"] || "").trim();
-
-    if (!agg[key]) agg[key] = { 처리완료: 0, 접수: 0, 미접수: 0 };
-    if (statuses.includes(st)) agg[key][st]++;
+    const st = (r["상태"]||"").trim();
+    if (!agg[key]) agg[key]={처리완료:0,접수:0,미접수:0};
+    if (["처리완료","접수","미접수"].includes(st)) agg[key][st]++;
   });
 
-  const entries = Object.entries(agg);
-  entries.sort((a, b) =>
-    (b[1].처리완료 + b[1].접수 + b[1].미접수) -
-    (a[1].처리완료 + a[1].접수 + a[1].미접수)
-  );
-
-  const sliced = entries.slice(0, limit);
+  const arr = Object.entries(agg).sort((a,b)=>{
+    const at=a[1]["처리완료"]+a[1]["접수"]+a[1]["미접수"];
+    const bt=b[1]["처리완료"]+b[1]["접수"]+b[1]["미접수"];
+    return bt-at;
+  }).slice(0,limit);
 
   return {
-    labels: sliced.map(e => e[0]),
-    처리완료: sliced.map(e => e[1].처리완료),
-    접수: sliced.map(e => e[1].접수),
-    미접수: sliced.map(e => e[1].미접수),
+    labels: arr.map(e=>e[0]),
+    처리완료: arr.map(e=>e[1]["처리완료"]),
+    접수: arr.map(e=>e[1]["접수"]),
+    미접수: arr.map(e=>e[1]["미접수"])
   };
 }
 
-function drawVocBranchChart() {
-  const ctx = document.getElementById("vocBranchChart").getContext("2d");
-  const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("관리지사", 30);
+function drawVocBranch(){
+  const ctx=document.getElementById("vocBranchChart").getContext("2d");
+  const {labels, 처리완료, 접수, 미접수} = aggVoc("관리지사", 30);
 
   if (vocBranchChart) vocBranchChart.destroy();
 
-  vocBranchChart = new Chart(ctx, {
-    type: "bar",
-    data: {
+  vocBranchChart = new Chart(ctx,{
+    type:"bar",
+    data:{
       labels,
-      datasets: [
-        { label: "처리완료", data: 처리완료, stack: "v" },
-        { label: "접수", data: 접수, stack: "v" },
-        { label: "미접수", data: 미접수, stack: "v" },
+      datasets:[
+        {label:"처리완료", data:처리완료, stack:"voc"},
+        {label:"접수", data:접수, stack:"voc"},
+        {label:"미접수", data:미접수, stack:"voc"},
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true }
-      }
+    options:{
+      responsive:true,
+      scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}
     }
   });
 }
 
-function drawVocAgentChart() {
-  const ctx = document.getElementById("vocAgentChart").getContext("2d");
-  const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("담당자", 20);
+function drawVocAgent(){
+  const ctx=document.getElementById("vocAgentChart").getContext("2d");
+  const {labels, 처리완료, 접수, 미접수} = aggVoc("담당자", 20);
 
   if (vocAgentChart) vocAgentChart.destroy();
 
-  vocAgentChart = new Chart(ctx, {
-    type: "bar",
-    data: {
+  vocAgentChart = new Chart(ctx,{
+    type:"bar",
+    data:{
       labels,
-      datasets: [
-        { label: "처리완료", data: 처리완료, stack: "va" },
-        { label: "접수", data: 접수, stack: "va" },
-        { label: "미접수", data: 미접수, stack: "va" },
+      datasets:[
+        {label:"처리완료", data:처리완료, stack:"agent"},
+        {label:"접수", data:접수, stack:"agent"},
+        {label:"미접수", data:미접수, stack:"agent"},
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true }
-      }
+    options:{
+      responsive:true,
+      scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}
     }
   });
 }
 
-/* ---------------------------------------------------------
-   📌 전체 차트 업데이트
+
+/* ------------------------------------------------------
+   업데이트 기능
 --------------------------------------------------------- */
-function updatePipelineCharts() {
-  drawPipelineBranchChart();
-  drawPipelineStageChart();
+function updatePipeline(){
+  drawPipelineBranch();
+  drawPipelineStage();
 }
 
-/* ---------------------------------------------------------
-   📌 초기 로드
+
+/* ------------------------------------------------------
+   초기 로드
 --------------------------------------------------------- */
-async function initDashboard() {
+async function initDashboard(){
   initMap();
 
   vocData = await loadCsv(VOC_CSV_URL);
   pipelineData = await loadCsv(PIPELINE_CSV_URL);
 
-  drawVocMarkers();
+  drawMarkers();
+  drawPipeline();
+  drawVocBranch();
+  drawVocAgent();
 
-  drawPipelineBranchChart();
-  drawPipelineStageChart();
-  drawVocBranchChart();
-  drawVocAgentChart();
-
-  document.getElementById("channelFilter")
-    .addEventListener("change", updatePipelineCharts);
-
-  document.querySelectorAll('input[name="risk"]')
-    .forEach(r => r.addEventListener("change", updatePipelineCharts));
+  document.getElementById("channelFilter").addEventListener("change", updatePipeline);
+  document.querySelectorAll("input[name='risk']").forEach(r=>r.addEventListener("change", updatePipeline));
 }
 
 window.addEventListener("load", initDashboard);
+
 </script>
 
 </body>
