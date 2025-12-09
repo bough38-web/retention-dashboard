@@ -1010,8 +1010,7 @@ function drawPipelineBranchStageChart() {
         });
     }
 
-
-    // **시각화 4: 담당자별 방어 실패 건수 (Top 10)**
+// **시각화 4: 담당자별 방어 실패 건수 (Top 10)**
     function drawPipelineAgentFailChart() {
         const failByAgent = filteredPipelineData
             .filter(row => row["방어진행단계"] === "방어실패")
@@ -1022,6 +1021,8 @@ function drawPipelineBranchStageChart() {
             }, {});
             
         const top10 = Object.entries(failByAgent)
+            // ⭐️ 수정: 실패 건수(e[1])가 0인 담당자 항목 제외
+            .filter(e => e[1] > 0) 
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10);
 
@@ -1064,6 +1065,8 @@ function drawPipelineBranchStageChart() {
             plugins: [ChartDataLabels]
         });
     }
+
+    // renderPipelineList, attachPipelineSortEvents, updatePipelineDashboard 함수는 수정사항이 없으므로 그대로 두시면 됩니다.
 
 
     function renderPipelineList() {
@@ -1239,39 +1242,39 @@ function drawPipelineBranchStageChart() {
         };
     }
 
-    function drawVocBranchChart() {
-        const { labels, 처리완료, 접수, 미접수 } = aggregateVocBy("관리지사", 30);
-        destroyChart("vocBranchChart");
+function drawVocBranchChart() {
+        const agg = {};
+        const stats = ["처리완료", "접수", "미접수"];
+        
+        filteredVocData.forEach(row => {
+            const br = normalizeBranch(row["관리지사"]);
+            if (!br) return;
+            if (!agg[br]) agg[br] = { "처리완료":0, "접수":0, "미접수":0 };
+            const s = (row["상태"]||"").trim();
+            if (stats.includes(s)) agg[br][s]++;
+        });
 
-        chartInstances.vocBranchChart = new Chart(document.getElementById("vocBranchChart").getContext("2d"), {
-            type: "bar",
+        // ⭐️ 수정: 총합이 0인 지사 제외 후 라벨 정렬
+        const labels = Object.keys(agg).filter(br => {
+            const total = agg[br]["처리완료"] + agg[br]["접수"] + agg[br]["미접수"];
+            return total > 0;
+        }).sort(sortBranches);
+        
+        destroyChart("vocBranchChart");
+        chartInstances.vocBranchChart = new Chart(document.getElementById("vocBranchChart"), {
+            type: 'bar',
             data: {
-                labels,
+                labels: labels,
                 datasets: [
-                    { label: "처리완료", data: 처리완료, stack: "v", backgroundColor: '#3b82f6' },
-                    { label: "접수", data: 접수, stack: "v", backgroundColor: '#f59e0b' },
-                    { label: "미접수", data: 미접수, stack: "v", backgroundColor: '#ef4444' },
+                    { label: '처리완료', data: labels.map(l=>agg[l]['처리완료']), backgroundColor: '#3b82f6', stack:'v' },
+                    { label: '접수', data: labels.map(l=>agg[l]['접수']), backgroundColor: '#f59e0b', stack:'v' },
+                    { label: '미접수', data: labels.map(l=>agg[l]['미접수']), backgroundColor: '#ef4444', stack:'v' }
                 ]
             },
             options: {
-                responsive: true,
-                animation: { duration: 1000 },
-                layout: { padding: { top: 30 } },
-                scales: {
-                    x: { stacked: true, ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } },
-                    y: { stacked: true, beginAtZero: true, title: { display: true, text: "건수" } }
-                },
-                 plugins: {
-                    legend: { position: 'bottom' },
-                    datalabels: { 
-                        formatter: formatNumber, 
-                        color: '#fff',
-                        font: { weight: 'bold', size: 10 },
-                        display: 'auto'
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
+                scales: { x:{stacked:true}, y:{stacked:true} },
+                plugins: { legend: { position:'bottom' } }
+            }
         });
     }
 
