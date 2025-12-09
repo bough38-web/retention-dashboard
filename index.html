@@ -891,7 +891,7 @@
         filteredPipelineData.forEach(row => {
             const branch = normalizeBranch(row["관리지사"]);
             const risk = parseFloat(row["해지위험도"]) || 0;
-            const amount = toThousandWon(row["KTT월정료(조정)"]);
+            const amount = toThousandWon(row["합산월정료"]);
             
             if (!agg[branch]) {
                 agg[branch] = { count: 0, totalRisk: 0, totalAmount: 0, members: [] };
