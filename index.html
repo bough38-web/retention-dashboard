@@ -566,6 +566,7 @@
     }
 
     // **[수정] CSV 로딩 함수: voc.csv의 헤더가 2행부터 시작하도록 수정**
+    df = pd.read_csv('voc.csv', header=1)
     async function loadCsv(url) {
         const res = await fetch(url);
         const text = await res.text();
