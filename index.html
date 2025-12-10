@@ -297,25 +297,6 @@
         <button id="showVocBtn" onclick="switchView('voc')">VOC 활동 현황</button>
         <button id="showPipelineBtn" class="active" onclick="switchView('pipeline')">해지파이프라인 현황</button>
     </div>
-
-    <div id="vocFilters" class="filter-panel" style="display:none;">
-    <label>VOC 유형 (대)</label>
-    <select id="vocTypeFilter">
-        <option value="ALL">전체</option>
-        </select>
-    
-    <div class="filter-group-title">관리 지사</div>
-    <div id="vocBranchButtons" class="filter-buttons">
-        </div>
-
-    <div class="filter-group-title">담당자</div>
-    <div id="vocAgentButtons" class="filter-buttons">
-        </div>
-    
-    <label>진행 상태</label>
-    <div id="vocStatusButtons" class="filter-buttons">
-        </div>
-</div>
     
     <div id="vocFilters" class="filter-panel" style="display:none;">
         <label for="vocTypeFilter">VOC 유형 대</label>
@@ -548,18 +529,6 @@
     // 지사 정렬 기준 (요청하신 순서)
     const BRANCH_SORT_ORDER = ["중앙", "강북", "서대문", "고양", "의정부", "남양주", "강릉", "원주"];
 
-    // VOC State
-    let vocData = [], filteredVocData = [];
-    let vocSelectedType = "리텐션"; 
-    let vocSelectedStatus = "ALL";
-    let vocListSortField = "VOC유형대", vocListSortDirection = "desc";
-    
-    // ⭐️ [추가] VOC 지사 및 담당자 상태 변수
-    let vocSelectedBranch = "ALL"; 
-    let vocSelectedAgent = "ALL"; 
-
-    let chartInstances = {};
-
     // PIPELINE 상태
     let pipelineMode = "count";
     let pipelineData = [];
@@ -581,71 +550,6 @@
     // 차트 인스턴스
     let chartInstances = {};
 
-    // ⭐️ [추가] VOC 지사 필터 버튼 렌더링
-    function renderVocBranchButtons() {
-        const branchData = vocData.map(r => normalizeBranch(r["관리지사"])).filter(Boolean);
-        const branchSet = new Set(branchData);
-        
-        const container = document.getElementById("vocBranchButtons");
-        let html = `<button class="filter-btn ${vocSelectedBranch === 'ALL' ? 'active' : ''}" onclick="setVocBranch('ALL', this)">전체</button>`;
-        
-        Array.from(branchSet).sort(sortBranches).forEach(br => {
-            html += `<button class="filter-btn ${vocSelectedBranch === br ? 'active' : ''}" onclick="setVocBranch('${br}', this)">${br}</button>`;
-        });
-        container.innerHTML = html;
-    }
-
-    // ⭐️ [추가] VOC 지사 선택 핸들러
-    function setVocBranch(br, btn) {
-        vocSelectedBranch = br;
-        vocSelectedAgent = "ALL"; // 지사 변경 시 담당자 초기화
-        updateVocDashboard();
-    }
-
-
-    // ⭐️ [추가] VOC 담당자 필터 버튼 렌더링
-    function renderVocAgentButtons() {
-        // 현재 선택된 지사에 해당하는 담당자만 필터링합니다.
-        let agentData = vocData;
-        if (vocSelectedBranch !== 'ALL') {
-             agentData = vocData.filter(r => normalizeBranch(r["관리지사"]) === vocSelectedBranch);
-        }
-
-        const agentSet = new Set(agentData.map(r => (r["담당자"] || "").trim()).filter(Boolean));
-        const container = document.getElementById("vocAgentButtons");
-        
-        let html = `<button class="filter-btn ${vocSelectedAgent === 'ALL' ? 'active' : ''}" onclick="setVocAgent('ALL', this)">전체</button>`;
-        
-        Array.from(agentSet).sort().forEach(ag => {
-            const safeAg = ag.replace(/'/g, "\\'");
-            html += `<button class="filter-btn ${vocSelectedAgent === ag ? 'active' : ''}" onclick="setVocAgent('${safeAg}', this)">${ag}</button>`;
-        });
-        container.innerHTML = html;
-    }
-
-    function updateVocDashboard() {
-        filterVocData();
-        
-        // ⭐️ [수정] 필터링된 데이터에 맞춰 버튼 UI 업데이트
-        renderVocBranchButtons();
-        renderVocAgentButtons();
-
-        // KPI
-        // ... (KPI 업데이트 로직 유지)
-
-        // Charts
-        drawVocBranchChart();
-        drawVocAgentChart();
-        renderVocList();
-    }
-
-    // ⭐️ [추가] VOC 담당자 선택 핸들러
-    function setVocAgent(ag, btn) {
-        vocSelectedAgent = ag;
-        updateVocDashboard();
-    }
-    
-    
     /* ---------------------------------------------------------
         📌 공통 유틸리티 함수
     --------------------------------------------------------- */
@@ -1255,22 +1159,12 @@ function drawPipelineBranchStageChart() {
     }
 
     function filterVocData() {
-        const typeFilter = document.getElementById("vocTypeFilter").value;
         filteredVocData = vocData.filter(row => {
-            const t = (row["VOC유형대"] || "").trim();
-            const s = (row["상태"] || "").trim();
-            
-            if (typeFilter !== "ALL" && t !== typeFilter) return false;
-            if (vocSelectedStatus !== "ALL" && s !== vocSelectedStatus) return false;
+            const type = (row["VOC유형대"] || "").trim();
+            const status = (row["상태"] || "").trim();
 
-            // ⭐️ [추가] 지사 필터 적용
-            const branch = normalizeBranch(row["관리지사"]);
-            if (vocSelectedBranch !== "ALL" && branch !== vocSelectedBranch) return false;
-
-            // ⭐️ [추가] 담당자 필터 적용
-            const agent = (row["담당자"] || "").trim();
-            if (vocSelectedAgent !== "ALL" && agent !== vocSelectedAgent) return false;
-
+            if (vocSelectedType !== "ALL" && type !== vocSelectedType) return false;
+            if (vocSelectedStatus !== "ALL" && status !== vocSelectedStatus) return false;
             return true;
         });
     }
@@ -1492,23 +1386,6 @@ function drawVocAgentChart() {
              // '강북/강원'이 데이터에 없으면 'ALL'로 초기화
             pipelineSelectedHQ = 'ALL'; 
         }
-
-     async function initDashboard() {
-        // 1. 데이터 로드 (VOC는 1행 스킵)
-        vocData = await loadCsv(VOC_CSV_URL, 1);
-        pipelineData = await loadCsv(PIPELINE_CSV_URL, 0);
-
-        // 2. Pipeline 버튼 생성
-        // ... (기존 Pipeline 버튼 렌더링 로직 유지)
-
-        // 3. VOC 필터 생성 (디폴트: 리텐션)
-        // ⭐️ [추가] 지사 및 담당자 버튼 초기 렌더링
-        renderVocBranchButtons();
-        renderVocAgentButtons();
-        
-        const vocTypeSet = new Set(vocData.map(r => (r["VOC유형대"]||"").trim()).filter(Boolean));
-        // ... (나머지 VOC 유형 필터 로직 유지)
-    }
         
         renderPipelineHQButtons();
         renderPipelineBranchButtons();
