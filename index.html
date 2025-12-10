@@ -331,7 +331,7 @@
     const state = {
         currentView: 'voc',
         voc: { data: [], filtered: [], page: 1, limit: 15, sortField: 'VOC유형대', sortDir: 'desc', branch: 'ALL', agent: 'ALL' },
-        // Set 'SP' as default for channel
+        // 기본 채널 SP 설정
         pipeline: { data: [], filtered: [], page: 1, limit: 15, sortField: 'KTT월정료(조정)', sortDir: 'desc', mode: 'count', hq: 'ALL', branch: 'ALL', agent: 'ALL', channel: 'SP' }
     };
     
@@ -339,6 +339,7 @@
     const util = {
         normalizeBranch: (name) => String(name||"").replace("지사","").trim(),
         cleanContract: (raw) => String(raw||"").replace(/\D/g,"").slice(0,8),
+        // toThousand: 천단위 변환 (반올림 포함)
         toThousand: (raw) => { const n = parseFloat(String(raw).replace(/,/g,"")); return isNaN(n)?0:Math.round(n/1000); },
         formatNum: (num) => num.toLocaleString(),
         excelDateToJSDate: (serial) => {
@@ -346,7 +347,6 @@
             if(isNaN(serial) && String(serial).includes('-')) return serial;
             const cleaned = parseFloat(String(serial).replace(/,/g, ''));
             if(isNaN(cleaned)) return serial;
-            // Excel to JS Date: (Serial - 25569) * 86400 * 1000
             const date = new Date((cleaned - 25569) * 86400 * 1000);
             if(isNaN(date.getTime())) return serial;
             return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -372,7 +372,14 @@
             document.getElementById("channelFilter").value = "SP";
 
             initFilters();
-            updateDashboard('voc'); updateDashboard('pipeline');
+            
+            // 초기 데이터 필터링 및 렌더링
+            filterData('voc');
+            filterData('pipeline');
+            
+            updateDashboard('voc'); 
+            updateDashboard('pipeline');
+            
             switchView('voc');
         } catch(e) { console.error(e); alert("데이터 로드 오류"); }
         finally { document.getElementById("loadingOverlay").style.display = "none"; }
@@ -484,6 +491,7 @@
                 if(state.pipeline.agent!=='ALL' && (r["담당자"]||"").trim()!==state.pipeline.agent) return false;
                 return true;
             });
+            // 필터가 바뀌면 페이지 1로 리셋
             state.pipeline.page=1;
         } else {
             const t = document.getElementById("vocTypeFilter").value;
@@ -621,12 +629,14 @@
             options: { responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, plugins:{legend:{position:'bottom'}, datalabels:{display:false}} }
         });
 
-        // Bubble
+        // Bubble (4분면 분석) - 숫자 포맷팅 수정 적용 (반올림 및 정수화)
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
             const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
-            const amt = sub.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
-            return { label:b, data:[{x:risk, y:amt/sub.length, r:Math.sqrt(amt)*0.4}], backgroundColor:'rgba(59,130,246,0.6)', borderColor:'#2563eb' };
+            const amtTotal = sub.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
+            const amtAvg = sub.length > 0 ? amtTotal/sub.length : 0;
+            // Math.round를 통해 정수로 변환하여 5,685068 같은 현상 방지
+            return { label:b, data:[{x:risk, y:Math.round(amtAvg), r:Math.sqrt(amtTotal)*0.4}], backgroundColor:'rgba(59,130,246,0.6)', borderColor:'#2563eb' };
         }).filter(b=>b.data[0].r>0);
         
         // Bubble Quadrant Plugin
@@ -640,7 +650,7 @@
                 ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
                 if(midX > left && midX < right) { ctx.beginPath(); ctx.moveTo(midX, top); ctx.lineTo(midX, bottom); ctx.stroke(); }
                 if(midY > top && midY < bottom) { ctx.beginPath(); ctx.moveTo(left, midY); ctx.lineTo(right, midY); ctx.stroke(); }
-                ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; ctx.fillRect(midX, top, right-midX, midY-top); // Danger Zone
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; ctx.fillRect(midX, top, right-midX, midY-top); 
                 ctx.restore();
             }
         };
@@ -650,13 +660,16 @@
             data: { datasets: bub },
             options: {
                 responsive:true, maintainAspectRatio:false,
-                plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: 위험 ${c.raw.x.toFixed(1)}% / ${Math.round(c.raw.y)}천원`}} },
+                plugins: { 
+                    legend:{display:false}, 
+                    tooltip:{callbacks:{label:c=>`${c.dataset.label}: 위험 ${c.raw.x.toFixed(1)}% / ${c.raw.y.toLocaleString()}천원`}} // 툴팁 정수 포맷 적용
+                },
                 scales: { x:{title:{display:true,text:'평균 위험도 (%)'}, min:0, max:100}, y:{title:{display:true,text:'평균 월정료 (천원)'}} }
             },
             plugins: [quadrantPlugin]
         });
 
-        // Success Rate
+        // Success Rate - 소수점 처리
         const rates = sBr.map(e=>({b:e[0], r:e[1].tot>0?e[1].suc/e[1].tot*100:0})).sort((a,b)=>b.r-a.r).slice(0,5);
         const ctxLine = document.getElementById("pipelineDefenseSuccessRateChart").getContext("2d");
         const gradLine = ctxLine.createLinearGradient(0,0,0,300);
@@ -669,7 +682,14 @@
                 labels: rates.map(e=>e.b),
                 datasets: [{label:'성공률', data:rates.map(e=>e.r), borderColor:'#10b981', backgroundColor:gradLine, fill:true, tension:0.4, pointRadius:4}]
             },
-            options: { responsive:true, maintainAspectRatio:false, scales:{y:{min:0, max:100}}, plugins:{legend:{display:false}} }
+            options: { 
+                responsive:true, maintainAspectRatio:false, 
+                scales:{y:{min:0, max:100}}, 
+                plugins:{
+                    legend:{display:false},
+                    tooltip: {callbacks: {label: c => `성공률: ${c.raw.toFixed(1)}%`}} // 툴팁 소수점 1자리로 제한
+                } 
+            }
         });
 
         // Agent Fail
@@ -699,17 +719,17 @@
             if(va<vb) return s.sortDir==='asc'?-1:1; if(va>vb) return s.sortDir==='asc'?1:-1; return 0;
         });
 
+        // 페이지네이션 로직 검증 및 적용
         const start = (s.page-1)*s.limit;
         const pageData = sorted.slice(start, start+s.limit);
-        const totalPages = Math.ceil(sorted.length/s.limit);
-        document.getElementById(`${t}PaginationInfo`).innerText = `총 ${util.formatNum(sorted.length)}건 중 ${start+1}-${Math.min(start+s.limit, sorted.length)}`;
+        const totalPages = Math.max(1, Math.ceil(sorted.length/s.limit)); // 최소 1페이지 보장
+        document.getElementById(`${t}PaginationInfo`).innerText = `총 ${util.formatNum(sorted.length)}건 중 ${sorted.length > 0 ? start+1 : 0}-${Math.min(start+s.limit, sorted.length)}`;
 
         pageData.forEach(r => {
             const tr = document.createElement("tr");
             if(t === 'pipeline') {
                 let bc = ''; const st = (r["방어진행단계"]||"").trim();
                 if(st==='방어성공') bc='stage-success'; else if(st==='방어실패') bc='stage-fail'; else bc='stage-ing';
-                // Ordered: 본부, 지사, 담당자, 계약번호, 상호명, 채널, 월정료, 재계약여부, 단계, 이슈유형, 해지사유, 해지예정일, 등록일자, 지원요청, 세부내용
                 tr.innerHTML = `
                     <td>${r["관리본부"]||'-'}</td>
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
@@ -730,7 +750,6 @@
                 let bc = ''; const st = (r["상태"]||"").trim();
                 if(st==='처리완료') bc='voc-done'; else if(st==='접수') bc='voc-receipt'; else bc='voc-yet';
                 const map = r["지도링크"] ? `<a href="${r["지도링크"]}" target="_blank" class="btn-map"><i class="ph ph-map-pin"></i> 지도</a>` : '-';
-                // Ordered: 지사, 담당자, 계약번호, 상호명, 상태, 서비스, 월정료, 지도
                 tr.innerHTML = `
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
                     <td>${r["담당자"]}</td>
@@ -744,11 +763,18 @@
             tb.appendChild(tr);
         });
 
+        // 버튼 활성화/비활성화 명확하게 적용
         const btns = document.querySelectorAll(`#${t}View .pagination button`);
-        btns[0].disabled = s.page===1; btns[1].disabled = s.page>=totalPages;
+        if(btns.length >= 2) {
+            btns[0].disabled = s.page <= 1;
+            btns[1].disabled = s.page >= totalPages;
+        }
     }
 
-    window.changePage = (t, d) => { state[t].page += d; renderTable(t); };
+    window.changePage = (t, d) => { 
+        state[t].page += d; 
+        renderTable(t); 
+    };
     function setupSortEvents(id, t) {
         document.querySelectorAll(`#${id} th[data-field]`).forEach(th => {
             th.addEventListener('click', () => {
