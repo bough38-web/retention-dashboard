@@ -157,12 +157,9 @@
             box-shadow: var(--shadow-sm); border-left: 4px solid var(--primary);
             position: relative; overflow: hidden;
             
-            /* [수정] 가운데 정렬을 위한 Flexbox 설정 */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+            /* 가운데 정렬 Flexbox */
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center;
         }
         .kpi-card h3 { margin: 0 0 10px; font-size: 14px; color: var(--text-sub); font-weight: 500; }
         .kpi-card .value { font-size: 32px; font-weight: 700; color: var(--text-main); line-height: 1.2; }
@@ -203,14 +200,16 @@
         .table-container { overflow-x: auto; min-height: 300px; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
         .data-table th {
-            background: #f8fafc; padding: 12px 16px; text-align: left;
+            background: #f8fafc; padding: 12px 16px; 
             font-weight: 600; color: var(--text-sub); border-bottom: 1px solid var(--border);
             cursor: pointer; user-select: none;
+            text-align: center; /* 테이블 헤더 가운데 정렬 */
         }
         .data-table th:hover { background: #f1f5f9; }
         .data-table td {
             padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main);
             vertical-align: middle;
+            text-align: center; /* 테이블 내용 가운데 정렬 */
         }
         .data-table tr:hover td { background: #f8fafc; }
 
@@ -251,6 +250,9 @@
         .badge.voc-done { background: #dbeafe; color: #1e40af; }
         .badge.voc-receipt { background: #fef3c7; color: #92400e; }
         .badge.voc-yet { background: #fee2e2; color: #991b1b; }
+        .badge.stage-success { background: #dcfce7; color: #166534; }
+        .badge.stage-fail { background: #fee2e2; color: #991b1b; }
+        .badge.stage-ing { background: #ffedd5; color: #9a3412; }
     </style>
 </head>
 
@@ -399,6 +401,7 @@
                             <th data-field="관리지사">지사</th>
                             <th data-field="담당자">담당자</th>
                             <th data-field="계약번호">계약번호</th>
+                            <th data-field="상호">상호</th>
                             <th data-field="상태">상태</th>
                             <th data-field="VOC유형소">서비스(소)</th>
                             <th data-field="합산월정료">합산월정료</th>
@@ -492,13 +495,14 @@
                 <table id="pipelineListTable" class="data-table">
                     <thead>
                         <tr>
-                            <th data-field="계약번호" data-sort="asc">계약번호</th>
+                            <th data-field="관리본부">본부</th>
                             <th data-field="관리지사">지사</th>
-                            <th data-field="해지위험도" data-sort="none">위험도(%)</th>
-                            <th data-field="담당영업채널">채널</th>
-                            <th data-field="KTT월정료(조정)" data-sort="none">월정료(천원)</th>
-                            <th data-field="방어진행단계">단계</th>
                             <th data-field="담당자">담당자</th>
+                            <th data-field="방어진행단계">단계</th>
+                            <th data-field="담당영업채널">채널</th>
+                            <th data-field="계약번호" data-sort="asc">계약번호</th>
+                            <th data-field="상호">상호</th>
+                            <th data-field="KTT월정료(조정)" data-sort="none">월정료(천원)</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -994,16 +998,21 @@
         pageData.forEach(r => {
             const tr = document.createElement("tr");
             if(type === 'pipeline') {
-                const risk = parseFloat(r["해지위험도"])||0;
-                let badgeClass = risk >= 75 ? 'risk-high' : (risk >= 50 ? 'risk-mid' : 'risk-low');
+                let badgeClass = '';
+                const stage = (r["방어진행단계"]||"").trim();
+                if(stage === '방어성공') badgeClass = 'stage-success';
+                else if(stage === '방어실패') badgeClass = 'stage-fail';
+                else badgeClass = 'stage-ing';
+
                 tr.innerHTML = `
-                    <td>${util.cleanContract(r["계약번호"])}</td>
+                    <td>${r["관리본부"] || '-'}</td>
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
-                    <td><span class="badge ${badgeClass}">${risk.toFixed(1)}%</span></td>
+                    <td>${r["담당자"]}</td>
+                    <td><span class="badge ${badgeClass}">${stage}</span></td>
                     <td>${r["담당영업채널"]}</td>
-                    <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>
-                    <td>${r["방어진행단계"]}</td>
-                    <td>${r["담당자"]}</td>`;
+                    <td>${util.cleanContract(r["계약번호"])}</td>
+                    <td>${r["상호"] || '-'}</td>
+                    <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>`;
             } else {
                 let badgeClass = '';
                 const status = (r["상태"]||"").trim();
@@ -1014,11 +1023,11 @@
                 const mapLink = r["지도링크"] ? `<a href="${r["지도링크"]}" target="_blank" class="btn-map"><i class="ph ph-map-pin"></i> 지도확인</a>` : '-';
                 const amount = r["합산월정료"] ? util.formatNum(util.toThousand(r["합산월정료"])) : '-';
                 
-                // Requested Order: 지사, 담당자, 계약번호, 상태, 서비스(소), 합산월정료, 지도
                 tr.innerHTML = `
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
                     <td>${r["담당자"]}</td>
                     <td>${util.cleanContract(r["계약번호"])}</td>
+                    <td>${r["상호"] || '-'}</td>
                     <td><span class="badge ${badgeClass}">${status}</span></td>
                     <td>${r["VOC유형소"] || '-'}</td>
                     <td>${amount}</td>
