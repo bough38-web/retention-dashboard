@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>KTT 통합 리텐션 대시보드 (Final Fix)</title>
+    <title>KTT 통합 리텐션 대시보드 (Final)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -13,13 +13,14 @@
     <style>
         /* 2. 디자인 시스템 (Expert Theme) */
         :root {
-            --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
+            --primary: #3b82f6; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
             --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
-            --text-main: #0f172a; --text-sub: #64748b; --bg-body: #f8fafc; --bg-card: #ffffff;
+            --text-main: #0f172a; --text-sub: #64748b; --bg-body: #f1f5f9; --bg-card: #ffffff;
             --border: #e2e8f0; --shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
         }
 
-        body { margin: 0; display: flex; background: var(--bg-body); font-family: 'Pretendard', -apple-system, sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
+        /* 기본 레이아웃 */
+        body { margin: 0; display: flex; background: var(--bg-body); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
@@ -42,8 +43,8 @@
         .content { flex: 1; padding: 0; overflow-y: auto; position: relative; scroll-behavior: smooth; }
         .dashboard-body { padding: 20px 30px 50px 30px; }
 
-        /* 상단 고정 헤더 */
-        .sticky-header { position: sticky; top: 0; z-index: 40; background: rgba(248,250,252,0.95); backdrop-filter: blur(8px); padding: 20px 30px 10px 30px; border-bottom: 1px solid transparent; transition: 0.3s; }
+        /* 상단 고정 헤더 (Sticky) */
+        .sticky-header { position: sticky; top: 0; z-index: 40; background: rgba(241,245,249,0.95); backdrop-filter: blur(8px); padding: 20px 30px 10px 30px; border-bottom: 1px solid transparent; transition: 0.3s; }
         .content.scrolled .sticky-header { border-bottom-color: var(--border); box-shadow: var(--shadow); }
 
         /* 뷰 스위처 */
@@ -51,13 +52,14 @@
         .view-switcher button { flex: 1; padding: 10px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; border-radius: 6px; transition: 0.2s; }
         .view-switcher button.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-        /* 필터 패널 */
+        /* 필터 */
         .filter-group { margin-bottom: 20px; }
         .filter-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
         select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
         .filter-btns { display: flex; flex-wrap: wrap; gap: 6px; }
         .filter-btn { padding: 6px 12px; font-size: 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-card); color: var(--text-sub); cursor: pointer; transition: 0.2s; white-space: nowrap; }
         .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+        
         .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
         .radio-group label { margin: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; background: #fff; }
         .radio-group input { margin-right: 6px; }
@@ -69,16 +71,21 @@
         .kpi-card .value { font-size: 28px; font-weight: 800; color: var(--text-main); }
         .kpi-card .icon { position: absolute; right: 15px; top: 15px; font-size: 24px; opacity: 0.1; }
 
+        /* AI 리뷰 */
+        .review-box { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #bae6fd; box-shadow: var(--shadow); }
+        .review-box h4 { margin: 0 0 8px; color: #0369a1; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+        .review-box p { margin: 0; color: #0c4a6e; font-size: 13px; line-height: 1.5; }
+
         /* 차트 카드 */
-        .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px; margin-top: 20px; }
+        .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px; }
         @media (max-width: 1200px) { .chart-grid { grid-template-columns: 1fr; } }
         .card { background: var(--bg-card); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; transition: 0.3s; }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .card-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-main); }
-        .toggle-btn { background: none; border: none; cursor: pointer; color: var(--text-sub); font-size: 20px; padding: 4px; border-radius: 4px; }
-        .toggle-btn:hover { background: #f1f5f9; color: var(--text-main); }
+        .card-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+        .card-header span { font-size: 11px; color: var(--text-sub); background: #f1f5f9; padding: 3px 8px; border-radius: 4px; margin-left: 8px;}
+        .toggle-btn { background: none; border: none; cursor: pointer; color: var(--text-sub); font-size: 18px; padding: 4px; transition: 0.2s; }
         .card-body { flex: 1; overflow: hidden; transition: max-height 0.3s ease; }
-        .card.collapsed .card-body { max-height: 0; margin: 0; padding: 0; opacity: 0; }
+        .card.collapsed .card-body { max-height: 0; opacity: 0; margin: 0; }
         .chart-wrapper { height: 300px; width: 100%; position: relative; }
 
         /* 테이블 */
@@ -92,9 +99,10 @@
         .list-footer { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; }
         .pagination button { padding: 6px 12px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 4px; }
         .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-action { padding: 6px 12px; background: var(--success); color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .btn-action { padding: 6px 12px; background: var(--success); color: #fff; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 
         .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge.risk-high { background: #fef2f2; color: #991b1b; } .badge.risk-mid { background: #fff7ed; color: #9a3412; } .badge.risk-low { background: #f0fdf4; color: #166534; }
         .badge.success { background: #dcfce7; color: #166534; } .badge.fail { background: #fee2e2; color: #991b1b; } .badge.ing { background: #fff7ed; color: #9a3412; }
         .btn-map { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 11px; background: var(--primary-light); padding: 3px 6px; border-radius: 4px; }
 
@@ -102,9 +110,6 @@
         .dashboard-view { display: none; opacity: 0; animation: fadeIn 0.4s forwards; }
         .dashboard-view.active { display: block; }
         @keyframes fadeIn { to { opacity: 1; } }
-        
-        .view-header h2 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-main); }
-        .view-header p { margin: 6px 0 0; color: var(--text-sub); font-size: 14px; }
     </style>
 </head>
 
@@ -137,14 +142,14 @@
                     <button class="filter-btn" onclick="setVocStatus('미접수', this)">미접수</button>
                 </div>
             </div>
-            <hr style="border:0; border-top:1px dashed #e2e8f0; margin:20px 0;">
+            <hr style="border:0; border-top:1px dashed #e2e8f0; margin:15px 0;">
             <div class="filter-group"><label class="filter-label">관리 지사</label><div id="vocBranchButtons" class="filter-btns"></div></div>
             <div class="filter-group"><label class="filter-label">담당자</label><div id="vocAgentButtons" class="filter-btns"></div></div>
         </div>
 
         <div id="pipelineFilters" class="filter-panel" style="display:none;">
             <div class="filter-group">
-                <label class="filter-label">영업 채널 (Default: SP)</label>
+                <label class="filter-label">영업 채널</label>
                 <select id="channelFilter">
                     <option value="ALL">전체 채널</option>
                     <option value="SP" selected>SP</option>
@@ -169,7 +174,7 @@
                     <button class="filter-btn" onclick="setMode('amount', this)">금액</button>
                 </div>
             </div>
-            <hr style="border:0; border-top:1px dashed #e2e8f0; margin:20px 0;">
+            <hr style="border:0; border-top:1px dashed #e2e8f0; margin:15px 0;">
             <div class="filter-group"><label class="filter-label">관리 본부</label><div id="pipelineHqButtons" class="filter-btns"></div></div>
             <div class="filter-group"><label class="filter-label">관리 지사</label><div id="pipelineBranchButtons" class="filter-btns"></div></div>
             <div class="filter-group"><label class="filter-label">담당자</label><div id="pipelineAgentButtons" class="filter-btns"></div></div>
@@ -182,7 +187,10 @@
     <div id="vocView" class="dashboard-view active">
         <div class="sticky-header">
             <div class="view-header">
-                <div><h2>고객의 소리 (VOC) 활동 현황</h2><p>재계약 관련 VOC 접수 및 처리 현황 모니터링</p></div>
+                <div>
+                    <h2>고객의 소리 (VOC) 활동 현황</h2>
+                    <p>재계약 관련 VOC 접수 및 처리 현황 모니터링</p>
+                </div>
             </div>
             <div class="kpi-grid">
                 <div class="kpi-card" style="border-left-color:#3b82f6;"><h3>총 접수</h3><div id="kpi-voc-total" class="value">0</div><i class="ph ph-chat-text icon"></i></div>
@@ -241,7 +249,10 @@
     <div id="pipelineView" class="dashboard-view">
         <div class="sticky-header">
             <div class="view-header">
-                <div><h2>해지 파이프라인 관리 현황</h2><p>고위험 고객 선제적 방어 활동 및 성과 분석</p></div>
+                <div>
+                    <h2>해지 파이프라인 관리 현황</h2>
+                    <p>고위험 고객 선제적 방어 활동 및 성과 분석</p>
+                </div>
             </div>
             <div class="kpi-grid">
                 <div class="kpi-card" style="border-left-color:#2563eb;"><h3>대상 건수</h3><div id="kpi-pipeline-count" class="value">0</div><i class="ph ph-funnel icon"></i></div>
@@ -311,7 +322,21 @@
 </div>
 
 <script>
-    // [1] 로직 및 데이터 처리
+    // [설정] 샘플 데이터 생성 여부 (외부 로드 실패 방지)
+    const USE_SAMPLE_DATA = true;
+
+    // 차트 옵션 설정
+    Chart.register(ChartDataLabels);
+    Chart.defaults.font.family = "'Pretendard', sans-serif";
+    Chart.defaults.color = "#64748b";
+    
+    // 그라디언트 함수
+    const createGradient = (ctx, c1, c2) => {
+        const g = ctx.createLinearGradient(0, 0, 0, 300);
+        g.addColorStop(0, c1); g.addColorStop(1, c2); return g;
+    };
+
+    // 상태 관리
     const state = {
         currentView: 'voc',
         voc: { data: [], filtered: [], page: 1, limit: 15, sortField: 'VOC유형대', sortDir: 'desc', branch: 'ALL', agent: 'ALL', status: 'ALL' },
@@ -329,13 +354,11 @@
         fmt: v => v.toLocaleString(),
         date: v => {
             if(!v) return "-";
-            if(String(v).match(/^\d{4}-\d{2}-\d{2}$/)) return v; // 이미 날짜 형식이면 리턴
+            if(String(v).includes('-')) return v;
             const sn = parseFloat(String(v).replace(/,/g,''));
-            if(!isNaN(sn) && sn > 10000 && sn < 60000) {
-                const d = new Date((sn - 25569) * 86400 * 1000);
-                return d.toISOString().slice(0,10);
-            }
-            return v;
+            if(isNaN(sn)) return v;
+            const d = new Date((sn - 25569) * 86400 * 1000);
+            return isNaN(d.getTime()) ? v : d.toISOString().slice(0,10);
         },
         sortBr: (a,b) => {
             const o = ["중앙","강북","서대문","고양","의정부","남양주","강릉","원주"];
@@ -345,10 +368,37 @@
         }
     };
 
-    // 샘플 데이터 생성 (안전 모드)
+    // 초기화
+    window.addEventListener("load", async () => {
+        try {
+            // 샘플 데이터 생성
+            state.voc.data = generateSampleVoc();
+            state.pipeline.data = generateSamplePipeline();
+            
+            // 기본값 설정
+            const hqs = [...new Set(state.pipeline.data.map(r=>util.clean(r["관리본부"]))).filter(Boolean)];
+            state.pipeline.hq = hqs.includes('강북/강원') ? '강북/강원' : 'ALL';
+            document.getElementById("channelFilter").value = "SP";
+
+            initUI();
+            
+            // 스크롤 이벤트
+            document.getElementById("mainContent").addEventListener('scroll', (e) => {
+                const h = document.querySelector('.dashboard-view.active .sticky-header');
+                if(h) h.style.borderBottomColor = e.target.scrollTop > 5 ? 'var(--border)' : 'transparent';
+            });
+
+        } catch(e) { console.error(e); }
+        finally { 
+            setTimeout(() => document.getElementById("loadingOverlay").style.opacity = 0, 500);
+            setTimeout(() => document.getElementById("loadingOverlay").style.display = "none", 1000);
+        }
+    });
+
+    // 샘플 데이터 생성기 (로직 보장)
     function generateSampleVoc() {
         const brs = ["중앙", "강북", "서대문", "고양", "의정부", "남양주", "강릉", "원주"];
-        const ags = ["김철수", "이영희", "박민수", "최지우", "정수진", "홍길동"];
+        const ags = ["김철수", "이영희", "박민수", "최지우", "정수진", "홍길동", "이민호", "박서준"];
         const sts = ["처리완료", "접수", "미접수"];
         const typs = ["서비스문의", "요금문의", "품질불만", "해지방어"];
         return Array.from({length: 200}, (_, i) => ({
@@ -384,43 +434,9 @@
         }));
     }
 
-    // 초기화 함수
-    window.addEventListener("load", () => {
-        // 필수 라이브러리 체크
-        if (typeof Chart === 'undefined' || typeof Papa === 'undefined') {
-            alert("차트 라이브러리 로드에 실패했습니다. 인터넷 연결을 확인해주세요.");
-            return;
-        }
-
-        // 차트 글로벌 설정
-        Chart.register(ChartDataLabels);
-        Chart.defaults.font.family = "'Pretendard', sans-serif";
-        Chart.defaults.color = "#64748b";
-
-        // 샘플 데이터 로드 (즉시 실행 보장)
-        state.voc.data = generateSampleVoc();
-        state.pipeline.data = generateSamplePipeline();
-        
-        // 기본값 설정
-        const hqs = [...new Set(state.pipeline.data.map(r=>util.clean(r["관리본부"]))).filter(Boolean)];
-        state.pipeline.hq = hqs.includes('강북/강원') ? '강북/강원' : 'ALL';
-        document.getElementById("channelFilter").value = "SP";
-
-        initUI();
-        
-        // 로딩 제거
-        setTimeout(() => document.getElementById("loadingOverlay").style.opacity = 0, 500);
-        setTimeout(() => document.getElementById("loadingOverlay").style.display = "none", 1000);
-
-        // 스크롤 이벤트
-        document.getElementById("mainContent").addEventListener('scroll', (e) => {
-            const h = document.querySelector('.dashboard-view.active .sticky-header');
-            if(h) h.style.borderBottomColor = e.target.scrollTop > 5 ? 'var(--border)' : 'transparent';
-        });
-    });
-
+    // UI 초기화
     function initUI() {
-        // VOC UI 초기화
+        // VOC
         const vt = [...new Set(state.voc.data.map(r=>util.clean(r["VOC유형대"]))).filter(Boolean)].sort();
         const vs = document.getElementById("vocTypeFilter");
         vs.innerHTML = '<option value="ALL">전체 유형</option>' + vt.map(t=>`<option value="${t}">${t}</option>`).join('');
@@ -428,7 +444,7 @@
 
         renderBtns('voc','branch'); renderBtns('voc','agent');
         
-        // Pipeline UI 초기화
+        // Pipeline
         renderBtns('pipeline','hq'); renderBtns('pipeline','branch'); renderBtns('pipeline','agent');
         document.getElementById("channelFilter").addEventListener("change", (e)=>{ state.pipeline.channel=e.target.value; runPipe(); });
         document.querySelectorAll('input[name="risk"]').forEach(e=>e.addEventListener("change", ()=>runPipe()));
@@ -438,7 +454,7 @@
         switchView('voc'); 
     }
 
-    // UI 렌더링 함수들
+    // 필터 버튼 렌더링
     function renderBtns(view, type) {
         const c = document.getElementById(`${view}${type.charAt(0).toUpperCase()+type.slice(1)}Buttons`);
         let d = state[view].data;
@@ -461,7 +477,7 @@
             items.map(i=>`<button class="filter-btn ${s[type]===i?'active':''}" onclick="setFilter('${view}','${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join('');
     }
 
-    // 인터랙션 핸들러
+    // 인터랙션 함수들
     window.toggleSidebar = () => document.getElementById("sidebar").classList.toggle("collapsed");
     window.toggleCard = (btn) => {
         const card = btn.closest('.card');
@@ -525,9 +541,6 @@
 
     function runPipe() {
         const s = state.pipeline;
-        const rValStr = document.querySelector('input[name="risk"]:checked').value;
-        s.risk = rValStr;
-
         s.filtered = s.data.filter(r => {
             if(s.channel!=='ALL' && r["담당영업채널"]!==s.channel) return false;
             const rVal = parseFloat(r["해지위험도"])||0;
@@ -557,7 +570,6 @@
 
     function drawVocCharts() {
         const d = state.voc.filtered;
-        const createGradient = (ctx, c1, c2) => { const g = ctx.createLinearGradient(0, 0, 0, 300); g.addColorStop(0, c1); g.addColorStop(1, c2); return g; };
         
         // Activity
         const act={};
@@ -577,7 +589,7 @@
                 {label:'미접수', data:sAct.map(e=>e[1].yet), backgroundColor:'#ef4444', borderRadius:4},
                 {label:'접수', data:sAct.map(e=>e[1].rcpt), backgroundColor:'#f59e0b', borderRadius:4}
             ]
-        }, options:{ indexAxis:'y', plugins:{datalabels:{display:c=>c.dataset.data[c.dataIndex]>0, color:'#fff', font:{weight:'bold'}}}, scales:{x:{stacked:true, display:false}, y:{stacked:true, grid:{display:false}}} }});
+        }, options:{ indexAxis:'y', plugins:{datalabels:{display:c=>c.dataset.data[c.dataIndex]>0, color:'#fff', font:{weight:'bold'}}}, scales:{x:{stacked:true},y:{stacked:true}} }});
 
         // Branch
         const br={};
@@ -622,6 +634,7 @@
         document.getElementById("kpi-high-risk-count").innerText = util.fmt(high);
         document.getElementById("kpi-defense-success-rate").innerText = tot ? (suc/tot*100).toFixed(1)+'%' : '0%';
 
+        // AI Review
         const fail = d.filter(r=>r["방어진행단계"]==='방어실패');
         const el = document.getElementById("ai-pipeline-review");
         if(fail.length===0) { el.innerHTML = "🎉 조회된 기간 및 조건에서 <b>방어 실패 건수가 없습니다.</b>"; return; }
@@ -658,7 +671,7 @@
                 {label:'진행', data:sBr.map(e=>e[1].ing), backgroundColor:'#fbbf24', borderRadius:4, stack:'1'},
                 {label:'실패', data:sBr.map(e=>e[1].fail), backgroundColor:'#f87171', borderRadius:4, stack:'1'}
             ]
-        }, options:{ scales:{x:{stacked:true}, y:{stacked:true}}, plugins:{datalabels:{display:false}} }});
+        }, options:{ scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, plugins:{datalabels:{display:false}} }});
 
         // Bubble
         const bub = Object.entries(br).map(([b,v])=>{
@@ -707,7 +720,7 @@
         newChart('pipelineAgentFailChart', { type:'bar', data: {
             labels: sAf.map(e=>e[0]),
             datasets: [{label:'실패', data:sAf.map(e=>e[1]), backgroundColor:'#ef4444', borderRadius:4}]
-        }, options:{ indexAxis:'y', scales:{x:{grid:{display:false}}}, plugins:{legend:{display:false}} }});
+        }, options:{ indexAxis:'y', scales:{x:{grid:{display:false}}, y:{grid:{display:false}}}, plugins:{legend:{display:false}} }});
     }
 
     function newChart(id, conf) {
@@ -716,7 +729,7 @@
         chartInstances[id] = new Chart(document.getElementById(id), conf);
     }
 
-    // 테이블 렌더링
+    // 테이블
     function setupTableSort(type) {
         document.querySelectorAll(`#${type}ListTable th[data-field]`).forEach(th => {
             th.addEventListener('click', () => {
