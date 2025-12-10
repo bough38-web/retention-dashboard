@@ -2,357 +2,303 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>KTT 통합 대시보드 (고급화)</title>
+    <title>KTT 통합 리텐션 대시보드 (Pro)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
-        /* 기본 스타일 설정 */
+        /* :root 변수 설정 (색상 테마) */
+        :root {
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        /* 기본 스타일 */
         body {
             margin: 0;
             display: flex;
-            background: #f5f5f7;
-            font-family: "Apple SD Gothic Neo", "Segoe UI", sans-serif;
-            color: #333;
+            background: var(--bg-body);
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
         }
 
-        /* 레이아웃 */
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* 로딩 오버레이 */
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid var(--primary-light);
+            border-top: 4px solid var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 사이드바 */
         .sidebar {
-            width: 280px;
-            background: #ffffff;
-            padding: 20px;
-            border-right: 1px solid #ddd;
-            height: 100vh;
-            overflow-y: auto;
-            box-shadow: 2px 0 6px rgba(0,0,0,0.02);
-            position: sticky;
-            top: 0;
+            width: 300px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
             z-index: 10;
         }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-header h2 {
+            margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sidebar-content {
+            flex: 1; overflow-y: auto; padding: 20px;
+        }
 
+        /* 메인 컨텐츠 영역 */
         .content {
             flex: 1;
             padding: 30px;
             overflow-y: auto;
+            position: relative;
         }
 
-        /* 뷰 토글 버튼 */
+        /* 뷰 스위처 (탭 스타일) */
         .view-switcher {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-            padding: 0 0 10px 0;
-            border-bottom: 1px solid #eee;
+            display: flex; background: var(--bg-body); padding: 4px;
+            border-radius: 8px; margin-bottom: 24px;
         }
-
         .view-switcher button {
-            flex: 1;
-            padding: 12px 15px;
-            font-size: 14px;
-            font-weight: 600;
-            border: 1px solid #ccc; /* 테두리 얇게 조정 */
-            border-radius: 8px;
-            background: #f9fafb;
-            color: #4b5563;
-            transition: all 0.2s;
+            flex: 1; padding: 10px; border: none; background: transparent;
+            font-size: 14px; font-weight: 600; color: var(--text-sub);
+            cursor: pointer; border-radius: 6px; transition: all 0.2s;
         }
-
         .view-switcher button.active {
-            background: #3b82f6;
-            color: #fff;
-            border-color: #2563eb;
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+            background: var(--bg-card); color: var(--primary);
+            box-shadow: var(--shadow-sm);
         }
 
-        /* 컴포넌트 스타일 */
-        .sidebar h2 {
-            font-size: 20px;
-            margin-bottom: 15px;
-            color: #1f2937;
+        /* 필터 공통 스타일 */
+        .filter-panel label {
+            display: block; font-size: 13px; font-weight: 600; color: var(--text-sub);
+            margin: 16px 0 8px;
         }
-
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .kpi-card {
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-left: 5px solid #3b82f6;
-            transition: transform 0.3s;
-        }
-        
-        .kpi-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-        }
-
-        .kpi-title {
-            font-size: 14px;
-            color: #6b7280;
-            margin-bottom: 5px;
-        }
-
-        .kpi-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-        }
-
-        .chart-card, .list-card {
-            background: #fff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-        
-        .review-box {
-            background: #f0f9ff;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #bae6fd;
-            margin-bottom: 30px;
-        }
-        
-        .review-box h4 {
-            color: #0369a1;
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        
-        .review-box p {
-            font-size: 14px;
-            color: #0c4a6e;
-            line-height: 1.6;
-        }
-
-        .card-header {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .card-header h3 {
-            font-size: 18px;
-            margin: 0;
-            color: #1f2937;
-        }
-
-        .chart-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        @media (max-width: 1200px) {
-            .chart-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* 폼 요소 스타일 */
         select {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            background: #ffffff;
-            font-size: 14px;
-            cursor: pointer;
-            transition: border-color 0.2s;
+            width: 100%; padding: 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-size: 14px; background: #fff;
+            outline: none; transition: border 0.2s;
         }
+        select:focus { border-color: var(--primary); }
 
-        label {
-            display: block;
-            padding: 8px 0 4px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #4b5563;
-        }
-        
-        /* 라디오 버튼 그룹 */
-        .radio-group label {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 10px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            margin: 2px;
-            font-weight: 400;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .radio-group input[type="radio"] {
-            margin-right: 5px;
-            accent-color: #3b82f6;
-        }
-
-        /* 버튼식 필터 스타일 */
-        .filter-group {
-            margin-top: 20px;
-            padding-top: 10px;
-            border-top: 1px dotted #ddd;
-        }
-
-        .filter-group-title {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: #1f2937;
-        }
-
-        .filter-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
+        .filter-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
         .filter-btn {
-            flex: 0 0 auto;
-            padding: 6px 12px;
-            border-radius: 999px;
-            border: 1px solid #d1d5db;
-            background: #f9fafb;
-            font-size: 12px;
-            width: auto;
-            cursor: pointer;
-            transition: all 0.2s;
+            padding: 6px 12px; font-size: 12px; border: 1px solid var(--border);
+            border-radius: 20px; background: #fff; color: var(--text-sub);
+            cursor: pointer; transition: all 0.2s;
         }
-
-        .filter-btn:hover {
-            background: #e5e7eb;
-        }
-
+        .filter-btn:hover { background: var(--bg-body); }
         .filter-btn.active {
-            background: #3b82f6;
-            color: #fff;
-            border-color: #2563eb;
+            background: var(--primary); color: #fff; border-color: var(--primary);
             font-weight: 600;
         }
-        
-        .mode-btn.active {
-            background: #10b981;
-            color: #fff;
-            border-color: #059669;
+
+        /* 라디오 버튼 그룹 */
+        .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .radio-group label {
+            margin: 0 !important; padding: 6px 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; background: #fff; transition: 0.2s;
+        }
+        .radio-group label:hover { background: var(--bg-body); }
+        .radio-group input { margin-right: 6px; accent-color: var(--primary); }
+
+        /* 대시보드 뷰 */
+        .dashboard-view { display: none; animation: fadeIn 0.3s ease; }
+        .dashboard-view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .view-header {
+            margin-bottom: 24px; display: flex; justify-content: space-between; align-items: end;
+        }
+        .view-header h2 { margin: 0; font-size: 24px; font-weight: 800; color: var(--text-main); }
+        .view-header p { margin: 6px 0 0; color: var(--text-sub); font-size: 14px; }
+
+        /* KPI 그리드 */
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: var(--bg-card); padding: 24px; border-radius: 12px;
+            box-shadow: var(--shadow-sm); border-left: 4px solid var(--primary);
+            position: relative; overflow: hidden;
+        }
+        .kpi-card h3 { margin: 0 0 10px; font-size: 14px; color: var(--text-sub); font-weight: 500; }
+        .kpi-card .value { font-size: 32px; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+        .kpi-card .icon {
+            position: absolute; right: 20px; top: 20px; font-size: 24px; opacity: 0.2;
         }
 
-        /* 데이터 리스트 스타일 */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
+        /* AI 리뷰 박스 */
+        .review-box {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            padding: 24px; border-radius: 12px; margin-bottom: 30px;
+            border: 1px solid #bfdbfe;
         }
-        
-        .data-table th, .data-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #f3f4f6;
+        .review-box h4 {
+            margin: 0 0 12px; color: #1e40af; font-size: 16px; display: flex; align-items: center; gap: 8px;
         }
-        
+        .review-box p { margin: 0; color: #1e3a8a; line-height: 1.6; font-size: 14px; }
+
+        /* 차트 그리드 */
+        .chart-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 30px;
+        }
+        @media (max-width: 1200px) { .chart-grid { grid-template-columns: 1fr; } }
+
+        .chart-card {
+            background: var(--bg-card); border-radius: 12px; padding: 24px;
+            box-shadow: var(--shadow-sm); height: 400px; display: flex; flex-direction: column;
+        }
+        .card-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: start; }
+        .card-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); }
+        .card-header span { font-size: 12px; color: var(--text-sub); }
+        .chart-wrapper { flex: 1; position: relative; width: 100%; overflow: hidden; }
+
+        /* 리스트 카드 & 테이블 */
+        .list-card {
+            background: var(--bg-card); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-sm);
+        }
+        .table-container { overflow-x: auto; min-height: 300px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
         .data-table th {
-            background-color: #f9fafb;
-            font-weight: 700;
-            color: #4b5563;
-            cursor: pointer;
+            background: #f8fafc; padding: 12px 16px; text-align: left;
+            font-weight: 600; color: var(--text-sub); border-bottom: 1px solid var(--border);
+            cursor: pointer; user-select: none;
         }
-        
-        .list-container {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            border-radius: 8px;
+        .data-table th:hover { background: #f1f5f9; }
+        .data-table td {
+            padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main);
         }
+        .data-table tr:hover td { background: #f8fafc; }
 
-        /* 뷰 숨기기 */
-        .dashboard-view {
-            display: none;
+        /* 페이지네이션 및 액션 버튼 */
+        .list-footer {
+            margin-top: 15px; display: flex; justify-content: space-between; align-items: center;
         }
-        
-        .dashboard-view.active {
-            display: block;
+        .pagination { display: flex; gap: 5px; align-items: center; }
+        .pagination button {
+            padding: 6px 12px; border: 1px solid var(--border); background: #fff;
+            border-radius: 6px; cursor: pointer; font-size: 13px;
         }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-action {
+            padding: 8px 16px; background: var(--success); color: white; border: none;
+            border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;
+            display: flex; align-items: center; gap: 5px; transition: background 0.2s;
+        }
+        .btn-action:hover { background: #059669; }
 
+        /* 유틸리티 */
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge.risk-high { background: #fee2e2; color: #991b1b; }
+        .badge.risk-mid { background: #ffedd5; color: #9a3412; }
+        .badge.risk-low { background: #dcfce7; color: #166534; }
     </style>
 </head>
 
 <body>
 
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="font-weight: 600; color: #333;">데이터를 분석 중입니다...</div>
+</div>
+
 <div class="sidebar">
-    <h2>📊 통합 대시보드 필터</h2>
-
-    <div class="view-switcher">
-        <button id="showVocBtn" onclick="switchView('voc')">VOC 활동 현황</button>
-        <button id="showPipelineBtn" class="active" onclick="switchView('pipeline')">해지파이프라인 현황</button>
+    <div class="sidebar-header">
+        <h2><i class="ph ph-chart-polar"></i> KTT Dashboard</h2>
     </div>
-    
-    <div id="vocFilters" class="filter-panel" style="display:none;">
-        <label for="vocTypeFilter">VOC 유형 대</label>
-        <select id="vocTypeFilter">
-            <option value="ALL">전체</option>
+
+    <div class="sidebar-content">
+        <div class="view-switcher">
+            <button id="showVocBtn" onclick="switchView('voc')">VOC 현황</button>
+            <button id="showPipelineBtn" class="active" onclick="switchView('pipeline')">해지 방어</button>
+        </div>
+
+        <div id="vocFilters" class="filter-panel" style="display:none;">
+            <label>VOC 유형 (대분류)</label>
+            <select id="vocTypeFilter"></select>
+
+            <label>처리 상태</label>
+            <div id="vocStatusButtons" class="filter-buttons">
+                <button class="filter-btn active" data-value="ALL" onclick="setVocStatus('ALL', this)">전체</button>
+                <button class="filter-btn" data-value="처리완료" onclick="setVocStatus('처리완료', this)">완료</button>
+                <button class="filter-btn" data-value="접수" onclick="setVocStatus('접수', this)">접수</button>
+                <button class="filter-btn" data-value="미접수" onclick="setVocStatus('미접수', this)">미접수</button>
+            </div>
+        </div>
+
+        <div id="pipelineFilters" class="filter-panel">
+            <label>영업 채널</label>
+            <select id="channelFilter">
+                <option value="ALL">전체 채널</option>
+                <option value="SP">SP</option>
+                <option value="SC">SC</option>
+                <option value="AM">AM</option>
             </select>
-        
-        <label>VOC 상태</label>
-        <div id="vocStatusButtons" class="filter-buttons">
-            <button class="filter-btn active" data-value="ALL" onclick="setVocStatus('ALL', this)">전체</button>
-            <button class="filter-btn" data-value="처리완료" onclick="setVocStatus('처리완료', this)">처리완료</button>
-            <button class="filter-btn" data-value="접수" onclick="setVocStatus('접수', this)">접수</button>
-            <button class="filter-btn" data-value="미접수" onclick="setVocStatus('미접수', this)">미접수</button>
-        </div>
-    </div>
-    
-    <div id="pipelineFilters" class="filter-panel">
-        <label for="channelFilter">담당영업채널</label>
-        <select id="channelFilter">
-            <option value="ALL">전체</option>
-            <option value="SP">SP</option>
-            <option value="SC">SC</option>
-            <option value="AM">AM</option>
-        </select>
 
-        <label>해지위험도 (%)</label>
-        <div class="radio-group" style="display: flex; flex-wrap: wrap; gap: 5px;">
-            <label><input type="radio" name="risk" value="ALL" checked> 전체</label>
-            <label><input type="radio" name="risk" value="0"> 0 ~ 25%</label>
-            <label><input type="radio" name="risk" value="25"> 25 ~ 50%</label>
-            <label><input type="radio" name="risk" value="50"> 50 ~ 75%</label>
-            <label><input type="radio" name="risk" value="75"> 75 ~ 100%</label>
-        </div>
+            <label>해지 위험도 구간</label>
+            <div class="radio-group">
+                <label><input type="radio" name="risk" value="ALL" checked>전체</label>
+                <label><input type="radio" name="risk" value="0">0-25%</label>
+                <label><input type="radio" name="risk" value="25">25-50%</label>
+                <label><input type="radio" name="risk" value="50">50-75%</label>
+                <label><input type="radio" name="risk" value="75">75% 이상</label>
+            </div>
 
-        <label>표시 기준</label>
-        <div class="filter-buttons">
-            <button class="mode-btn active" data-mode="count" onclick="setMode('count', this)">건수</button>
-            <button class="mode-btn" data-mode="amount" onclick="setMode('amount', this)">금액(천원)</button>
-        </div>
-        
-        <div class="filter-group">
-            <div class="filter-group-title">관리본부</div>
-            <div id="pipelineHqButtons" class="filter-buttons">
-                </div>
-        </div>
+            <label>데이터 기준</label>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="setMode('count', this)">건수</button>
+                <button class="filter-btn" onclick="setMode('amount', this)">금액</button>
+            </div>
 
-        <div class="filter-group">
-            <div class="filter-group-title">관리지사</div>
-            <div id="pipelineBranchButtons" class="filter-buttons">
-                </div>
-        </div>
+            <hr style="border: 0; border-top: 1px dashed #ddd; margin: 20px 0;">
 
-        <div class="filter-group">
-            <div class="filter-group-title">담당자</div>
-            <div id="pipelineAgentButtons" class="filter-buttons">
-                </div>
+            <label>관리 본부</label>
+            <div id="pipelineHqButtons" class="filter-buttons"></div>
+
+            <label>관리 지사</label>
+            <div id="pipelineBranchButtons" class="filter-buttons"></div>
+
+            <label>담당자</label>
+            <div id="pipelineAgentButtons" class="filter-buttons"></div>
         </div>
     </div>
 </div>
@@ -360,239 +306,250 @@
 <div class="content">
 
     <div id="vocView" class="dashboard-view">
-        <h2>💬 관리고객 해지고위험 재계약 활동 현황</h2>
+        <div class="view-header">
+            <div>
+                <h2>고객의 소리 (VOC) 활동 현황</h2>
+                <p>재계약 관련 고객 문의 및 처리 현황을 모니터링합니다.</p>
+            </div>
+        </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-title">총 VOC 건수</div>
-                <div id="kpi-voc-total" class="kpi-value">0</div>
+            <div class="kpi-card" style="border-left-color: #3b82f6;">
+                <h3>총 VOC 접수</h3>
+                <div id="kpi-voc-total" class="value">0</div>
+                <i class="ph ph-chat-text icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #10b981;">
-                <div class="kpi-title">처리완료 건수</div>
-                <div id="kpi-voc-complete" class="kpi-value">0</div>
+                <h3>처리 완료</h3>
+                <div id="kpi-voc-complete" class="value">0</div>
+                <i class="ph ph-check-circle icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #f59e0b;">
-                <div class="kpi-title">처리 완료율 (%)</div>
-                <div id="kpi-voc-complete-rate" class="kpi-value">0%</div>
+                <h3>처리율</h3>
+                <div id="kpi-voc-complete-rate" class="value">0%</div>
+                <i class="ph ph-chart-pie-slice icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #ef4444;">
-                <div class="kpi-title">미접수 건수</div>
-                <div id="kpi-voc-unassigned" class="kpi-value">0</div>
+                <h3>미접수 건</h3>
+                <div id="kpi-voc-unassigned" class="value">0</div>
+                <i class="ph ph-warning-circle icon"></i>
             </div>
         </div>
 
         <div class="chart-grid">
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>💬 VOC 관리지사별 상태 (적층)</h3>
+                    <h3>지사별 처리 현황</h3>
+                    <span>(건수 기준)</span>
                 </div>
-                <canvas id="vocBranchChart"></canvas>
+                <div class="chart-wrapper"><canvas id="vocBranchChart"></canvas></div>
             </div>
-            
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>👨‍💼 VOC 담당자별 상태 (Top 20)</h3>
+                    <h3>담당자별 처리 실적 (Top 20)</h3>
                 </div>
-                <canvas id="vocAgentChart"></canvas>
+                <div class="chart-wrapper"><canvas id="vocAgentChart"></canvas></div>
             </div>
         </div>
 
         <div class="list-card">
             <div class="card-header">
-                <h3>📝 필터링된 VOC 상세 리스트</h3>
-                <p style="font-size: 12px; color: #9ca3af; margin: 5px 0 0;">(테이블 헤더 클릭 시 정렬)</p>
+                <h3>상세 데이터 리스트</h3>
+                <button class="btn-action" onclick="exportToCSV('voc')"><i class="ph ph-download-simple"></i> 엑셀 다운로드</button>
             </div>
-            <div class="list-container">
+            <div class="table-container">
                 <table id="vocListTable" class="data-table">
                     <thead>
                         <tr>
                             <th data-field="계약번호">계약번호</th>
                             <th data-field="상태">상태</th>
-                            <th data-field="VOC유형대">유형 대</th>
-                            <th data-field="VOC유형중">유형 중</th>
-                            <th data-field="VOC유형소">유형 소</th>
-                            <th data-field="관리본부">관리본부</th>
-                            <th data-field="관리지사">관리지사</th>
+                            <th data-field="VOC유형대">유형(대)</th>
+                            <th data-field="VOC유형중">유형(중)</th>
+                            <th data-field="관리본부">본부</th>
+                            <th data-field="관리지사">지사</th>
                             <th data-field="담당자">담당자</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        </tbody>
+                    <tbody></tbody>
                 </table>
+            </div>
+            <div class="list-footer">
+                <div id="vocPaginationInfo" style="font-size:13px; color:#666;"></div>
+                <div class="pagination">
+                    <button onclick="changePage('voc', -1)">이전</button>
+                    <button onclick="changePage('voc', 1)">다음</button>
+                </div>
             </div>
         </div>
     </div>
-    
+
     <div id="pipelineView" class="dashboard-view active">
-        <h2>🔥 해지파이프라인 등록 현황</h2>
-        
+        <div class="view-header">
+            <div>
+                <h2>해지 파이프라인 관리 현황</h2>
+                <p>해지 고위험 고객에 대한 선제적 방어 활동 및 성과를 분석합니다.</p>
+            </div>
+        </div>
+
         <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-title">해지파이프라인 총 건수</div>
-                <div id="kpi-pipeline-count" class="kpi-value">0</div>
+            <div class="kpi-card" style="border-left-color: #2563eb;">
+                <h3>파이프라인 총 건수</h3>
+                <div id="kpi-pipeline-count" class="value">0</div>
+                <i class="ph ph-funnel icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #10b981;">
-                <div class="kpi-title">총 월정료 금액 (천원)</div>
-                <div id="kpi-pipeline-amount" class="kpi-value">0</div>
+                <h3>월정료 규모 (천원)</h3>
+                <div id="kpi-pipeline-amount" class="value">0</div>
+                <i class="ph ph-currency-krw icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #ef4444;">
-                <div class="kpi-title">해지고위험 (75%~) 건수</div>
-                <div id="kpi-high-risk-count" class="kpi-value">0</div>
+                <h3>고위험군 (75%↑)</h3>
+                <div id="kpi-high-risk-count" class="value">0</div>
+                <i class="ph ph-siren icon"></i>
             </div>
             <div class="kpi-card" style="border-left-color: #f59e0b;">
-                <div class="kpi-title">방어 성공률 (%)</div>
-                <div id="kpi-defense-success-rate" class="kpi-value">0%</div>
+                <h3>방어 성공률</h3>
+                <div id="kpi-defense-success-rate" class="value">0%</div>
+                <i class="ph ph-shield-check icon"></i>
             </div>
         </div>
 
         <div class="review-box">
-            <h4>🤖 AI 분석 요약 리뷰 (부진 지사 및 담당자)</h4>
-            <p id="ai-pipeline-review">필터링된 데이터를 분석 중입니다...</p>
+            <h4><i class="ph ph-robot"></i> AI 분석 인사이트</h4>
+            <p id="ai-pipeline-review">데이터를 분석 중입니다...</p>
         </div>
 
         <div class="chart-grid">
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>📈 지사별 파이프라인 진행 단계 (계단형 누적 막대)</h3>
-                    <p style="font-size: 12px; color: #9ca3af; margin: 5px 0 0;">(건수 기준, Top 10 지사)</p>
+                    <h3>지사별 방어 단계 진행 (Top 10)</h3>
+                    <span>(성공/실패/진행중 구성비)</span>
                 </div>
-                <canvas id="pipelineBranchStageChart"></canvas>
+                <div class="chart-wrapper"><canvas id="pipelineBranchStageChart"></canvas></div>
             </div>
-
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>⚠️ 해지 위험도 vs 월정료 분포 (버블 차트)</h3>
+                    <h3>위험도 vs 월정료 분포</h3>
+                    <span>(원 크기: 월정료 규모)</span>
                 </div>
-                <canvas id="pipelineRiskBubbleChart"></canvas>
+                <div class="chart-wrapper"><canvas id="pipelineRiskBubbleChart"></canvas></div>
             </div>
-            
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>🎯 Top 5 지사 방어 성공률 벤치마크</h3>
+                    <h3>상위 지사 방어 성공률 추이</h3>
                 </div>
-                <canvas id="pipelineDefenseSuccessRateChart"></canvas>
+                <div class="chart-wrapper"><canvas id="pipelineDefenseSuccessRateChart"></canvas></div>
             </div>
-            
             <div class="chart-card">
                 <div class="card-header">
-                    <h3>📉 담당자별 방어 실패 건수 (Top 10)</h3>
+                    <h3>담당자별 방어 실패 건수 (Top 10)</h3>
                 </div>
-                <canvas id="pipelineAgentFailChart"></canvas>
+                <div class="chart-wrapper"><canvas id="pipelineAgentFailChart"></canvas></div>
             </div>
         </div>
 
         <div class="list-card">
             <div class="card-header">
-                <h3>📝 필터링된 해지파이프라인 상세 리스트</h3>
-                <p style="font-size: 12px; color: #9ca3af; margin: 5px 0 0;">(테이블 헤더 클릭 시 정렬)</p>
+                <h3>상세 파이프라인 리스트</h3>
+                <button class="btn-action" onclick="exportToCSV('pipeline')"><i class="ph ph-download-simple"></i> 엑셀 다운로드</button>
             </div>
-            <div class="list-container">
+            <div class="table-container">
                 <table id="pipelineListTable" class="data-table">
                     <thead>
                         <tr>
                             <th data-field="계약번호" data-sort="asc">계약번호</th>
-                            <th data-field="관리본부">관리본부</th>
-                            <th data-field="관리지사">관리지사</th>
-                            <th data-field="해지위험도" data-sort="none">위험도 (%)</th>
-                            <th data-field="담당영업채널">영업채널</th>
-                            <th data-field="합산월정료" data-sort="none">월정료 (천원)</th>
-                            <th data-field="방어진행단계">방어진행단계</th>
-                            <th data-field="방어담당자">방어담당자</th>
+                            <th data-field="관리지사">지사</th>
+                            <th data-field="해지위험도" data-sort="none">위험도(%)</th>
+                            <th data-field="담당영업채널">채널</th>
+                            <th data-field="KTT월정료(조정)" data-sort="none">월정료(천원)</th>
+                            <th data-field="방어진행단계">단계</th>
+                            <th data-field="담당자">담당자</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        </tbody>
+                    <tbody></tbody>
                 </table>
+            </div>
+            <div class="list-footer">
+                <div id="pipelinePaginationInfo" style="font-size:13px; color:#666;"></div>
+                <div class="pagination">
+                    <button onclick="changePage('pipeline', -1)">이전</button>
+                    <button onclick="changePage('pipeline', 1)">다음</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    /* ---------------------------------------------------------
-        📌 CSV 데이터 경로
-    --------------------------------------------------------- */
-    const VOC_CSV_URL =
-        "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
-
-    const PIPELINE_CSV_URL =
-        "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv";
-
-    // Chart.js 플러그인 등록
+    // --- 설정 ---
+    const VOC_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
+    const PIPELINE_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv";
+    
     Chart.register(ChartDataLabels);
+    Chart.defaults.font.family = "'Pretendard', sans-serif";
+    Chart.defaults.color = "#64748b";
 
-    /* ---------------------------------------------------------
-        📌 전역 상태값 및 지사 정렬 기준
-    --------------------------------------------------------- */
-    let currentView = "voc"; // 'voc' 또는 'pipeline'
-    
-    // 지사 정렬 기준 (요청하신 순서)
-    const BRANCH_SORT_ORDER = ["중앙", "강북", "서대문", "고양", "의정부", "남양주", "강릉", "원주"];
+    // --- 상태 변수 ---
+    const state = {
+        currentView: 'pipeline',
+        voc: { data: [], filtered: [], page: 1, limit: 15, sortField: 'VOC유형대', sortDir: 'desc' },
+        pipeline: { 
+            data: [], filtered: [], page: 1, limit: 15, 
+            sortField: 'KTT월정료(조정)', sortDir: 'desc',
+            mode: 'count', hq: 'ALL', branch: 'ALL', agent: 'ALL'
+        }
+    };
 
-    // PIPELINE 상태
-    let pipelineMode = "count";
-    let pipelineData = [];
-    let filteredPipelineData = [];
-    let pipelineSelectedHQ = "강북/강원"; // **기본값 변경**
-    let pipelineSelectedBranch = "ALL";
-    let pipelineSelectedAgent = "ALL";
-    let pipelineListSortField = "KTT월정료(조정)";
-    let pipelineListSortDirection = "desc";
-    
-    // VOC 상태
-    let vocData = [];
-    let filteredVocData = [];
-    let vocSelectedType = "ALL";
-    let vocSelectedStatus = "ALL";
-    let vocListSortField = "VOC유형대";
-    let vocListSortDirection = "desc";
+    const chartInstances = {};
 
-    // 차트 인스턴스
-    let chartInstances = {};
+    // --- 유틸리티 ---
+    const util = {
+        normalizeBranch: (name) => String(name || "").replace("지사", "").trim(),
+        cleanContract: (raw) => String(raw || "").replace(/\D/g, "").slice(0, 8),
+        toThousand: (raw) => {
+            const num = parseFloat(String(raw).replace(/,/g, ""));
+            return isNaN(num) ? 0 : Math.round(num / 1000);
+        },
+        formatNum: (num) => num.toLocaleString(),
+        sortBranches: (a, b) => {
+            const order = ["중앙", "강북", "서대문", "고양", "의정부", "남양주", "강릉", "원주"];
+            const idxA = order.indexOf(a);
+            const idxB = order.indexOf(b);
+            if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+        }
+    };
 
-    /* ---------------------------------------------------------
-        📌 공통 유틸리티 함수
-    --------------------------------------------------------- */
-    function normalizeBranch(name) {
-        if (!name) return "";
-        return String(name).replace("지사", "").trim();
-    }
-    
-    // 지사 정렬 함수
-    function sortBranches(a, b) {
-        const indexA = BRANCH_SORT_ORDER.indexOf(a);
-        const indexB = BRANCH_SORT_ORDER.indexOf(b);
+    // --- 초기화 ---
+    window.addEventListener("load", async () => {
+        try {
+            const [vocData, pipeData] = await Promise.all([
+                loadCsv(VOC_CSV_URL),
+                loadCsv(PIPELINE_CSV_URL)
+            ]);
+            
+            state.voc.data = vocData;
+            state.pipeline.data = pipeData;
 
-        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
+            // Pipeline 기본 본부 설정 (데이터 기반)
+            const availableHQs = [...new Set(pipeData.map(r => (r["관리본부"]||"").trim()).filter(Boolean))];
+            state.pipeline.hq = availableHQs.includes('강북/강원') ? '강북/강원' : 'ALL';
 
-        return indexA - indexB;
-    }
-    
-    function cleanContractNumber(raw) {
-        if (!raw) return "";
-        return String(raw).replace(/\D/g, "").slice(0, 8);
-    }
-    function toThousandWon(raw) {
-        if (!raw) return 0;
-        const num = parseFloat(String(raw).replace(/,/g, ""));
-        return isNaN(num) ? 0 : Math.round(num / 1000);
-    }
-    function formatNumber(num) {
-        return num.toLocaleString();
-    }
-    function checkRisk(value, selected) {
-        if (selected === "ALL") return true;
-        const v = parseFloat(value);
-        if (isNaN(v)) return false;
-        const s = parseInt(selected);
-        if (s === 0) return v >= 0 && v < 25;
-        if (s === 25) return v >= 25 && v < 50;
-        if (s === 50) return v >= 50 && v < 75;
-        if (s === 75) return v >= 75 && v <= 100;
-        return true;
-    }
+            initFilters();
+            updateDashboard('voc');
+            updateDashboard('pipeline');
+            
+            switchView('pipeline'); // 기본 뷰
+        } catch (e) {
+            alert("데이터 로드 중 오류가 발생했습니다.");
+            console.error(e);
+        } finally {
+            document.getElementById("loadingOverlay").style.display = "none";
+        }
+    });
+
     async function loadCsv(url) {
         const res = await fetch(url);
         const text = await res.text();
@@ -600,814 +557,450 @@
             Papa.parse(text, { header: true, skipEmptyLines: true, complete: r => resolve(r.data) });
         });
     }
-    function destroyChart(id) {
-        if (chartInstances[id]) {
-            chartInstances[id].destroy();
-            chartInstances[id] = null;
-        }
+
+    // --- 필터 렌더링 ---
+    function initFilters() {
+        // VOC 필터
+        const vocTypes = [...new Set(state.voc.data.map(r => (r["VOC유형대"]||"").trim()).filter(Boolean))].sort();
+        const vocSelect = document.getElementById("vocTypeFilter");
+        vocSelect.innerHTML = '<option value="ALL">전체 유형</option>' + vocTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        vocSelect.addEventListener('change', () => updateDashboard('voc'));
+
+        // Pipeline 필터
+        renderPipelineFilters('hq');
+        renderPipelineFilters('branch');
+        renderPipelineFilters('agent');
+        
+        document.getElementById("channelFilter").addEventListener("change", () => updateDashboard('pipeline'));
+        document.querySelectorAll('input[name="risk"]').forEach(el => el.addEventListener("change", () => updateDashboard('pipeline')));
+        
+        // 테이블 정렬 이벤트 연결
+        setupSortEvents('pipelineListTable', 'pipeline');
+        setupSortEvents('vocListTable', 'voc');
     }
 
-    /* ---------------------------------------------------------
-        📌 뷰 전환 로직
-    --------------------------------------------------------- */
-    function switchView(view) {
-        currentView = view;
+    function renderPipelineFilters(type) {
+        const container = document.getElementById(`pipeline${type.charAt(0).toUpperCase() + type.slice(1)}Buttons`);
+        let source = state.pipeline.data;
 
-        document.querySelectorAll('.view-switcher button').forEach(btn => {
-            btn.classList.remove('active');
+        // 종속 필터링
+        if (type !== 'hq' && state.pipeline.hq !== 'ALL') 
+            source = source.filter(r => (r["관리본부"]||"").trim() === state.pipeline.hq);
+        if (type === 'agent' && state.pipeline.branch !== 'ALL')
+            source = source.filter(r => util.normalizeBranch(r["관리지사"]) === state.pipeline.branch);
+
+        let items = [];
+        if (type === 'hq') items = [...new Set(source.map(r => (r["관리본부"]||"").trim()).filter(Boolean))].sort();
+        else if (type === 'branch') items = [...new Set(source.map(r => util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches);
+        else if (type === 'agent') items = [...new Set(source.map(r => (r["담당자"]||"").trim()).filter(Boolean))].sort();
+
+        let html = `<button class="filter-btn ${state.pipeline[type] === 'ALL' ? 'active' : ''}" onclick="setPipelineFilter('${type}', 'ALL')">전체</button>`;
+        items.forEach(item => {
+            html += `<button class="filter-btn ${state.pipeline[type] === item ? 'active' : ''}" onclick="setPipelineFilter('${type}', '${item.replace(/'/g, "\\'")}')">${item}</button>`;
         });
+        container.innerHTML = html;
+    }
+
+    // --- 필터 동작 ---
+    window.switchView = (view) => {
+        state.currentView = view;
+        document.querySelectorAll('.view-switcher button').forEach(b => b.classList.remove('active'));
         document.getElementById(`show${view.charAt(0).toUpperCase() + view.slice(1)}Btn`).classList.add('active');
-
-        document.querySelectorAll('.dashboard-view').forEach(v => {
-            v.classList.remove('active');
-        });
+        
+        document.querySelectorAll('.dashboard-view').forEach(d => d.classList.remove('active'));
         document.getElementById(`${view}View`).classList.add('active');
 
         document.getElementById('pipelineFilters').style.display = view === 'pipeline' ? 'block' : 'none';
         document.getElementById('vocFilters').style.display = view === 'voc' ? 'block' : 'none';
+        
+        // 차트 리사이즈 트리거
+        setTimeout(() => { Object.values(chartInstances).forEach(c => c && c.resize()); }, 100);
+    };
 
+    window.setPipelineFilter = (type, val) => {
+        state.pipeline[type] = val;
+        if (type === 'hq') { state.pipeline.branch = 'ALL'; state.pipeline.agent = 'ALL'; renderPipelineFilters('branch'); renderPipelineFilters('agent'); }
+        if (type === 'branch') { state.pipeline.agent = 'ALL'; renderPipelineFilters('agent'); }
+        renderPipelineFilters(type); // 버튼 활성 상태 갱신
+        updateDashboard('pipeline');
+    };
+
+    window.setVocStatus = (val, btn) => {
+        document.querySelectorAll('#vocStatusButtons .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateDashboard('voc');
+    };
+
+    window.setMode = (mode, btn) => {
+        state.pipeline.mode = mode;
+        document.querySelectorAll('.filter-buttons .filter-btn').forEach(b => {
+             if(b.textContent === '건수' || b.textContent === '금액') b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        updateDashboard('pipeline');
+    };
+
+    // --- 데이터 처리 & 대시보드 업데이트 ---
+    function updateDashboard(view) {
+        filterData(view);
         if (view === 'pipeline') {
-            updatePipelineDashboard();
+            updatePipelineKPIs();
+            generatePipelineReview();
+            drawPipelineCharts();
+            renderTable('pipeline');
         } else {
-            updateVocDashboard();
+            updateVocKPIs();
+            drawVocCharts();
+            renderTable('voc');
         }
     }
 
-    /* ---------------------------------------------------------
-        📌 PIPELINE - 필터링 및 업데이트 로직
-    --------------------------------------------------------- */
-
-    function getPipelineSelectedChannel() { return document.getElementById("channelFilter").value; }
-    function getPipelineSelectedRisk() { return document.querySelector('#pipelineFilters input[name="risk"]:checked').value; }
-
-    function setMode(m, button) {
-        pipelineMode = m;
-        document.querySelectorAll("#pipelineFilters .mode-btn").forEach(btn => btn.classList.remove("active"));
-        button.classList.add("active");
-        updatePipelineDashboard();
-    }
-    
-    function setPipelineHQ(hq, button) {
-        pipelineSelectedHQ = hq;
-        document.querySelectorAll("#pipelineHqButtons .filter-btn").forEach(btn => btn.classList.remove("active"));
-        button.classList.add("active");
-        pipelineSelectedBranch = "ALL";
-        pipelineSelectedAgent = "ALL";
-        renderPipelineBranchButtons();
-        renderPipelineAgentButtons();
-        updatePipelineDashboard();
-    }
-    
-    function setPipelineBranch(branch, button) {
-        pipelineSelectedBranch = branch;
-        document.querySelectorAll("#pipelineBranchButtons .filter-btn").forEach(btn => btn.classList.remove("active"));
-        button.classList.add("active");
-        pipelineSelectedAgent = "ALL";
-        renderPipelineAgentButtons();
-        updatePipelineDashboard();
-    }
-    
-    function setPipelineAgent(agent, button) {
-        pipelineSelectedAgent = agent;
-        document.querySelectorAll("#pipelineAgentButtons .filter-btn").forEach(btn => btn.classList.remove("active"));
-        button.classList.add("active");
-        updatePipelineDashboard();
-    }
-
-    function filterPipelineData() {
-        const channel = getPipelineSelectedChannel();
-        const risk = getPipelineSelectedRisk();
-
-        filteredPipelineData = pipelineData.filter(row => {
-            if (!cleanContractNumber(row["계약번호"])) return false;
-            if (channel !== "ALL" && row["담당영업채널"] !== channel) return false;
-            if (!checkRisk(row["해지위험도"], risk)) return false;
-
-            const head = (row["관리본부"] || "").trim();
-            const branch = normalizeBranch(row["관리지사"]);
-            const agent = (row["담당자"] || "").trim();
-
-            if (pipelineSelectedHQ !== "ALL" && head !== pipelineSelectedHQ) return false;
-            if (pipelineSelectedBranch !== "ALL" && branch !== pipelineSelectedBranch) return false;
-            if (pipelineSelectedAgent !== "ALL" && agent !== pipelineSelectedAgent) return false;
-            return true;
-        });
-    }
-
-    function renderPipelineHQButtons() {
-        const container = document.getElementById("pipelineHqButtons");
-        const heads = Array.from(new Set(pipelineData.map(r => (r["관리본부"] || "").trim()).filter(Boolean))).sort();
-
-        let html = "";
-        html += `<button type="button" class="filter-btn ${pipelineSelectedHQ === "ALL" ? "active" : ""}" data-value="ALL" onclick="setPipelineHQ('ALL', this)">전체</button>`;
-        heads.forEach(hq => {
-            html += `<button type="button" class="filter-btn ${pipelineSelectedHQ === hq ? "active" : ""}" data-value="${hq}" onclick="setPipelineHQ('${hq}', this)">${hq}</button>`;
-        });
-        container.innerHTML = html;
-    }
-
-    function renderPipelineBranchButtons() {
-        const container = document.getElementById("pipelineBranchButtons");
-
-        let filtered = pipelineData;
-        if (pipelineSelectedHQ !== "ALL") {
-            filtered = filtered.filter(r => (r["관리본부"] || "").trim() === pipelineSelectedHQ);
-        }
-
-        const branches = Array.from(new Set(
-            filtered.map(r => normalizeBranch(r["관리지사"])).filter(Boolean)
-        )).sort(sortBranches);
-
-        let html = "";
-        html += `<button type="button" class="filter-btn ${pipelineSelectedBranch === "ALL" ? "active" : ""}" data-value="ALL" onclick="setPipelineBranch('ALL', this)">전체</button>`;
-        branches.forEach(br => {
-            html += `<button type="button" class="filter-btn ${pipelineSelectedBranch === br ? "active" : ""}" data-value="${br}" onclick="setPipelineBranch('${br}', this)">${br}</button>`;
-        });
-        container.innerHTML = html;
-    }
-    
-    function renderPipelineAgentButtons() {
-        const container = document.getElementById("pipelineAgentButtons");
-        
-        let filtered = pipelineData;
-        if (pipelineSelectedHQ !== "ALL") {
-            filtered = filtered.filter(r => (r["관리본부"] || "").trim() === pipelineSelectedHQ);
-        }
-        if (pipelineSelectedBranch !== "ALL") {
-            filtered = filtered.filter(r => normalizeBranch(r["관리지사"]) === pipelineSelectedBranch);
-        }
-
-        const agents = Array.from(new Set(
-            filtered.map(r => (r["담당자"] || "").trim()).filter(Boolean)
-        )).sort();
-
-        let html = "";
-        html += `<button type="button" class="filter-btn ${pipelineSelectedAgent === "ALL" ? "active" : ""}" data-value="ALL" onclick="setPipelineAgent('ALL', this)">전체</button>`;
-        agents.forEach(agent => {
-            // 이스케이프 처리: 작은따옴표가 이름에 포함된 경우를 방지
-            const safeAgent = agent.replace(/'/g, "\\'");
-            html += `<button type="button" class="filter-btn ${pipelineSelectedAgent === agent ? "active" : ""}" data-value="${agent}" onclick="setPipelineAgent('${safeAgent}', this)">${agent}</button>`;
-        });
-        container.innerHTML = html;
-    }
-
-    function updatePipelineKPIs() {
-        if (!filteredPipelineData.length) {
-            document.getElementById("kpi-pipeline-count").innerText = "0";
-            document.getElementById("kpi-pipeline-amount").innerText = "0";
-            document.getElementById("kpi-defense-success-rate").innerText = "0%";
-            document.getElementById("kpi-high-risk-count").innerText = "0";
-            return;
-        }
-
-        const totalCount = filteredPipelineData.length;
-        const totalAmount = filteredPipelineData.reduce((sum, row) => sum + toThousandWon(row["KTT월정료(조정)"]), 0);
-        
-        const defenseSuccess = filteredPipelineData.filter(row => row["방어진행단계"] === "방어성공").length;
-        const totalDefenseAttempt = filteredPipelineData.filter(row => 
-            ["방어성공", "방어실패", "진행중"].includes(row["방어진행단계"])
-        ).length;
-        const defenseSuccessRate = totalDefenseAttempt > 0 ? (defenseSuccess / totalDefenseAttempt) * 100 : 0;
-        
-        const highRiskCount = filteredPipelineData.filter(row => parseFloat(row["해지위험도"]) >= 75).length;
-
-        document.getElementById("kpi-pipeline-count").innerText = formatNumber(totalCount);
-        document.getElementById("kpi-pipeline-amount").innerText = formatNumber(totalAmount);
-        document.getElementById("kpi-defense-success-rate").innerText = `${defenseSuccessRate.toFixed(1)}%`;
-        document.getElementById("kpi-high-risk-count").innerText = formatNumber(highRiskCount);
-    }
-    
-    function generatePipelineReview() {
-        // ... (AI 리뷰 로직은 이전과 동일)
-        if (!filteredPipelineData.length) {
-            document.getElementById("ai-pipeline-review").innerText = "필터링된 데이터가 없습니다. 필터를 조정해 주세요.";
-            return;
-        }
-
-        const defenseFailures = filteredPipelineData.filter(row => row["방어진행단계"] === "방어실패");
-        
-        if (defenseFailures.length === 0) {
-            document.getElementById("ai-pipeline-review").innerText = "🎉 필터링된 기간 및 영역에서는 방어 실패 건수가 없습니다. 활동이 매우 우수합니다!";
-            return;
-        }
-
-        const failByBranch = defenseFailures.reduce((acc, row) => {
-            const branch = normalizeBranch(row["관리지사"]);
-            acc[branch] = (acc[branch] || 0) + 1;
-            return acc;
-        }, {});
-        
-        const failByAgent = defenseFailures.reduce((acc, row) => {
-            const agent = (row["담당자"] || "미지정").trim();
-            acc[agent] = (acc[agent] || 0) + 1;
-            return acc;
-        }, {});
-
-        const topFailBranch = Object.entries(failByBranch).sort((a, b) => b[1] - a[1])[0];
-        const topFailAgent = Object.entries(failByAgent).sort((a, b) => b[1] - a[1])[0];
-        
-        let review = `총 방어 실패 건수: **${formatNumber(defenseFailures.length)}건**이 발생했습니다.`;
-        
-        if (topFailBranch) {
-            review += `\n- **부진 지사:** **${topFailBranch[0]}지사**에서 가장 많은 ${topFailBranch[1]}건의 방어 실패가 집중되었습니다. 지사 단위의 방어 전략 점검이 시급합니다.`;
-        }
-        
-        if (topFailAgent) {
-            review += `\n- **개선 필요 담당자:** **${topFailAgent[0]}** 담당자가 ${topFailAgent[1]}건으로 실패 건수가 가장 높습니다. 해당 담당자의 케이스에 대한 심층적인 피드백 및 코칭이 필요해 보입니다.`;
-        }
-        
-        document.getElementById("ai-pipeline-review").innerHTML = review.replace(/\n/g, '<br>');
-    }
-    
-    // **시각화 1: 지사별 파이프라인 진행 단계 (계단형 누적 막대)**
-function drawPipelineBranchStageChart() {
-        const agg = {};
-        const stages = ["진행중", "방어실패", "방어성공"];
-        
-        filteredPipelineData.forEach(row => {
-            const br = normalizeBranch(row["관리지사"]);
-            if (!br) return;
-            if (!agg[br]) agg[br] = { "진행중":0, "방어실패":0, "방어성공":0, total:0 };
+    function filterData(view) {
+        if (view === 'pipeline') {
+            const channel = document.getElementById("channelFilter").value;
+            const riskVal = document.querySelector('input[name="risk"]:checked').value;
             
-            const st = (row["방어진행단계"] || "").trim();
-            if (stages.includes(st)) {
-                const val = pipelineMode === 'amount' ? toThousandWon(row["KTT월정료(조정)"]) : 1;
-                agg[br][st] += val;
-                agg[br].total += val;
-            }
-        });
-
-        const sorted = Object.entries(agg)
-            // ⭐️ 수정: total 값이 0인 지사 제외
-            .filter(e => e[1].total > 0) 
-            .sort((a,b) => b[1].total - a[1].total).slice(0, 10);
-        const labels = sorted.map(e => e[0]);
-        
-        destroyChart("pipelineBranchStageChart");
-        chartInstances.pipelineBranchStageChart = new Chart(document.getElementById("pipelineBranchStageChart"), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: '방어성공', data: sorted.map(e=>e[1]['방어성공']), backgroundColor: '#10b981', stack: 's' },
-                    { label: '진행중', data: sorted.map(e=>e[1]['진행중']), backgroundColor: '#f59e0b', stack: 's' },
-                    { label: '방어실패', data: sorted.map(e=>e[1]['방어실패']), backgroundColor: '#ef4444', stack: 's' }
-                ]
-            },
-            options: {
-                responsive: true,
-                animation: { duration: 800 },
-                plugins: { legend: { position:'bottom' } },
-                scales: { 
-                    x: { stacked: true }, 
-                    y: { 
-                        stacked: true, 
-                        title: { display: true, text: pipelineMode === 'amount' ? '금액(천원)' : '건수' } 
-                    } 
+            state.pipeline.filtered = state.pipeline.data.filter(r => {
+                if (channel !== "ALL" && r["담당영업채널"] !== channel) return false;
+                
+                const risk = parseFloat(r["해지위험도"]);
+                if (riskVal !== "ALL") {
+                    const rv = parseInt(riskVal);
+                    if (rv === 75 && risk < 75) return false;
+                    if (rv !== 75 && (risk < rv || risk >= rv + 25)) return false;
                 }
-            }
-        });
-    }
 
-    // **시각화 2: 해지 위험도 vs 월정료 분포 (버블 차트)**
-    function drawPipelineRiskBubbleChart() {
-        // 지사별로 집계 (버블의 중심)
-        const agg = {};
-        filteredPipelineData.forEach(row => {
-            const branch = normalizeBranch(row["관리지사"]);
-            const risk = parseFloat(row["해지위험도"]) || 0;
-            const amount = toThousandWon(row["합산월정료"]);
-            
-            if (!agg[branch]) {
-                agg[branch] = { count: 0, totalRisk: 0, totalAmount: 0, members: [] };
-            }
-            agg[branch].count++;
-            agg[branch].totalRisk += risk;
-            agg[branch].totalAmount += amount;
-            agg[branch].members.push({ risk, amount });
-        });
-
-        // 버블 데이터 생성
-        const data = Object.entries(agg).map(([branch, val]) => {
-            const avgRisk = val.totalRisk / val.count;
-            const avgAmount = val.totalAmount / val.count;
-            const bubbleSize = Math.sqrt(val.totalAmount) * 0.5; // 월정료 총합을 기반으로 크기 결정
-            
-            return {
-                label: branch,
-                data: [{
-                    x: avgRisk.toFixed(1), // X축: 평균 해지 위험도
-                    y: avgAmount.toFixed(0), // Y축: 평균 월정료
-                    r: bubbleSize < 5 ? 5 : (bubbleSize > 40 ? 40 : bubbleSize) // 최소/최대 크기 제한
-                }],
-                backgroundColor: `#${Math.floor(Math.random()*16777215).toString(16)}66`, // 랜덤 색상
-                borderColor: '#333',
-            };
-        });
-
-        chartInstances.pipelineRiskBubbleChart = new Chart(document.getElementById("pipelineRiskBubbleChart").getContext("2d"), {
-            type: "bubble",
-            data: { datasets: data },
-            options: {
-                responsive: true,
-                animation: { duration: 1200 },
-                layout: { padding: { top: 20 } },
-                scales: {
-                    x: {
-                        title: { display: true, text: '평균 해지 위험도 (%)' },
-                        min: 0,
-                        max: 100
-                    },
-                    y: {
-                        title: { display: true, text: '평균 월정료 (천원)' },
-                        beginAtZero: true,
-                        ticks: { callback: formatNumber }
-                    }
-                },
-                plugins: {
-                    legend: { position: 'bottom' },
-                    datalabels: {
-                        formatter: (value, context) => context.dataset.label,
-                        color: '#333',
-                        font: { size: 10, weight: 'bold' }
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-    }
-    
-    // **시각화 3: Top 5 지사 방어 성공률 벤치마크**
-    function drawPipelineDefenseSuccessRateChart() {
-        const agg = {};
-        
-        filteredPipelineData.forEach(row => {
-            const branch = normalizeBranch(row["관리지사"]);
-            if (!branch) return;
-            if (!agg[branch]) agg[branch] = { success: 0, attempt: 0, rate: 0 };
-            
-            const stage = (row["방어진행단계"] || "").trim();
-            if (["방어성공", "방어실패", "진행중"].includes(stage)) {
-                agg[branch].attempt++;
-                if (stage === "방어성공") {
-                    agg[branch].success++;
-                }
-            }
-        });
-
-        Object.values(agg).forEach(val => {
-            val.rate = val.attempt > 0 ? (val.success / val.attempt) * 100 : 0;
-        });
-
-        const top5 = Object.entries(agg)
-            .filter(([, val]) => val.attempt >= 5) // 최소 시도 건수
-            .sort((a, b) => b[1].rate - a[1].rate)
-            .slice(0, 5);
-        
-        const labels = top5.map(e => e[0]);
-        const data = top5.map(e => e[1].rate);
-
-        destroyChart("pipelineDefenseSuccessRateChart");
-
-        chartInstances.pipelineDefenseSuccessRateChart = new Chart(document.getElementById("pipelineDefenseSuccessRateChart").getContext("2d"), {
-            type: "line",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '방어 성공률 (%)',
-                    data: data,
-                    borderColor: '#059669',
-                    backgroundColor: 'rgba(5, 150, 105, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                animation: { duration: 1200 },
-                layout: { padding: { top: 30 } },
-                scales: {
-                    y: {
-                        title: { display: true, text: '성공률 (%)' },
-                        min: 0,
-                        max: 100,
-                    },
-                    x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
-                },
-                plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'top',
-                        formatter: (value) => `${value.toFixed(1)}%`,
-                        color: '#059669',
-                        font: { weight: 'bold' }
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-    }
-
-// **시각화 4: 담당자별 방어 실패 건수 (Top 10)**
-    function drawPipelineAgentFailChart() {
-        const failByAgent = filteredPipelineData
-            .filter(row => row["방어진행단계"] === "방어실패")
-            .reduce((acc, row) => {
-                const agent = (row["담당자"] || "미지정").trim();
-                acc[agent] = (acc[agent] || 0) + 1;
-                return acc;
-            }, {});
-            
-        const top10 = Object.entries(failByAgent)
-            // ⭐️ 수정: 실패 건수(e[1])가 0인 담당자 항목 제외
-            .filter(e => e[1] > 0) 
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 10);
-
-        destroyChart("pipelineAgentFailChart");
-
-        chartInstances.pipelineAgentFailChart = new Chart(document.getElementById("pipelineAgentFailChart").getContext("2d"), {
-            type: "bar",
-            data: {
-                labels: top10.map(e => e[0]),
-                datasets: [{
-                    label: '방어 실패 건수',
-                    data: top10.map(e => e[1]),
-                    backgroundColor: '#dc2626',
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                animation: { duration: 1200 },
-                layout: { padding: { right: 30 } }, // 오른쪽 여백 추가
-                scales: {
-                    x: { 
-                        beginAtZero: true, 
-                        title: { display: true, text: "건수" },
-                        padding: 10
-                    },
-                    y: { }
-                },
-                plugins: {
-                    legend: { display: false },
-                    datalabels: { 
-                        anchor: 'end', 
-                        align: 'right', 
-                        formatter: formatNumber, 
-                        color: '#333',
-                        font: { weight: 'bold' }
-                    }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-    }
-
-    // renderPipelineList, attachPipelineSortEvents, updatePipelineDashboard 함수는 수정사항이 없으므로 그대로 두시면 됩니다.
-
-
-    function renderPipelineList() {
-        const tableBody = document.querySelector("#pipelineListTable tbody");
-        tableBody.innerHTML = "";
-        let sortedData = [...filteredPipelineData];
-
-        const sortField = pipelineListSortField;
-        const direction = pipelineListSortDirection === 'asc' ? 1 : -1;
-        
-        sortedData.sort((a, b) => {
-            let valA = a[sortField];
-            let valB = b[sortField];
-            
-            if (sortField === "해지위험도" || sortField === "KTT월정료(조정)") {
-                valA = parseFloat(String(valA).replace(/,/g, "")) || 0;
-                valB = parseFloat(String(valB).replace(/,/g, "")) || 0;
-            }
-            
-            if (valA < valB) return -1 * direction;
-            if (valA > valB) return 1 * direction;
-            return 0;
-        });
-
-        sortedData.slice(0, 100).forEach(row => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${(row["관리본부"] || "").trim()}</td>
-                <td>${normalizeBranch(row["관리지사"])}</td>
-                <td>${(parseFloat(row["해지위험도"]) || 0).toFixed(1)}</td>
-                <td>${row["담당영업채널"]}</td>
-                <td>${formatNumber(toThousandWon(row["KTT월정료(조정)"]))}</td>
-                <td>${row["방어진행단계"]}</td>
-                <td>${row["담당자"]}</td>
-            `;
-            tableBody.appendChild(tr);
-        });
-
-        document.querySelectorAll("#pipelineListTable th").forEach(th => {
-            th.innerHTML = th.getAttribute("data-field");
-            if (th.getAttribute("data-field") === pipelineListSortField) {
-                const icon = pipelineListSortDirection === 'asc' ? ' ▲' : ' ▼';
-                th.innerHTML += icon;
-            }
-        });
-    }
-
-    function attachPipelineSortEvents() {
-        document.querySelectorAll("#pipelineListTable th").forEach(th => {
-            th.addEventListener('click', function() {
-                const field = this.getAttribute('data-field');
-                if (field === pipelineListSortField) {
-                    pipelineListSortDirection = pipelineListSortDirection === 'asc' ? 'desc' : 'asc';
-                } else {
-                    pipelineListSortField = field;
-                    pipelineListSortDirection = 'desc';
-                }
-                renderPipelineList();
+                if (state.pipeline.hq !== "ALL" && (r["관리본부"]||"").trim() !== state.pipeline.hq) return false;
+                if (state.pipeline.branch !== "ALL" && util.normalizeBranch(r["관리지사"]) !== state.pipeline.branch) return false;
+                if (state.pipeline.agent !== "ALL" && (r["담당자"]||"").trim() !== state.pipeline.agent) return false;
+                
+                return true;
             });
-        });
+            state.pipeline.page = 1; // 필터 변경 시 첫 페이지로
+        } else {
+            const type = document.getElementById("vocTypeFilter").value;
+            const status = document.querySelector('#vocStatusButtons .active').dataset.value;
+
+            state.voc.filtered = state.voc.data.filter(r => {
+                if (type !== "ALL" && (r["VOC유형대"]||"").trim() !== type) return false;
+                if (status !== "ALL" && (r["상태"]||"").trim() !== status) return false;
+                return true;
+            });
+            state.voc.page = 1;
+        }
     }
 
-    function updatePipelineDashboard() {
-        filterPipelineData();
-        updatePipelineKPIs();
-        generatePipelineReview();
-        drawPipelineBranchStageChart();
-        drawPipelineRiskBubbleChart();
-        drawPipelineDefenseSuccessRateChart();
-        drawPipelineAgentFailChart();
-        renderPipelineList();
+    // --- KPI & Review ---
+    function updatePipelineKPIs() {
+        const d = state.pipeline.filtered;
+        const totalAmount = d.reduce((s, r) => s + util.toThousand(r["KTT월정료(조정)"]), 0);
+        const success = d.filter(r => r["방어진행단계"] === "방어성공").length;
+        const attempts = d.filter(r => ["방어성공", "방어실패", "진행중"].includes(r["방어진행단계"])).length;
+        const highRisk = d.filter(r => parseFloat(r["해지위험도"]) >= 75).length;
+
+        document.getElementById("kpi-pipeline-count").innerText = util.formatNum(d.length);
+        document.getElementById("kpi-pipeline-amount").innerText = util.formatNum(totalAmount);
+        document.getElementById("kpi-high-risk-count").innerText = util.formatNum(highRisk);
+        document.getElementById("kpi-defense-success-rate").innerText = attempts > 0 ? (success / attempts * 100).toFixed(1) + "%" : "0%";
     }
 
+    function generatePipelineReview() {
+        const failures = state.pipeline.filtered.filter(r => r["방어진행단계"] === "방어실패");
+        const el = document.getElementById("ai-pipeline-review");
+        
+        if (failures.length === 0) {
+            el.innerHTML = "🎉 해당 기간/조건에서 방어 실패 건수가 없습니다. 매우 우수한 성과입니다!";
+            return;
+        }
 
-    /* ---------------------------------------------------------
-        📌 VOC - 필터링 및 업데이트 로직 (이전과 동일)
-    --------------------------------------------------------- */
-    
-    function setVocType(value) {
-        vocSelectedType = value;
-        updateVocDashboard();
-    }
+        const countBy = (arr, key) => arr.reduce((acc, r) => {
+            const k = key(r); acc[k] = (acc[k]||0)+1; return acc;
+        }, {});
+        
+        const branchFail = countBy(failures, r => util.normalizeBranch(r["관리지사"]));
+        const topBranch = Object.entries(branchFail).sort((a,b)=>b[1]-a[1])[0];
+        
+        const agentFail = countBy(failures, r => (r["담당자"]||"미지정").trim());
+        const topAgent = Object.entries(agentFail).sort((a,b)=>b[1]-a[1])[0];
 
-    function setVocStatus(value, button) {
-        vocSelectedStatus = value;
-        document.querySelectorAll('#vocStatusButtons .filter-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        button.classList.add('active');
-        updateVocDashboard();
-    }
-
-    function filterVocData() {
-        filteredVocData = vocData.filter(row => {
-            const type = (row["VOC유형대"] || "").trim();
-            const status = (row["상태"] || "").trim();
-
-            if (vocSelectedType !== "ALL" && type !== vocSelectedType) return false;
-            if (vocSelectedStatus !== "ALL" && status !== vocSelectedStatus) return false;
-            return true;
-        });
+        el.innerHTML = `현재 <b>총 ${failures.length}건</b>의 방어 실패가 식별되었습니다.<br>` +
+            (topBranch ? `• <b>${topBranch[0]}지사</b>에서 가장 많은 실패(${topBranch[1]}건)가 발생하여 점검이 필요합니다.<br>` : '') +
+            (topAgent ? `• 담당자 중 <b>${topAgent[0]}</b>님의 실패 건수(${topAgent[1]}건)가 상위권으로 나타났습니다.` : '');
     }
 
     function updateVocKPIs() {
-        if (!filteredVocData.length) {
-            document.getElementById("kpi-voc-total").innerText = "0";
-            document.getElementById("kpi-voc-complete").innerText = "0";
-            document.getElementById("kpi-voc-complete-rate").innerText = "0%";
-            document.getElementById("kpi-voc-unassigned").innerText = "0";
-            return;
-        }
-
-        const totalVoc = filteredVocData.length;
-        const completedVoc = filteredVocData.filter(row => (row["상태"] || "").trim() === "처리완료").length;
-        const unassignedVoc = filteredVocData.filter(row => (row["상태"] || "").trim() === "미접수").length;
-        const vocCompleteRate = totalVoc > 0 ? (completedVoc / totalVoc) * 100 : 0;
-
-        document.getElementById("kpi-voc-total").innerText = formatNumber(totalVoc);
-        document.getElementById("kpi-voc-complete").innerText = formatNumber(completedVoc);
-        document.getElementById("kpi-voc-complete-rate").innerText = `${vocCompleteRate.toFixed(1)}%`;
-        document.getElementById("kpi-voc-unassigned").innerText = formatNumber(unassignedVoc);
-    }
-    
-    function renderVocTypeFilter() {
-        const select = document.getElementById("vocTypeFilter");
-        select.innerHTML = '<option value="ALL">전체</option>';
-        const types = Array.from(new Set(vocData.map(r => (r["VOC유형대"] || "").trim()).filter(Boolean))).sort();
-        types.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type;
-            option.textContent = type;
-            select.appendChild(option);
-        });
-        select.addEventListener('change', (e) => setVocType(e.target.value));
+        const d = state.voc.filtered;
+        const complete = d.filter(r => (r["상태"]||"").trim() === "처리완료").length;
+        document.getElementById("kpi-voc-total").innerText = util.formatNum(d.length);
+        document.getElementById("kpi-voc-complete").innerText = util.formatNum(complete);
+        document.getElementById("kpi-voc-complete-rate").innerText = d.length > 0 ? (complete / d.length * 100).toFixed(1) + "%" : "0%";
+        document.getElementById("kpi-voc-unassigned").innerText = util.formatNum(d.filter(r => (r["상태"]||"").trim() === "미접수").length);
     }
 
-    function aggregateVocBy(field, limit = 20) {
-        const agg = {};
-        const statuses = ["처리완료", "접수", "미접수"];
-
-        filteredVocData.forEach(row => {
-            let key = field === "관리지사"
-                ? normalizeBranch(row["관리지사"])
-                : (row[field] || "").trim();
-
-            if (!key) return;
-
-            const st = (row["상태"] || "").trim();
-
-            if (!agg[key]) agg[key] = { 처리완료: 0, 접수: 0, 미접수: 0 };
-            if (statuses.includes(st)) agg[key][st]++;
-        });
-
-        const entries = Object.entries(agg);
-        
-        if (field === "관리지사") {
-            entries.sort((a, b) => sortBranches(a[0], b[0]));
-        } else {
-            entries.sort((a, b) =>
-                (b[1].처리완료 + b[1].접수 + b[1].미접수) -
-                (a[1].처리완료 + a[1].접수 + a[1].미접수)
-            );
-        }
-
-        const sliced = entries.slice(0, limit);
-
-        return {
-            labels: sliced.map(e => e[0]),
-            처리완료: sliced.map(e => e[1].처리완료),
-            접수: sliced.map(e => e[1].접수),
-            미접수: sliced.map(e => e[1].미접수),
-        };
+    // --- 차트 그리기 (Helper: Destroy) ---
+    function newChart(id, config) {
+        if (chartInstances[id]) chartInstances[id].destroy();
+        chartInstances[id] = new Chart(document.getElementById(id), config);
     }
 
-function drawVocBranchChart() {
-        const agg = {};
-        const stats = ["처리완료", "접수", "미접수"];
+    function drawPipelineCharts() {
+        const d = state.pipeline.filtered;
+        const mode = state.pipeline.mode;
         
-        filteredVocData.forEach(row => {
-            const br = normalizeBranch(row["관리지사"]);
-            if (!br) return;
-            if (!agg[br]) agg[br] = { "처리완료":0, "접수":0, "미접수":0 };
-            const s = (row["상태"]||"").trim();
-            if (stats.includes(s)) agg[br][s]++;
+        // 1. 지사별 단계 (Stacked)
+        const branchAgg = {};
+        d.forEach(r => {
+            const b = util.normalizeBranch(r["관리지사"]); if(!b) return;
+            if(!branchAgg[b]) branchAgg[b] = { suc:0, fail:0, ing:0, total:0 };
+            const val = mode === 'amount' ? util.toThousand(r["KTT월정료(조정)"]) : 1;
+            const st = r["방어진행단계"];
+            if(st==='방어성공') branchAgg[b].suc += val;
+            else if(st==='방어실패') branchAgg[b].fail += val;
+            else if(st==='진행중') branchAgg[b].ing += val;
+            if(['방어성공','방어실패','진행중'].includes(st)) branchAgg[b].total += val;
         });
-
-        // ⭐️ 수정: 총합이 0인 지사 제외 후 라벨 정렬
-        const labels = Object.keys(agg).filter(br => {
-            const total = agg[br]["처리완료"] + agg[br]["접수"] + agg[br]["미접수"];
-            return total > 0;
-        }).sort(sortBranches);
         
-        destroyChart("vocBranchChart");
-        chartInstances.vocBranchChart = new Chart(document.getElementById("vocBranchChart"), {
+        const sortedBranch = Object.entries(branchAgg).filter(e=>e[1].total>0).sort((a,b)=>b[1].total - a[1].total).slice(0,10);
+        const labels = sortedBranch.map(e=>e[0]);
+        
+        newChart('pipelineBranchStageChart', {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [
-                    { label: '처리완료', data: labels.map(l=>agg[l]['처리완료']), backgroundColor: '#3b82f6', stack:'v' },
-                    { label: '접수', data: labels.map(l=>agg[l]['접수']), backgroundColor: '#f59e0b', stack:'v' },
-                    { label: '미접수', data: labels.map(l=>agg[l]['미접수']), backgroundColor: '#ef4444', stack:'v' }
+                    { label: '방어성공', data: sortedBranch.map(e=>e[1].suc), backgroundColor: '#10b981', stack: 's' },
+                    { label: '진행중', data: sortedBranch.map(e=>e[1].ing), backgroundColor: '#f59e0b', stack: 's' },
+                    { label: '방어실패', data: sortedBranch.map(e=>e[1].fail), backgroundColor: '#ef4444', stack: 's' }
                 ]
             },
             options: {
-                scales: { x:{stacked:true}, y:{stacked:true} },
-                plugins: { legend: { position:'bottom' } }
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { stacked: true }, y: { stacked: true } },
+                plugins: { legend: { position:'bottom' }, datalabels: { display: false } }
             }
         });
-    }
 
-function drawVocAgentChart() {
-        const agg = {};
-        filteredVocData.forEach(row => {
-            const ag = (row["담당자"]||"").trim();
-            if (!ag) return;
-            if (!agg[ag]) agg[ag] = { done:0, total:0 };
-            agg[ag].total++;
-            if (row["상태"]==="처리완료") agg[ag].done++;
+        // 2. 버블 차트
+        const bubbleData = Object.entries(branchAgg).map(([br, val]) => {
+            // 해당 지사의 평균 위험도와 평균 금액 계산을 위해 다시 순회 필요 (성능상 여기선 약식 계산)
+            const subset = d.filter(r => util.normalizeBranch(r["관리지사"]) === br);
+            const avgRisk = subset.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0) / subset.length;
+            const totalAmt = subset.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
+            return {
+                label: br,
+                data: [{ x: avgRisk, y: totalAmt / subset.length, r: Math.sqrt(totalAmt)*0.4 }], // r scaling
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: '#2563eb'
+            };
+        }).filter(b => b.data[0].r > 0);
+
+        newChart('pipelineRiskBubbleChart', {
+            type: 'bubble',
+            data: { datasets: bubbleData },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: 위험도 ${ctx.raw.x.toFixed(1)}% / 평균 ${Math.round(ctx.raw.y).toLocaleString()}천원`
+                        }
+                    },
+                    datalabels: { 
+                        formatter: (v, ctx) => ctx.dataset.label, 
+                        font: {size:10, weight:'bold'}, color:'#1e3a8a', align:'top', offset: -2 
+                    }
+                },
+                scales: {
+                    x: { title: {display:true, text:'평균 해지 위험도 (%)'}, min:0, max:100 },
+                    y: { title: {display:true, text:'평균 월정료 (천원)'} }
+                }
+            }
         });
 
-        const sorted = Object.entries(agg)
-            // ⭐️ 수정: total 건수가 0인 에이전트 제외
-            .filter(e => e[1].total > 0)
-            .sort((a,b) => b[1].total - a[1].total).slice(0, 20);
-        
-        destroyChart("vocAgentChart");
-        chartInstances.vocAgentChart = new Chart(document.getElementById("vocAgentChart"), {
-            type: 'bar',
-            indexAxis: 'y',
+        // 3. 성공률 라인 차트
+        const rates = sortedBranch.map(([br, val]) => ({
+             br, rate: val.total > 0 ? (val.suc / val.total * 100) : 0
+        })).sort((a,b) => b.rate - a.rate).slice(0,5); // 성공률 상위 5개
+
+        newChart('pipelineDefenseSuccessRateChart', {
+            type: 'line',
             data: {
-                labels: sorted.map(e=>e[0]),
-                datasets: [
-                    { label: '처리완료', data: sorted.map(e=>e[1].done), backgroundColor: '#3b82f6', stack:'va' },
-                    { label: '미완료', data: sorted.map(e=>e[1].total - e[1].done), backgroundColor: '#e5e7eb', stack:'va' }
-                ]
+                labels: rates.map(r=>r.br),
+                datasets: [{
+                    label: '성공률(%)', data: rates.map(r=>r.rate),
+                    borderColor: '#059669', backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true, tension: 0.3
+                }]
             },
             options: {
-                scales: { x:{stacked:true}, y:{stacked:true} },
-                plugins: { legend: { position:'bottom' } }
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { min:0, max:100 } },
+                plugins: { legend:{display:false} }
+            }
+        });
+
+        // 4. 담당자 실패 (Top 10)
+        const agentFail = {};
+        d.filter(r=>r["방어진행단계"]==='방어실패').forEach(r => {
+            const ag = (r["담당자"]||"미지정").trim();
+            agentFail[ag] = (agentFail[ag]||0)+1;
+        });
+        const sortedAgent = Object.entries(agentFail).sort((a,b)=>b[1]-a[1]).slice(0,10);
+        
+        newChart('pipelineAgentFailChart', {
+            type: 'bar',
+            data: {
+                labels: sortedAgent.map(e=>e[0]),
+                datasets: [{ label: '실패 건수', data: sortedAgent.map(e=>e[1]), backgroundColor: '#ef4444' }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend:{display:false} }
             }
         });
     }
 
-    function renderVocList() {
-        const tableBody = document.querySelector("#vocListTable tbody");
-        tableBody.innerHTML = "";
-        let sortedData = [...filteredVocData];
-
-        const sortField = vocListSortField;
-        const direction = vocListSortDirection === 'asc' ? 1 : -1;
+    function drawVocCharts() {
+        const d = state.voc.filtered;
         
-        sortedData.sort((a, b) => {
-            let valA = a[sortField];
-            let valB = b[sortField];
-            
-            if (valA < valB) return -1 * direction;
-            if (valA > valB) return 1 * direction;
+        // 지사별
+        const brAgg = {};
+        d.forEach(r => {
+            const b = util.normalizeBranch(r["관리지사"]); if(!b)return;
+            if(!brAgg[b]) brAgg[b] = {done:0, receipt:0, yet:0};
+            const s = (r["상태"]||"").trim();
+            if(s==='처리완료') brAgg[b].done++; else if(s==='접수') brAgg[b].receipt++; else brAgg[b].yet++;
+        });
+        const labels = Object.keys(brAgg).sort(util.sortBranches);
+
+        newChart('vocBranchChart', {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {label:'완료', data:labels.map(l=>brAgg[l].done), backgroundColor:'#3b82f6', stack:'s'},
+                    {label:'접수', data:labels.map(l=>brAgg[l].receipt), backgroundColor:'#f59e0b', stack:'s'},
+                    {label:'미접수', data:labels.map(l=>brAgg[l].yet), backgroundColor:'#ef4444', stack:'s'}
+                ]
+            },
+            options: { responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true},y:{stacked:true}}, plugins:{legend:{position:'bottom'}, datalabels:{display:false}} }
+        });
+
+        // 담당자별
+        const agAgg = {};
+        d.forEach(r=>{
+            const a = (r["담당자"]||"").trim(); if(!a)return;
+            if(!agAgg[a]) agAgg[a] = 0;
+            if(r["상태"]==='처리완료') agAgg[a]++;
+        });
+        const sortedAg = Object.entries(agAgg).sort((a,b)=>b[1]-a[1]).slice(0,20);
+
+        newChart('vocAgentChart', {
+            type: 'bar',
+            data: {
+                labels: sortedAg.map(e=>e[0]),
+                datasets: [{label:'처리완료', data:sortedAg.map(e=>e[1]), backgroundColor:'#3b82f6'}]
+            },
+            options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+        });
+    }
+
+    // --- 테이블 및 페이지네이션 ---
+    function renderTable(type) {
+        const s = state[type];
+        const tbody = document.querySelector(`#${type}ListTable tbody`);
+        tbody.innerHTML = "";
+
+        // 정렬
+        const sorted = [...s.filtered].sort((a, b) => {
+            let va = a[s.sortField], vb = b[s.sortField];
+            if (s.sortField.includes('월정료') || s.sortField.includes('위험도')) {
+                va = parseFloat(String(va).replace(/,/g,'')) || 0;
+                vb = parseFloat(String(vb).replace(/,/g,'')) || 0;
+            }
+            if (va < vb) return s.sortDir === 'asc' ? -1 : 1;
+            if (va > vb) return s.sortDir === 'asc' ? 1 : -1;
             return 0;
         });
 
-        sortedData.slice(0, 100).forEach(row => {
+        // 페이징
+        const start = (s.page - 1) * s.limit;
+        const pageData = sorted.slice(start, start + s.limit);
+        const totalPages = Math.ceil(sorted.length / s.limit);
+
+        document.getElementById(`${type}PaginationInfo`).innerText = 
+            `총 ${util.formatNum(sorted.length)}건 중 ${start+1} - ${Math.min(start+s.limit, sorted.length)}`;
+
+        pageData.forEach(r => {
             const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${(row["상태"] || "-").trim()}</td>
-                <td>${(row["VOC유형대"] || "-").trim()}</td>
-                <td>${(row["VOC유형중"] || "-").trim()}</td>
-                <td>${(row["VOC유형소"] || "-").trim()}</td>
-                <td>${(row["관리본부"] || "-").trim()}</td>
-                <td>${normalizeBranch(row["관리지사"])}</td>
-                <td>${(row["담당자"] || "-").trim()}</td>
-            `;
-            tableBody.appendChild(tr);
+            if(type === 'pipeline') {
+                const risk = parseFloat(r["해지위험도"])||0;
+                let badgeClass = risk >= 75 ? 'risk-high' : (risk >= 50 ? 'risk-mid' : 'risk-low');
+                tr.innerHTML = `
+                    <td>${util.cleanContract(r["계약번호"])}</td>
+                    <td>${util.normalizeBranch(r["관리지사"])}</td>
+                    <td><span class="badge ${badgeClass}">${risk.toFixed(1)}%</span></td>
+                    <td>${r["담당영업채널"]}</td>
+                    <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>
+                    <td>${r["방어진행단계"]}</td>
+                    <td>${r["담당자"]}</td>`;
+            } else {
+                tr.innerHTML = `
+                    <td>${util.cleanContract(r["계약번호"])}</td>
+                    <td>${r["상태"]}</td>
+                    <td>${r["VOC유형대"]}</td>
+                    <td>${r["VOC유형중"]}</td>
+                    <td>${r["관리본부"]}</td>
+                    <td>${util.normalizeBranch(r["관리지사"])}</td>
+                    <td>${r["담당자"]}</td>`;
+            }
+            tbody.appendChild(tr);
         });
 
-        document.querySelectorAll("#vocListTable th").forEach(th => {
-            th.innerHTML = th.getAttribute("data-field");
-            if (th.getAttribute("data-field") === vocListSortField) {
-                const icon = vocListSortDirection === 'asc' ? ' ▲' : ' ▼';
-                th.innerHTML += icon;
-            }
-        });
+        // 버튼 상태
+        const btns = document.querySelectorAll(`#${type}View .pagination button`);
+        btns[0].disabled = s.page === 1;
+        btns[1].disabled = s.page >= totalPages || totalPages === 0;
     }
 
-    function attachVocSortEvents() {
-        document.querySelectorAll("#vocListTable th").forEach(th => {
-            th.addEventListener('click', function() {
-                const field = this.getAttribute('data-field');
-                if (field === vocListSortField) {
-                    vocListSortDirection = vocListSortDirection === 'asc' ? 'desc' : 'asc';
+    window.changePage = (type, delta) => {
+        state[type].page += delta;
+        renderTable(type);
+    };
+
+    function setupSortEvents(tableId, type) {
+        document.querySelectorAll(`#${tableId} th[data-field]`).forEach(th => {
+            th.addEventListener('click', () => {
+                const field = th.dataset.field;
+                if(state[type].sortField === field) {
+                    state[type].sortDir = state[type].sortDir === 'asc' ? 'desc' : 'asc';
                 } else {
-                    vocListSortField = field;
-                    vocListSortDirection = 'desc';
+                    state[type].sortField = field;
+                    state[type].sortDir = 'desc';
                 }
-                renderVocList();
+                
+                // 헤더 아이콘 처리
+                document.querySelectorAll(`#${tableId} th`).forEach(t => t.innerText = t.innerText.replace(/ [▲▼]/, ''));
+                th.innerText += state[type].sortDir === 'asc' ? ' ▲' : ' ▼';
+                
+                renderTable(type);
             });
         });
     }
 
-    function updateVocDashboard() {
-        filterVocData();
-        updateVocKPIs();
-        drawVocBranchChart();
-        drawVocAgentChart();
-        renderVocList();
-    }
+    // --- 엑셀 다운로드 ---
+    window.exportToCSV = (type) => {
+        const data = state[type].filtered;
+        if(!data.length) return alert("다운로드할 데이터가 없습니다.");
+        const csv = Papa.unparse(data);
+        const blob = new Blob(["\uFEFF"+csv], {type: 'text/csv;charset=utf-8;'});
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `ktt_dashboard_${type}_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+    };
 
-
-    /* ---------------------------------------------------------
-        📌 초기 로드
-    --------------------------------------------------------- */
-    async function initDashboard() {
-        vocData = await loadCsv(VOC_CSV_URL);
-        pipelineData = await loadCsv(PIPELINE_CSV_URL);
-
-        // PIPELINE 초기 설정 (강북/강원 디폴트 적용을 위해 로직 변경)
-        const heads = Array.from(new Set(pipelineData.map(r => (r["관리본부"] || "").trim()).filter(Boolean))).sort();
-        if (!heads.includes(pipelineSelectedHQ)) {
-             // '강북/강원'이 데이터에 없으면 'ALL'로 초기화
-            pipelineSelectedHQ = 'ALL'; 
-        }
-        
-        renderPipelineHQButtons();
-        renderPipelineBranchButtons();
-        renderPipelineAgentButtons();
-
-        // VOC 초기 설정
-        renderVocTypeFilter();
-
-        // 필터 이벤트 리스너 등록
-        document.getElementById("channelFilter").addEventListener("change", updatePipelineDashboard);
-        document.querySelectorAll('#pipelineFilters input[name="risk"]').forEach(r => r.addEventListener("change", updatePipelineDashboard));
-            
-        // 리스트 정렬 이벤트 등록
-        attachPipelineSortEvents();
-        attachVocSortEvents();
-
-        // 초기 뷰 업데이트 (기본: VOC로 시작하도록 요청되어있었으나, 현재 요청은 Pipeline 필터에 집중되어 VOC/Pipeline 모두 업데이트)
-        switchView('pipeline'); // 기본값: Pipeline
-    }
-
-    window.addEventListener("load", initDashboard);
 </script>
-
 </body>
 </html>
