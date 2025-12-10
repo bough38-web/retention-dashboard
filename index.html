@@ -359,13 +359,27 @@
         }
     };
 
-    window.addEventListener("load", async () => {
+window.addEventListener("load", async () => {
         try {
             const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
-            state.voc.data = v; state.pipeline.data = p;
+            state.voc.data = v; 
+            
+            // [수정 포인트] 파이프라인 데이터 로드 후 'KTT월정료(조정)' 소수점 보정 작업 수행
+            state.pipeline.data = p.map(row => {
+                // KTT월정료(조정) 값이 있다면 소수점 반올림하여 정수로 변환
+                if (row["KTT월정료(조정)"]) {
+                    // 콤마 제거 및 숫자 변환
+                    const val = parseFloat(String(row["KTT월정료(조정)"]).replace(/,/g, ""));
+                    if (!isNaN(val)) {
+                        // 반올림 후 다시 문자열로 저장 (기존 로직과의 호환성 유지)
+                        row["KTT월정료(조정)"] = String(Math.round(val));
+                    }
+                }
+                return row;
+            });
             
             // Initial Pipeline Setup
-            const hqs = [...new Set(p.map(r=>(r["관리본부"]||"").trim()).filter(Boolean))];
+            const hqs = [...new Set(state.pipeline.data.map(r=>(r["관리본부"]||"").trim()).filter(Boolean))];
             state.pipeline.hq = hqs.includes('강북/강원') ? '강북/강원' : 'ALL';
             
             // Ensure dropdown matches state default
