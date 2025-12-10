@@ -946,7 +946,15 @@
                 responsive: true, 
                 maintainAspectRatio: false,
                 scales: { x: { stacked: true }, y: { stacked: true } },
-                plugins: { legend: { position: 'top' } }
+                plugins: {
+                    legend: { position: 'top' },
+                    datalabels: {
+                        display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0, // Hide 0 values
+                        color: '#fff',
+                        font: { weight: 'bold' },
+                        formatter: (value) => value
+                    }
+                }
             }
         });
 
