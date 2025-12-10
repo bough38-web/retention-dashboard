@@ -209,9 +209,17 @@
         .data-table td {
             padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main);
             vertical-align: middle;
-            text-align: center; /* 테이블 내용 가운데 정렬 */
+            text-align: center; /* 기본 테이블 내용 가운데 정렬 */
         }
         .data-table tr:hover td { background: #f8fafc; }
+
+        /* 긴 텍스트용 클래스 (좌측 정렬 + 줄바꿈) */
+        .long-text {
+            text-align: left !important;
+            white-space: normal !important;
+            min-width: 250px;
+            line-height: 1.5;
+        }
 
         /* 지도 버튼 스타일 */
         .btn-map {
@@ -401,7 +409,7 @@
                             <th data-field="관리지사">지사</th>
                             <th data-field="담당자">담당자</th>
                             <th data-field="계약번호">계약번호</th>
-                            <th data-field="상호">상호</th>
+                            <th data-field="상호">상호명</th>
                             <th data-field="상태">상태</th>
                             <th data-field="VOC유형소">서비스(소)</th>
                             <th data-field="합산월정료">합산월정료</th>
@@ -498,11 +506,18 @@
                             <th data-field="관리본부">본부</th>
                             <th data-field="관리지사">지사</th>
                             <th data-field="담당자">담당자</th>
-                            <th data-field="방어진행단계">단계</th>
-                            <th data-field="담당영업채널">채널</th>
                             <th data-field="계약번호" data-sort="asc">계약번호</th>
-                            <th data-field="상호">상호</th>
+                            <th data-field="상호">상호명</th>
+                            <th data-field="담당영업채널">채널</th>
                             <th data-field="KTT월정료(조정)" data-sort="none">월정료(천원)</th>
+                            <th data-field="재계약여부">재계약여부</th>
+                            <th data-field="방어진행단계">방어진행단계</th>
+                            <th data-field="이슈유형">이슈유형</th>
+                            <th data-field="해지사유">해지사유</th>
+                            <th data-field="해지예정일">해지예정일</th>
+                            <th data-field="등록일자">등록일자</th>
+                            <th data-field="지원요청내용">지원요청내용</th>
+                            <th data-field="세부내용">세부내용 및 공유사항</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -554,6 +569,24 @@
             return isNaN(num) ? 0 : Math.round(num / 1000);
         },
         formatNum: (num) => num.toLocaleString(),
+        excelDateToJSDate: (serial) => {
+            if (!serial) return "-";
+            // Check if already a date string or text
+            if(isNaN(serial) && String(serial).includes('-')) return serial;
+            
+            // Clean string (e.g. 45,993 -> 45993)
+            const cleaned = parseFloat(String(serial).replace(/,/g, ''));
+            if(isNaN(cleaned)) return serial;
+
+            // Excel date to JS Date (Epoch diff: 25569 days)
+            const date = new Date((cleaned - 25569) * 86400 * 1000);
+            if(isNaN(date.getTime())) return serial;
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        },
         sortBranches: (a, b) => {
             const order = ["중앙", "강북", "서대문", "고양", "의정부", "남양주", "강릉", "원주"];
             const idxA = order.indexOf(a);
@@ -1008,11 +1041,18 @@
                     <td>${r["관리본부"] || '-'}</td>
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
                     <td>${r["담당자"]}</td>
-                    <td><span class="badge ${badgeClass}">${stage}</span></td>
-                    <td>${r["담당영업채널"]}</td>
                     <td>${util.cleanContract(r["계약번호"])}</td>
                     <td>${r["상호"] || '-'}</td>
-                    <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>`;
+                    <td>${r["담당영업채널"]}</td>
+                    <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>
+                    <td>${r["재계약여부"] || '-'}</td>
+                    <td><span class="badge ${badgeClass}">${stage}</span></td>
+                    <td>${r["이슈유형"] || '-'}</td>
+                    <td>${r["해지사유"] || '-'}</td>
+                    <td>${r["해지예정일"] || '-'}</td>
+                    <td>${util.excelDateToJSDate(r["등록일자"])}</td>
+                    <td class="long-text">${r["지원요청내용"] || '-'}</td>
+                    <td class="long-text">${r["세부내용 및 공유사항"] || '-'}</td>`;
             } else {
                 let badgeClass = '';
                 const status = (r["상태"]||"").trim();
