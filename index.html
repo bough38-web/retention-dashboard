@@ -359,12 +359,12 @@
         }
     };
 
-window.addEventListener("load", async () => {
+    window.addEventListener("load", async () => {
         try {
             const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
             state.voc.data = v; 
             
-            // [수정 포인트] 파이프라인 데이터 로드 후 'KTT월정료(조정)' 소수점 보정 작업 수행
+            // [통합] 파이프라인 데이터 로드 후 'KTT월정료(조정)' 소수점 보정 작업 수행
             state.pipeline.data = p.map(row => {
                 // KTT월정료(조정) 값이 있다면 소수점 반올림하여 정수로 변환
                 if (row["KTT월정료(조정)"]) {
@@ -614,11 +614,12 @@ window.addEventListener("load", async () => {
         document.getElementById("kpi-defense-success-rate").innerText = att>0 ? (suc/att*100).toFixed(1)+'%' : '0%';
     }
 
+    // [통합 수정] 차트 그리기 및 라벨 포맷팅
     function drawPipelineCharts() {
         const d = state.pipeline.filtered;
         const m = state.pipeline.mode;
         
-        // Branch Stage
+        // 1. Branch Stage
         const br={};
         d.forEach(r=>{
             const b = util.normalizeBranch(r["관리지사"]); if(!b)return;
@@ -640,20 +641,27 @@ window.addEventListener("load", async () => {
                     {label:'실패', data:sBr.map(e=>e[1].fail), backgroundColor:'#f87171', stack:'s', borderRadius:4}
                 ]
             },
-            options: { responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, plugins:{legend:{position:'bottom'}, datalabels:{display:false}} }
+            options: { 
+                responsive:true, maintainAspectRatio:false, 
+                scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, 
+                plugins:{legend:{position:'bottom'}, datalabels:{display:false}} 
+            }
         });
 
-        // Bubble (4분면 분석) - 숫자 포맷팅 수정 적용 (반올림 및 정수화)
+        // 2. Bubble (4분면 분석) - [라벨 포맷팅 적용]
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
             const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
             const amtTotal = sub.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
             const amtAvg = sub.length > 0 ? amtTotal/sub.length : 0;
-            // Math.round를 통해 정수로 변환하여 5,685068 같은 현상 방지
-            return { label:b, data:[{x:risk, y:Math.round(amtAvg), r:Math.sqrt(amtTotal)*0.4}], backgroundColor:'rgba(59,130,246,0.6)', borderColor:'#2563eb' };
+            return { 
+                label:b, 
+                data:[{x:risk, y:Math.round(amtAvg), r:Math.sqrt(amtTotal)*0.4}], 
+                backgroundColor:'rgba(59,130,246,0.6)', 
+                borderColor:'#2563eb' 
+            };
         }).filter(b=>b.data[0].r>0);
         
-        // Bubble Quadrant Plugin
         const quadrantPlugin = {
             id: 'quadrants',
             beforeDraw: (chart) => {
@@ -676,14 +684,23 @@ window.addEventListener("load", async () => {
                 responsive:true, maintainAspectRatio:false,
                 plugins: { 
                     legend:{display:false}, 
-                    tooltip:{callbacks:{label:c=>`${c.dataset.label}: 위험 ${c.raw.x.toFixed(1)}% / ${c.raw.y.toLocaleString()}천원`}} // 툴팁 정수 포맷 적용
+                    tooltip:{
+                        callbacks:{
+                            label:c=>`${c.dataset.label}: 위험 ${c.raw.x.toFixed(1)}% / ${c.raw.y.toLocaleString()}천원`
+                        }
+                    },
+                    // [핵심] 57천원 표시
+                    datalabels: {
+                        display: true, align: 'top', color: '#475569', font: {weight: 'bold', size: 11},
+                        formatter: function(value) { return Math.round(value.y).toLocaleString() + '천원'; }
+                    }
                 },
                 scales: { x:{title:{display:true,text:'평균 위험도 (%)'}, min:0, max:100}, y:{title:{display:true,text:'평균 월정료 (천원)'}} }
             },
             plugins: [quadrantPlugin]
         });
 
-        // Success Rate - 소수점 처리
+        // 3. Success Rate (방어 성공률) - [라벨 포맷팅 적용]
         const rates = sBr.map(e=>({b:e[0], r:e[1].tot>0?e[1].suc/e[1].tot*100:0})).sort((a,b)=>b.r-a.r).slice(0,5);
         const ctxLine = document.getElementById("pipelineDefenseSuccessRateChart").getContext("2d");
         const gradLine = ctxLine.createLinearGradient(0,0,0,300);
@@ -701,19 +718,35 @@ window.addEventListener("load", async () => {
                 scales:{y:{min:0, max:100}}, 
                 plugins:{
                     legend:{display:false},
-                    tooltip: {callbacks: {label: c => `성공률: ${c.raw.toFixed(1)}%`}} // 툴팁 소수점 1자리로 제한
+                    tooltip: {callbacks: {label: c => `성공률: ${c.raw.toFixed(1)}%`}},
+                    // [핵심] 33.3% 표시
+                    datalabels: {
+                        align: 'top', color: '#10b981', font: {weight: 'bold'},
+                        formatter: function(value) { return value.toFixed(1) + '%'; }
+                    }
                 } 
             }
         });
 
-        // Agent Fail
+        // 4. Agent Fail - [라벨 포맷팅 적용]
         const af = {};
         d.filter(r=>r["방어진행단계"]==='방어실패').forEach(r=>{ const a=(r["담당자"]||"미지정").trim(); af[a]=(af[a]||0)+1; });
         const sAf = Object.entries(af).sort((a,b)=>b[1]-a[1]).slice(0,10);
         newChart('pipelineAgentFailChart', {
             type: 'bar',
             data: { labels: sAf.map(e=>e[0]), datasets: [{label:'실패', data:sAf.map(e=>e[1]), backgroundColor:'#ef4444', borderRadius:4}] },
-            options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{x:{grid:{display:false}},y:{grid:{display:false}}}, plugins:{legend:{display:false}} }
+            options: { 
+                indexAxis:'y', responsive:true, maintainAspectRatio:false, 
+                scales:{x:{grid:{display:false}},y:{grid:{display:false}}}, 
+                plugins:{
+                    legend:{display:false},
+                    // 0건 숨김 처리
+                    datalabels: {
+                        color: '#fff', font: {weight: 'bold'},
+                        display: function(context) { return context.dataset.data[context.dataIndex] > 0; }
+                    }
+                } 
+            }
         });
     }
 
