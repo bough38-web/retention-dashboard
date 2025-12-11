@@ -48,7 +48,7 @@
         
         .content { flex: 1; padding: 32px; overflow-y: auto; position: relative; }
 
-        /* 파일 업로드 영역 (New) */
+        /* 파일 업로드 영역 */
         .file-upload-area { margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; }
         .file-upload-area p { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; }
         .file-upload-area input { font-size: 11px; width: 100%; }
@@ -176,6 +176,11 @@
             </div>
             <hr style="border: 0; border-top: 1px dashed #e2e8f0; margin: 20px 0;">
             <label>관리 지사</label><div id="vocBranchButtons" class="filter-buttons"></div>
+            
+            <label>담당자</label>
+            <select id="vocAgentFilter">
+                <option value="ALL">전체 담당자</option>
+            </select>
         </div>
 
         <div id="pipelineFilters" class="filter-panel" style="display:none;">
@@ -200,6 +205,11 @@
             <hr style="border: 0; border-top: 1px dashed #e2e8f0; margin: 20px 0;">
             <label>관리 지사 <span style="font-size:11px; color:var(--primary); cursor:pointer;" onclick="setPipelineFilter('branch','ALL')">(초기화)</span></label>
             <div id="pipelineBranchButtons" class="filter-buttons"></div>
+
+            <label>담당자</label>
+            <select id="pipelineAgentFilter">
+                <option value="ALL">전체 담당자</option>
+            </select>
         </div>
     </div>
 </div>
@@ -359,7 +369,7 @@
     };
     const chartInstances = {};
 
-    // ★ Data Preprocessing (요청하신 1.0 -> 100% 보정 로직 적용)
+    // ★ Data Preprocessing (요청하신 1.0 -> 100% 보정 로직)
     function preprocessPipelineData(data) {
         return data.map(row => {
             // 1. 월정료 정리
@@ -382,7 +392,6 @@
     // Init
     window.addEventListener("load", async () => {
         try {
-            // 기본은 GitHub 데이터 로드 (파일 업로드 시 덮어씌움)
             await loadDefaultData();
         } catch(e) { console.error(e); }
         finally { document.getElementById("loadingOverlay").style.display = "none"; }
@@ -411,7 +420,7 @@
         return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
     }
 
-    // ★ 로컬 파일 업로드 핸들러
+    // 로컬 파일 업로드 핸들러
     document.getElementById('localFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -423,7 +432,7 @@
                 complete: function(results) {
                     state.pipeline.data = preprocessPipelineData(results.data);
                     initializeApp();
-                    switchView('pipeline'); // 파일 업로드 후 파이프라인 뷰로 이동
+                    switchView('pipeline');
                     alert("업로드된 파일 데이터로 갱신되었습니다.");
                 }
             });
@@ -439,11 +448,23 @@
         sel.innerHTML = '<option value="ALL">전체 유형</option>' + vt.map(t=>`<option value="${t}">${t}</option>`).join('');
         sel.addEventListener('change', ()=>updateDashboard('voc'));
         renderVocFilters('branch');
+        renderAgentOptions('voc'); // 담당자 옵션 초기화
 
         // Pipeline Filters
         document.getElementById("channelFilter").addEventListener("change", (e)=>{ state.pipeline.channel=e.target.value; updateDashboard('pipeline'); });
         document.querySelectorAll('input[name="risk"]').forEach(e=>e.addEventListener("change", ()=>updateDashboard('pipeline')));
         renderPipelineFilters('branch');
+        renderAgentOptions('pipeline'); // 담당자 옵션 초기화
+
+        // Agent Select Event Listeners
+        document.getElementById("vocAgentFilter").addEventListener("change", (e) => {
+            state.voc.agent = e.target.value;
+            updateDashboard('voc');
+        });
+        document.getElementById("pipelineAgentFilter").addEventListener("change", (e) => {
+            state.pipeline.agent = e.target.value;
+            updateDashboard('pipeline');
+        });
 
         setupSortEvents('pipelineListTable','pipeline'); setupSortEvents('vocListTable','voc');
     }
@@ -466,6 +487,43 @@
             items.map(i=>`<button class="filter-btn ${state.pipeline[type]===i?'active':''}" onclick="setPipelineFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join('');
     }
 
+    // ★ 담당자 필터 렌더링 함수 (지사 선택에 따라 동적 변경)
+    function renderAgentOptions(view) {
+        const s = state[view];
+        const rawData = s.data;
+        
+        // 지사가 선택된 경우 해당 지사 담당자만, 아니면 전체 담당자
+        let filteredAgents = rawData;
+        
+        // 지사 필터링 적용
+        if(s.branch !== 'ALL') {
+            filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch);
+        }
+        // Pipeline인 경우 본부 필터링도 고려
+        if(view === 'pipeline' && s.hq !== 'ALL') {
+            filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq);
+        }
+
+        const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort();
+        
+        const selectId = view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter';
+        const selectEl = document.getElementById(selectId);
+        
+        // 기존 선택값 유지 시도 (담당자 목록이 바뀌어도 가능하다면)
+        const currentVal = s.agent;
+        
+        selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + 
+            agents.map(a => `<option value="${a}">${a}</option>`).join('');
+            
+        // 만약 이전에 선택한 담당자가 새 목록에 있다면 유지, 아니면 ALL로 리셋
+        if(agents.includes(currentVal)) {
+            selectEl.value = currentVal;
+        } else {
+            selectEl.value = 'ALL';
+            s.agent = 'ALL'; // 상태도 리셋
+        }
+    }
+
     window.switchView = (v) => {
         state.currentView = v;
         document.querySelectorAll('.view-switcher button').forEach(b=>b.classList.remove('active'));
@@ -477,8 +535,19 @@
         setTimeout(()=>Object.values(chartInstances).forEach(c=>c&&c.resize()), 100);
     };
 
-    window.setPipelineFilter = (t,v) => { state.pipeline[t]=v; renderPipelineFilters('branch'); updateDashboard('pipeline'); };
-    window.setVocFilter = (t,v) => { state.voc[t]=v; updateDashboard('voc'); };
+    window.setPipelineFilter = (t,v) => { 
+        state.pipeline[t]=v; 
+        if(t === 'branch') renderAgentOptions('pipeline'); // 지사 변경 시 담당자 목록 갱신
+        renderPipelineFilters('branch'); 
+        updateDashboard('pipeline'); 
+    };
+    
+    window.setVocFilter = (t,v) => { 
+        state.voc[t]=v; 
+        if(t === 'branch') renderAgentOptions('voc'); // 지사 변경 시 담당자 목록 갱신
+        updateDashboard('voc'); 
+    };
+    
     window.setVocStatus = (v,b) => { document.querySelectorAll('#vocStatusButtons .filter-btn').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('voc'); };
     window.setMode = (m,b) => { state.pipeline.mode=m; document.querySelectorAll('#pipelineFilters .filter-buttons button').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('pipeline'); };
 
@@ -502,6 +571,8 @@
                 }
                 if(state.pipeline.hq!=='ALL' && (r["관리본부"]||"").trim()!==state.pipeline.hq) return false;
                 if(state.pipeline.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.pipeline.branch) return false;
+                // 담당자 필터 적용
+                if(state.pipeline.agent!=='ALL' && (r["담당자"]||"").trim()!==state.pipeline.agent) return false;
                 return true;
             });
             state.pipeline.page=1;
@@ -512,6 +583,8 @@
                 if(t!=='ALL' && (r["VOC유형대"]||"").trim()!==t) return false;
                 if(s!=='ALL' && (r["상태"]||"").trim()!==s) return false;
                 if(state.voc.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.voc.branch) return false;
+                // 담당자 필터 적용
+                if(state.voc.agent!=='ALL' && (r["담당자"]||"").trim()!==state.voc.agent) return false;
                 return true;
             });
             state.voc.page=1;
@@ -606,7 +679,7 @@
             }
         });
 
-        // ★ [Upgraded] Trend Chart: Stacked Bar + Line
+        // Trend Chart: Stacked Bar + Line
         const trend = {};
         d.forEach(r => {
             let dateStr = util.excelDateToJSDate(r["등록일자"]);
@@ -618,7 +691,6 @@
             trend[month].tot += 1;
             if(r["방어진행단계"] === '방어성공') trend[month].suc += 1;
 
-            // 재계약 상태 집계
             const contract = (r['재계약여부']||'').trim();
             if(['재계약 완료','재계약완료'].includes(contract)) trend[month].done += 1;
             else if(['재계약 예정','재계약예정'].includes(contract)) trend[month].plan += 1;
@@ -632,25 +704,21 @@
             data: {
                 labels: sortedMonths,
                 datasets: [
-                    // Line: 성공률 (오른쪽 축)
                     {
                         type: 'line', label: '성공률(%)',
                         data: sortedMonths.map(m => (trend[m].tot===0 ? 0 : (trend[m].suc/trend[m].tot*100).toFixed(1))),
                         borderColor: '#10b981', borderWidth: 2, pointBackgroundColor:'#fff', pointBorderColor:'#10b981', pointRadius:4, fill: false, tension:0.3, yAxisID: 'y_rate', order:1
                     },
-                    // Bar: 재계약 완료 (왼쪽 축, Stacked)
                     {
                         label: '재계약 완료',
                         data: sortedMonths.map(m => trend[m].done),
                         backgroundColor: '#3b82f6', stack: 'combined', yAxisID: 'y_count', order:2, barPercentage: 0.6
                     },
-                    // Bar: 재계약 예정 (왼쪽 축, Stacked)
                     {
                         label: '재계약 예정',
                         data: sortedMonths.map(m => trend[m].plan),
                         backgroundColor: '#93c5fd', stack: 'combined', yAxisID: 'y_count', order:3
                     },
-                    // Bar: 재계약 없음 (왼쪽 축, Stacked)
                     {
                         label: '재계약 없음',
                         data: sortedMonths.map(m => trend[m].none),
@@ -685,7 +753,7 @@
             }
         });
 
-        // 3. Bubble
+        // Bubble
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
             const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
@@ -718,7 +786,7 @@
             }]
         });
 
-        // 4. Reason Chart
+        // Reason Chart
         const reasons = {}; d.forEach(r => { let reason = (r["해지사유"] || "미입력").trim(); reasons[reason] = (reasons[reason] || 0) + 1; });
         const sortedReasons = Object.entries(reasons).sort((a,b) => b[1] - a[1]);
         const top5 = sortedReasons.slice(0, 5);
@@ -761,6 +829,10 @@
 
         pageData.forEach(r => {
             const tr = document.createElement("tr");
+            
+            // ★ 상호명 데이터 매핑 수정 (상호 or 상호명 or 고객명)
+            const companyName = r["상호"] || r["상호명"] || r["고객명"] || '-';
+
             if(t === 'pipeline') {
                 let bc = ''; const st = (r["방어진행단계"]||"").trim();
                 if(st==='방어성공') bc='stage-success'; else if(st==='방어실패') bc='stage-fail'; else bc='stage-ing';
@@ -768,7 +840,7 @@
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
                     <td>${r["담당자"]}</td>
                     <td>${util.cleanContract(r["계약번호"])}</td>
-                    <td>${r["상호"]||'-'}</td>
+                    <td>${companyName}</td>
                     <td>${r["담당영업채널"]}</td>
                     <td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td>
                     <td>${r["재계약여부"]||'-'}</td>
@@ -784,7 +856,7 @@
                     <td>${util.normalizeBranch(r["관리지사"])}</td>
                     <td>${r["담당자"]}</td>
                     <td>${util.cleanContract(r["계약번호"])}</td>
-                    <td>${r["상호"]||'-'}</td>
+                    <td>${companyName}</td>
                     <td><span class="badge ${bc}">${st}</span></td>
                     <td>${r["VOC유형소"]||'-'}</td>
                     <td>${r["합산월정료"]?util.formatNum(util.toThousand(r["합산월정료"])):'-'}</td>
