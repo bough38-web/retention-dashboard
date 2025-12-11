@@ -309,8 +309,6 @@
     </div>
 </div>
 
-
-
 <script>
     // Config & Setup
     const VOC_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
@@ -364,15 +362,12 @@
             const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
             state.voc.data = v; 
             
-            // [통합] 파이프라인 데이터 로드 후 'KTT월정료(조정)' 소수점 보정 작업 수행
+            // [수정: 데이터 로드 시 반올림 및 정제] 
             state.pipeline.data = p.map(row => {
-                // KTT월정료(조정) 값이 있다면 소수점 반올림하여 정수로 변환
                 if (row["KTT월정료(조정)"]) {
-                    // 콤마 제거 및 숫자 변환
                     const val = parseFloat(String(row["KTT월정료(조정)"]).replace(/,/g, ""));
                     if (!isNaN(val)) {
-                        // 반올림 후 다시 문자열로 저장 (기존 로직과의 호환성 유지)
-                        row["KTT월정료(조정)"] = String(Math.round(val));
+                        row["KTT월정료(조정)"] = String(Math.round(val)); // 반올림 적용
                     }
                 }
                 return row;
@@ -614,7 +609,6 @@
         document.getElementById("kpi-defense-success-rate").innerText = att>0 ? (suc/att*100).toFixed(1)+'%' : '0%';
     }
 
-    // [통합 수정] 차트 그리기 및 라벨 포맷팅
     function drawPipelineCharts() {
         const d = state.pipeline.filtered;
         const m = state.pipeline.mode;
@@ -648,7 +642,7 @@
             }
         });
 
-        // 2. Bubble (4분면 분석) - [라벨 포맷팅 적용]
+        // 2. Bubble (4분면 분석) - [수정: 포맷팅 적용 "57천원"]
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
             const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
@@ -689,7 +683,7 @@
                             label:c=>`${c.dataset.label}: 위험 ${c.raw.x.toFixed(1)}% / ${c.raw.y.toLocaleString()}천원`
                         }
                     },
-                    // [핵심] 57천원 표시
+                    // [라벨 수정]
                     datalabels: {
                         display: true, align: 'top', color: '#475569', font: {weight: 'bold', size: 11},
                         formatter: function(value) { return Math.round(value.y).toLocaleString() + '천원'; }
@@ -700,7 +694,7 @@
             plugins: [quadrantPlugin]
         });
 
-        // 3. Success Rate (방어 성공률) - [라벨 포맷팅 적용]
+        // 3. Success Rate - [수정: 포맷팅 적용 "33.3%"]
         const rates = sBr.map(e=>({b:e[0], r:e[1].tot>0?e[1].suc/e[1].tot*100:0})).sort((a,b)=>b.r-a.r).slice(0,5);
         const ctxLine = document.getElementById("pipelineDefenseSuccessRateChart").getContext("2d");
         const gradLine = ctxLine.createLinearGradient(0,0,0,300);
@@ -719,7 +713,7 @@
                 plugins:{
                     legend:{display:false},
                     tooltip: {callbacks: {label: c => `성공률: ${c.raw.toFixed(1)}%`}},
-                    // [핵심] 33.3% 표시
+                    // [라벨 수정]
                     datalabels: {
                         align: 'top', color: '#10b981', font: {weight: 'bold'},
                         formatter: function(value) { return value.toFixed(1) + '%'; }
@@ -728,7 +722,7 @@
             }
         });
 
-        // 4. Agent Fail - [라벨 포맷팅 적용]
+        // 4. Agent Fail - [수정: 0건 숨김 및 정수 표시]
         const af = {};
         d.filter(r=>r["방어진행단계"]==='방어실패').forEach(r=>{ const a=(r["담당자"]||"미지정").trim(); af[a]=(af[a]||0)+1; });
         const sAf = Object.entries(af).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -740,10 +734,11 @@
                 scales:{x:{grid:{display:false}},y:{grid:{display:false}}}, 
                 plugins:{
                     legend:{display:false},
-                    // 0건 숨김 처리
+                    // [라벨 수정]
                     datalabels: {
                         color: '#fff', font: {weight: 'bold'},
-                        display: function(context) { return context.dataset.data[context.dataIndex] > 0; }
+                        display: function(context) { return context.dataset.data[context.dataIndex] > 0; },
+                        formatter: function(value) { return Math.round(value); }
                     }
                 } 
             }
@@ -766,10 +761,10 @@
             if(va<vb) return s.sortDir==='asc'?-1:1; if(va>vb) return s.sortDir==='asc'?1:-1; return 0;
         });
 
-        // 페이지네이션 로직 검증 및 적용
+        // [수정: 페이지네이션 로직]
         const start = (s.page-1)*s.limit;
         const pageData = sorted.slice(start, start+s.limit);
-        const totalPages = Math.max(1, Math.ceil(sorted.length/s.limit)); // 최소 1페이지 보장
+        const totalPages = Math.max(1, Math.ceil(sorted.length/s.limit)); 
         document.getElementById(`${t}PaginationInfo`).innerText = `총 ${util.formatNum(sorted.length)}건 중 ${sorted.length > 0 ? start+1 : 0}-${Math.min(start+s.limit, sorted.length)}`;
 
         pageData.forEach(r => {
@@ -810,7 +805,6 @@
             tb.appendChild(tr);
         });
 
-        // 버튼 활성화/비활성화 명확하게 적용
         const btns = document.querySelectorAll(`#${t}View .pagination button`);
         if(btns.length >= 2) {
             btns[0].disabled = s.page <= 1;
