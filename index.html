@@ -286,8 +286,8 @@
             </div>
             <div class="chart-card">
                 <div class="card-header">
-                    <h3><i class="ph ph-chart-line-up"></i> 월별 등록 및 방어 추이 (Upgraded)</h3>
-                    <span>재계약 상태(Stack) + 성공률(Line)</span>
+                    <h3><i class="ph ph-chart-line-up"></i> 월별 방어 현황 및 성공률</h3>
+                    <span>단계별 건수(Stack) + 성공률(Line)</span>
                 </div>
                 <div class="chart-wrapper"><canvas id="pipelineTrendChart"></canvas></div>
             </div>
@@ -369,15 +369,13 @@
     };
     const chartInstances = {};
 
-    // ★ Data Preprocessing (요청하신 1.0 -> 100% 보정 로직)
+    // ★ Data Preprocessing
     function preprocessPipelineData(data) {
         return data.map(row => {
-            // 1. 월정료 정리
             if (row["KTT월정료(조정)"]) {
                 const val = parseFloat(String(row["KTT월정료(조정)"]).replace(/,/g, ""));
                 if (!isNaN(val)) row["KTT월정료(조정)"] = String(Math.round(val));
             }
-            // 2. 해지위험도 보정 (1.0 이하 소수 -> 100%)
             let risk = row['해지위험도'];
             if (risk) {
                 let riskNum = parseFloat(risk);
@@ -420,7 +418,7 @@
         return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
     }
 
-    // 로컬 파일 업로드 핸들러
+    // 로컬 파일 업로드
     document.getElementById('localFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -448,15 +446,15 @@
         sel.innerHTML = '<option value="ALL">전체 유형</option>' + vt.map(t=>`<option value="${t}">${t}</option>`).join('');
         sel.addEventListener('change', ()=>updateDashboard('voc'));
         renderVocFilters('branch');
-        renderAgentOptions('voc'); // 담당자 옵션 초기화
+        renderAgentOptions('voc');
 
         // Pipeline Filters
         document.getElementById("channelFilter").addEventListener("change", (e)=>{ state.pipeline.channel=e.target.value; updateDashboard('pipeline'); });
         document.querySelectorAll('input[name="risk"]').forEach(e=>e.addEventListener("change", ()=>updateDashboard('pipeline')));
         renderPipelineFilters('branch');
-        renderAgentOptions('pipeline'); // 담당자 옵션 초기화
+        renderAgentOptions('pipeline');
 
-        // Agent Select Event Listeners
+        // Agent Select
         document.getElementById("vocAgentFilter").addEventListener("change", (e) => {
             state.voc.agent = e.target.value;
             updateDashboard('voc');
@@ -487,40 +485,31 @@
             items.map(i=>`<button class="filter-btn ${state.pipeline[type]===i?'active':''}" onclick="setPipelineFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join('');
     }
 
-    // ★ 담당자 필터 렌더링 함수 (지사 선택에 따라 동적 변경)
     function renderAgentOptions(view) {
         const s = state[view];
         const rawData = s.data;
-        
-        // 지사가 선택된 경우 해당 지사 담당자만, 아니면 전체 담당자
         let filteredAgents = rawData;
         
-        // 지사 필터링 적용
         if(s.branch !== 'ALL') {
             filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch);
         }
-        // Pipeline인 경우 본부 필터링도 고려
         if(view === 'pipeline' && s.hq !== 'ALL') {
             filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq);
         }
 
         const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort();
-        
         const selectId = view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter';
         const selectEl = document.getElementById(selectId);
-        
-        // 기존 선택값 유지 시도 (담당자 목록이 바뀌어도 가능하다면)
         const currentVal = s.agent;
         
         selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + 
             agents.map(a => `<option value="${a}">${a}</option>`).join('');
             
-        // 만약 이전에 선택한 담당자가 새 목록에 있다면 유지, 아니면 ALL로 리셋
         if(agents.includes(currentVal)) {
             selectEl.value = currentVal;
         } else {
             selectEl.value = 'ALL';
-            s.agent = 'ALL'; // 상태도 리셋
+            s.agent = 'ALL';
         }
     }
 
@@ -537,14 +526,14 @@
 
     window.setPipelineFilter = (t,v) => { 
         state.pipeline[t]=v; 
-        if(t === 'branch') renderAgentOptions('pipeline'); // 지사 변경 시 담당자 목록 갱신
+        if(t === 'branch') renderAgentOptions('pipeline');
         renderPipelineFilters('branch'); 
         updateDashboard('pipeline'); 
     };
     
     window.setVocFilter = (t,v) => { 
         state.voc[t]=v; 
-        if(t === 'branch') renderAgentOptions('voc'); // 지사 변경 시 담당자 목록 갱신
+        if(t === 'branch') renderAgentOptions('voc');
         updateDashboard('voc'); 
     };
     
@@ -571,7 +560,6 @@
                 }
                 if(state.pipeline.hq!=='ALL' && (r["관리본부"]||"").trim()!==state.pipeline.hq) return false;
                 if(state.pipeline.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.pipeline.branch) return false;
-                // 담당자 필터 적용
                 if(state.pipeline.agent!=='ALL' && (r["담당자"]||"").trim()!==state.pipeline.agent) return false;
                 return true;
             });
@@ -583,7 +571,6 @@
                 if(t!=='ALL' && (r["VOC유형대"]||"").trim()!==t) return false;
                 if(s!=='ALL' && (r["상태"]||"").trim()!==s) return false;
                 if(state.voc.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.voc.branch) return false;
-                // 담당자 필터 적용
                 if(state.voc.agent!=='ALL' && (r["담당자"]||"").trim()!==state.voc.agent) return false;
                 return true;
             });
@@ -679,22 +666,22 @@
             }
         });
 
-        // Trend Chart: Stacked Bar + Line
+        // ★ [Upgraded] Trend Chart: Stage Stacked Bar + Success Rate Line
         const trend = {};
         d.forEach(r => {
             let dateStr = util.excelDateToJSDate(r["등록일자"]);
             let month = dateStr.slice(0, 7); // YYYY-MM
             if(month.length < 7) return;
 
-            if(!trend[month]) trend[month] = { tot: 0, suc: 0, done: 0, plan: 0, none: 0 };
+            if(!trend[month]) trend[month] = { tot: 0, suc: 0, ing: 0, fail: 0 };
             
             trend[month].tot += 1;
-            if(r["방어진행단계"] === '방어성공') trend[month].suc += 1;
-
-            const contract = (r['재계약여부']||'').trim();
-            if(['재계약 완료','재계약완료'].includes(contract)) trend[month].done += 1;
-            else if(['재계약 예정','재계약예정'].includes(contract)) trend[month].plan += 1;
-            else if(['재계약 없음','재계약없음'].includes(contract)) trend[month].none += 1;
+            
+            // 방어 진행 단계별 집계 (성공/진행/실패)
+            const stage = (r["방어진행단계"]||"").trim();
+            if(stage === '방어성공') trend[month].suc += 1;
+            else if(stage === '진행중') trend[month].ing += 1;
+            else if(stage === '방어실패') trend[month].fail += 1;
         });
 
         const sortedMonths = Object.keys(trend).sort();
@@ -710,19 +697,19 @@
                         borderColor: '#10b981', borderWidth: 2, pointBackgroundColor:'#fff', pointBorderColor:'#10b981', pointRadius:4, fill: false, tension:0.3, yAxisID: 'y_rate', order:1
                     },
                     {
-                        label: '재계약 완료',
-                        data: sortedMonths.map(m => trend[m].done),
-                        backgroundColor: '#3b82f6', stack: 'combined', yAxisID: 'y_count', order:2, barPercentage: 0.6
+                        label: '방어성공',
+                        data: sortedMonths.map(m => trend[m].suc),
+                        backgroundColor: '#34d399', stack: 'combined', yAxisID: 'y_count', order:2
                     },
                     {
-                        label: '재계약 예정',
-                        data: sortedMonths.map(m => trend[m].plan),
-                        backgroundColor: '#93c5fd', stack: 'combined', yAxisID: 'y_count', order:3
+                        label: '진행중',
+                        data: sortedMonths.map(m => trend[m].ing),
+                        backgroundColor: '#fbbf24', stack: 'combined', yAxisID: 'y_count', order:3
                     },
                     {
-                        label: '재계약 없음',
-                        data: sortedMonths.map(m => trend[m].none),
-                        backgroundColor: '#e5e7eb', stack: 'combined', yAxisID: 'y_count', order:4, borderRadius:{topLeft:4, topRight:4}
+                        label: '방어실패',
+                        data: sortedMonths.map(m => trend[m].fail),
+                        backgroundColor: '#f87171', stack: 'combined', yAxisID: 'y_count', order:4, borderRadius:{topLeft:4, topRight:4}
                     }
                 ]
             },
@@ -829,8 +816,6 @@
 
         pageData.forEach(r => {
             const tr = document.createElement("tr");
-            
-            // ★ 상호명 데이터 매핑 수정 (상호 or 상호명 or 고객명)
             const companyName = r["상호"] || r["상호명"] || r["고객명"] || '-';
 
             if(t === 'pipeline') {
