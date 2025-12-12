@@ -419,22 +419,22 @@
     }
 
     // 로컬 파일 업로드
-    document.getElementById('localFileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            Papa.parse(evt.target.result, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    state.pipeline.data = preprocessPipelineData(results.data);
-                    initializeApp();
-                    switchView('pipeline');
-                    alert("업로드된 파일 데이터로 갱신되었습니다.");
-                }
-            });
-        };
+    # document.getElementById('localFileInput').addEventListener('change', function(e) {
+    #    const file = e.target.files[0];
+    #    if(!file) return;
+    #    const reader = new FileReader();
+    #    reader.onload = function(evt) {
+    #        Papa.parse(evt.target.result, {
+    #            header: true,
+    #            skipEmptyLines: true,
+    #            complete: function(results) {
+    #                state.pipeline.data = preprocessPipelineData(results.data);
+    #                initializeApp();
+    #                switchView('pipeline');
+    #                alert("업로드된 파일 데이터로 갱신되었습니다.");
+    #            }
+    #        });
+    #    };
         reader.readAsText(file, 'UTF-8');
     });
 
