@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (Final v7.0)</title>
+<title>KTT Premium Retention Dashboard (Final v8.0)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -22,7 +22,9 @@
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
-    
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+
     /* 사이드바 */
     .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
     .logo-area { padding:20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
@@ -68,9 +70,12 @@
     .kpi-icon { position:absolute; right:16px; top:16px; font-size:32px; opacity:0.1; }
 
     /* 그리드 시스템 */
-    .dashboard-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
-    .grid-left { flex:1.2; display:flex; flex-direction:column; }
-    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; }
+    /* VOC용: 지도 + 차트 */
+    .voc-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
+    .grid-left { flex:1.5; display:flex; flex-direction:column; } /* 지도 */
+    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; } /* 차트 */
+
+    /* 파이프라인용: 차트만 */
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
 
     .card { background:var(--surface); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); display:flex; flex-direction:column; }
@@ -125,7 +130,8 @@
             <button class="nav-tab" onclick="switchView('pipe')">파이프라인</button>
         </div>
 
-        <div id="filter-area"></div>
+        <div id="filter-area">
+            </div>
     </div>
 </div>
 
@@ -165,7 +171,7 @@
             </div>
         </div>
 
-        <div class="dashboard-grid">
+        <div class="voc-grid">
             <div class="grid-left">
                 <div class="card full" style="padding:0;">
                     <div style="padding:16px; border-bottom:1px solid var(--border); background:var(--surface);">
@@ -289,7 +295,7 @@ let App = {
     markers: []
 };
 
-// Chart.js Settings
+// Chart.js Default Config
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
@@ -304,18 +310,17 @@ window.onload = async () => {
         initMap();
         initFilterUI();
         updateDashboard();
-    } catch(e) { console.error(e); alert("초기 데이터 로드 중 오류가 발생했습니다. 파일을 확인해주세요."); }
+    } catch(e) { console.error(e); alert("기본 데이터 로드 실패 (콘솔 확인)"); }
     document.getElementById("loading").style.display = "none";
 };
 
 async function fetchCsv(url) {
     const r = await fetch(url);
     const t = await r.text();
-    // BOM 제거
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
 }
 
-/* ================= DATA PARSING ================= */
+/* ================= PARSING (IMPROVED) ================= */
 const findKey = (row, keyword) => Object.keys(row).find(k => k.includes(keyword));
 
 function parseVoc(data) {
@@ -483,8 +488,6 @@ function renderDynamicFilters() {
     let branchSrc = source;
     if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(branchSrc.map(d=>d._branch))];
-    
-    // 지사 정렬 (Custom Order)
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
@@ -662,7 +665,9 @@ function drawTrend(data) {
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: { datalabels: { display:true, align:'top', font:{weight:'bold'} } },
-            onClick: (e, els) => {},
+            onClick: (e, els) => {
+                // Future: Month Filter
+            },
             onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
         }
     });
