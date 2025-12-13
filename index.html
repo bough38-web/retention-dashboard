@@ -397,7 +397,9 @@
 
     async function loadDefaultData() {
         const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
-        state.voc.data = v; 
+        
+        // ★ 전처리 적용: "위치좌표(위도,경도)" -> "위도", "경도"
+        state.voc.data = preprocessVocData(v); 
         state.pipeline.data = preprocessPipelineData(p);
         
         initVocMap(); // 지도 초기화
@@ -407,6 +409,24 @@
     async function loadCsv(url) {
         const res = await fetch(url); const text = await res.text();
         return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
+    }
+
+    // ★ NEW: VOC 데이터 전처리 (위치좌표 분리)
+    function preprocessVocData(data) {
+        return data.map(row => {
+            // "위치좌표(위도,경도)" 컬럼이 있고 콤마가 포함된 경우
+            const rawLoc = row["위치좌표(위도,경도)"];
+            if (rawLoc && typeof rawLoc === 'string' && rawLoc.includes(',')) {
+                const parts = rawLoc.split(',');
+                if (parts.length >= 2) {
+                    row["위도"] = parts[0].trim();
+                    row["경도"] = parts[1].trim();
+                }
+            }
+            // 이미 "위도", "경도"가 있거나 데이터가 없는 경우 안전장치
+            // (위에서 할당되지 않았다면 0 처리 or 원본 유지)
+            return row;
+        });
     }
 
     function preprocessPipelineData(data) {
@@ -459,7 +479,6 @@
 
     function getVocIcon(row){
         const statusColor = { "처리완료":"blue", "접수":"orange", "미접수":"red" }[row["상태"]] || "gray";
-        const typeIcon = { "장애":"alert", "요금":"money", "품질":"info" }[row["VOC유형대"]] || "dot";
         // 간편 아이콘 사용
         return `https://maps.google.com/mapfiles/ms/icons/${statusColor}-dot.png`;
     }
@@ -713,7 +732,6 @@
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { grid: {display: false} }, y_count: { position: 'left', stacked:true, grid:{borderDash:[4,4]} }, y_rate: { position: 'right', min: 0, max: 100, grid: {drawOnChartArea: false} } }, plugins: { legend: {display: true}, datalabels: {display: false} } }
         });
 
-        // Bubble & Reason Charts (Omitted details for brevity but logic exists in original)
         // Bubble
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
@@ -732,7 +750,6 @@
     // --- TABLE ---
     function renderTable(t) {
         const s = state[t];
-        // VOC는 viewData(지도필터링), Pipeline은 filtered 사용
         const dataSrc = t === 'voc' ? s.viewData : s.filtered;
         const tb = document.querySelector(`#${t}ListTable tbody`);
         tb.innerHTML = "";
@@ -762,7 +779,6 @@
                         google.maps.event.trigger(marker, "click");
                     }
                 };
-                // 참조 저장을 위해 data attribute 사용
                 tr.dataset.ref = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
             }
 
@@ -783,12 +799,8 @@
     }
 
     function highlightRowInTable(r) {
-        // 현재 페이지에 해당 데이터가 없을 수도 있음. (간단 처리를 위해 현재 페이지 내에서만 검색)
-        // 전체 리스트에서 찾아서 페이지 이동하는 것은 복잡하므로, 현재 뷰에서 하이라이트만 처리
         const rows = document.querySelectorAll("#vocListTable tbody tr");
         rows.forEach(row => row.classList.remove("highlight"));
-        
-        // JSON stringify로 비교 (간단 식별)
         const targetStr = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
         for(let tr of rows) {
             if(tr.dataset.ref === targetStr) {
@@ -822,12 +834,10 @@
         document.getElementById(v+'View').classList.add('active');
         document.getElementById('pipelineFilters').style.display = v==='pipeline'?'block':'none';
         document.getElementById('vocFilters').style.display = v==='voc'?'block':'none';
-        
-        // 차트 리사이즈 트리거
         setTimeout(()=>{
             Object.values(chartInstances).forEach(c=>c&&c.resize());
             if(v==='voc' && vocMap) {
-                google.maps.event.trigger(vocMap, "resize"); // 지도 리사이즈 필수
+                google.maps.event.trigger(vocMap, "resize"); 
                 vocMap.setCenter(vocMap.getCenter());
             }
         }, 100);
@@ -845,7 +855,6 @@
         const link = document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`ktt_${t}_${new Date().toISOString().slice(0,10)}.csv`; link.click();
     };
     
-    // Filter Rendering
     function renderVocFilters(type) {
         const c = document.getElementById(`voc${type.charAt(0).toUpperCase()+type.slice(1)}Buttons`);
         let s = state.voc.data;
@@ -873,13 +882,17 @@
     
     function showToast() { const t = document.getElementById("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 3000); }
 
-    // File Upload (Local)
+    // File Upload (Local) with preprocessing
     document.getElementById('localFileInput').addEventListener('change', function(e) {
         const file = e.target.files[0]; if(!file) return;
         const reader = new FileReader();
         reader.onload = function(evt) {
             Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) {
-                state.pipeline.data = preprocessPipelineData(results.data); initializeApp(); switchView('pipeline'); alert("데이터 갱신 완료");
+                // 파이프라인 데이터라고 가정하고 전처리
+                state.pipeline.data = preprocessPipelineData(results.data); 
+                initializeApp(); 
+                switchView('pipeline'); 
+                alert("데이터 갱신 완료");
             }});
         };
         reader.readAsText(file, 'UTF-8');
