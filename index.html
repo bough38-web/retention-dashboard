@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Dashboard (Secure & Interactive)</title>
+<title>KTT Premium Dashboard (Fixed Date)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -259,7 +259,7 @@
 
         <div class="grid-layout">
             <div class="card">
-                <h3><i class="ph ph-chart-line-up"></i> 월별 방어 활동 추이</h3>
+                <h3><i class="ph ph-chart-line-up"></i> 월별 등록 추이</h3>
                 <div class="chart-wrap"><canvas id="pipe-chart-trend"></canvas></div>
             </div>
             <div class="card">
@@ -272,7 +272,7 @@
             <h3><i class="ph ph-table"></i> 상세 파이프라인 리스트</h3>
             <div class="table-wrap">
                 <table id="pipe-table">
-                    <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료</th></tr></thead>
+                    <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>등록일자</th><th>월정료</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -289,16 +289,10 @@ const DATA_SRC = {
 };
 
 let App = {
-    view: 'voc', // voc | pipe
+    view: 'voc',
     rawData: { voc: [], pipe: [] },
     filteredData: [],
-    filters: {
-        hq: 'ALL',
-        branch: 'ALL',
-        agent: 'ALL',
-        status: 'ALL',
-        risk: 'ALL'
-    },
+    filters: { hq: 'ALL', branch: 'ALL', agent: 'ALL', status: 'ALL', risk: 'ALL' },
     charts: {},
     map: null,
     clusterer: null,
@@ -307,7 +301,6 @@ let App = {
 
 /* ================= INIT ================= */
 window.onload = async () => {
-    // 1. Load Data
     try {
         const [vRes, pRes] = await Promise.all([ fetchCsv(DATA_SRC.voc), fetchCsv(DATA_SRC.pipe) ]);
         App.rawData.voc = parseVoc(vRes.data);
@@ -326,25 +319,21 @@ async function fetchCsv(url) {
     return Papa.parse(t, {header:true, skipEmptyLines:true});
 }
 
-/* ================= PARSING LOGIC ================= */
+/* ================= DATA PARSING (IMPROVED DATE HANDLING) ================= */
 function parseVoc(data) {
-    // 좌표 컬럼 스마트 탐색
     if(!data.length) return [];
     const keys = Object.keys(data[0]);
     const coordKey = keys.find(k => k.includes("위치좌표")) || "위치좌표(위도,경도)";
 
     return data.map(r => {
         let lat=null, lng=null;
-        // 1. 복합 컬럼 (37.xxx, 127.xxx)
         if(r[coordKey] && r[coordKey].includes(',')) {
             const p = r[coordKey].split(',');
             lat = parseFloat(p[0]); lng = parseFloat(p[1]);
         }
-        // 2. 개별 컬럼
         if((!lat || isNaN(lat)) && r["위도"]) {
             lat = parseFloat(r["위도"]); lng = parseFloat(r["경도"]);
         }
-        
         return {
             ...r,
             _branch: normBranch(r["관리지사"]),
@@ -359,9 +348,29 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     return data.map(r => {
-        // 해지위험도 정규화 (0~1 범위면 100을 곱함)
+        // 위험도 0~1 보정
         let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk = risk * 100;
+
+        // 등록일자(Excel Serial Date) 변환
+        let regDate = r["등록일자"];
+        let dateStr = "";
+        
+        if (regDate) {
+            // 콤마 제거 후 숫자 확인
+            let cleanVal = String(regDate).replace(/,/g, '');
+            if (!isNaN(cleanVal) && cleanVal > 20000) {
+                // Excel Date -> JS Date
+                const date = new Date((cleanVal - 25569) * 86400 * 1000);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                dateStr = `${year}-${month}-${day}`;
+            } else if (String(regDate).includes('-')) {
+                // 이미 YYYY-MM-DD 포맷인 경우
+                dateStr = regDate;
+            }
+        }
 
         return {
             ...r,
@@ -371,7 +380,7 @@ function parsePipe(data) {
             _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(),
             _fee: parseMoney(r["KTT월정료(조정)"]||r["월정료"]),
-            _date: r["등록일자"] 
+            _regDate: dateStr // 변환된 날짜 저장
         };
     });
 }
@@ -379,27 +388,20 @@ function parsePipe(data) {
 function normBranch(s) { return (s||"기타").replace("지사","").trim(); }
 function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
 
-/* ================= FILTER LOGIC ================= */
+/* ================= UI LOGIC ================= */
 function toggleFilter(type, val, btn) {
-    // 같은 버튼 누르면 해제 (ALL 제외)
-    if (val !== 'ALL' && App.filters[type] === val) {
-        App.filters[type] = 'ALL';
-    } else {
-        App.filters[type] = val;
-    }
+    if (val !== 'ALL' && App.filters[type] === val) App.filters[type] = 'ALL';
+    else App.filters[type] = val;
     
     // UI 업데이트
     const container = btn.parentElement;
     Array.from(container.children).forEach(c => c.classList.remove('active'));
-    
-    // 현재 상태에 맞는 버튼 찾아서 active
     const targetVal = App.filters[type];
     const targetBtn = Array.from(container.children).find(c => 
         c.innerText === targetVal || (targetVal==='ALL' && c.innerText==='전체')
     );
     if(targetBtn) targetBtn.classList.add('active');
 
-    // Cascading Logic (HQ -> Branch -> Agent)
     if (type === 'hq') { App.filters.branch = 'ALL'; App.filters.agent = 'ALL'; }
     if (type === 'branch') { App.filters.agent = 'ALL'; }
 
@@ -416,16 +418,12 @@ function getFilteredData() {
     const source = isVoc ? App.rawData.voc : App.rawData.pipe;
 
     return source.filter(d => {
-        // 공통 필터
         if (App.filters.branch !== 'ALL' && d._branch !== App.filters.branch) return false;
         if (App.filters.agent !== 'ALL' && d._agent !== App.filters.agent) return false;
 
-        // 뷰별 특수 필터
         if (isVoc) {
-            // VOC는 본부 필터 무시 (요청사항)
             if (App.filters.status !== 'ALL' && d._status !== App.filters.status) return false;
         } else {
-            // Pipeline은 본부 필터 적용
             if (App.filters.hq !== 'ALL' && d._hq !== App.filters.hq) return false;
             if (App.filters.risk !== 'ALL') {
                 if (App.filters.risk === 'HIGH' && d._risk < 75) return false;
@@ -436,53 +434,34 @@ function getFilteredData() {
     });
 }
 
-/* ================= UI RENDERING ================= */
-function initUI() {
-    // 뷰 초기 설정
-    switchView('voc');
-}
+function initUI() { switchView('voc'); }
 
 function updateDashboard() {
     App.filteredData = getFilteredData();
-    
-    // 1. 필터 칩 갱신 (Dynamic Cascading)
     renderDynamicFilters();
-
-    // 2. 화면 렌더링
     if (App.view === 'voc') renderVocView();
     else renderPipeView();
 }
 
 function renderDynamicFilters() {
-    // 현재 뷰의 전체 데이터(필터 적용 전 가능한 범위)를 기반으로 옵션 생성
-    // 상위 필터가 선택되면 하위 필터 옵션이 좁혀져야 함.
-    
     const isVoc = App.view === 'voc';
-    const source = isVoc ? App.rawData.voc : App.rawData.pipe; // 전체 소스에서 시작하되, 상위 조건만 적용
+    const source = isVoc ? App.rawData.voc : App.rawData.pipe;
 
-    // A. HQ (Pipeline Only)
     if (!isVoc) {
         const hqs = [...new Set(source.map(d=>d._hq))].sort();
         renderChips('chips-hq', hqs, 'hq');
     }
 
-    // B. Branch (HQ 필터 적용된 상태에서 추출)
     let branchSource = source;
-    if (!isVoc && App.filters.hq !== 'ALL') {
-        branchSource = source.filter(d => d._hq === App.filters.hq);
-    }
+    if (!isVoc && App.filters.hq !== 'ALL') branchSource = source.filter(d => d._hq === App.filters.hq);
     const branches = [...new Set(branchSource.map(d=>d._branch))].sort();
     renderChips('chips-branch', branches, 'branch');
 
-    // C. Agent (HQ + Branch 적용된 상태)
     let agentSource = branchSource;
-    if (App.filters.branch !== 'ALL') {
-        agentSource = branchSource.filter(d => d._branch === App.filters.branch);
-    }
+    if (App.filters.branch !== 'ALL') agentSource = branchSource.filter(d => d._branch === App.filters.branch);
     const agents = [...new Set(agentSource.map(d=>d._agent))].sort();
     renderChips('chips-agent', agents, 'agent');
     
-    // Reset 버튼 표시 여부
     toggleResetBtn('hq', App.filters.hq !== 'ALL');
     toggleResetBtn('branch', App.filters.branch !== 'ALL');
     toggleResetBtn('agent', App.filters.agent !== 'ALL');
@@ -491,8 +470,6 @@ function renderDynamicFilters() {
 function renderChips(containerId, list, type) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
-    
-    // 전체 버튼
     const allBtn = document.createElement('button');
     allBtn.className = `chip ${App.filters[type] === 'ALL' ? 'active' : ''}`;
     allBtn.innerText = '전체';
@@ -510,16 +487,13 @@ function renderChips(containerId, list, type) {
 }
 
 function toggleResetBtn(type, show) {
-    // 헤더 옆 초기화 텍스트 토글
     const el = document.querySelector(`#chips-${type}`).parentElement.querySelector('.reset-btn');
     if(el) el.style.display = show ? 'inline' : 'none';
 }
 
-/* ================= VIEW: VOC ================= */
+/* ================= RENDER VIEWS ================= */
 function renderVocView() {
     const data = App.filteredData;
-    
-    // KPI
     const unique = new Set(data.map(d=>d["계약번호"])).size;
     const done = data.filter(d=>d._status==='처리완료').length;
     const wait = data.filter(d=>d._status==='미접수').length;
@@ -529,22 +503,14 @@ function renderVocView() {
     setVal('voc-kpi-wait', wait);
     document.getElementById('voc-kpi-rate').innerText = unique ? ((done/data.length)*100).toFixed(1)+'%' : '0%';
 
-    // Map
     updateMap(data);
-
-    // Chart
     drawBarChart('voc-chart-branch', data, '_branch', '지사별', '#3b82f6', 'branch');
     drawBarChart('voc-chart-agent', data.filter(d=>d._status!=='처리완료'), '_agent', '미처리', '#ef4444', 'agent');
-
-    // Table
     renderTable('voc-table', data, ['_branch', '_agent', '계약번호', '상호', '_status', 'VOC유형소', '좌표']);
 }
 
-/* ================= VIEW: PIPELINE ================= */
 function renderPipeView() {
     const data = App.filteredData;
-
-    // KPI
     const total = data.length;
     const high = data.filter(d=>d._risk>=75).length;
     const loss = data.filter(d=>d._risk>=75).reduce((a,b)=>a+b._fee,0);
@@ -555,17 +521,15 @@ function renderPipeView() {
     document.getElementById('pipe-kpi-loss').innerText = (loss/10000).toFixed(0)+'만';
     document.getElementById('pipe-kpi-rate').innerText = total ? ((suc/total)*100).toFixed(1)+'%' : '0%';
 
-    // Charts
     drawTrendChart(data);
     drawPieChart(data);
-
-    // Table
-    renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '해지예정일', '_fee']);
+    // 테이블 컬럼에 _regDate (등록일자) 추가
+    renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
 }
 
 function setVal(id, n) { document.getElementById(id).innerText = n.toLocaleString(); }
 
-/* ================= VISUALIZATION ================= */
+/* ================= CHART & MAP ================= */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
         center: {lat: 37.5665, lng: 126.9780}, zoom: 9,
@@ -578,34 +542,24 @@ function updateMap(data) {
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
 
-    const mapData = data.filter(d => d._lat);
-    
-    mapData.forEach(d => {
+    data.filter(d => d._lat).forEach(d => {
         const marker = new google.maps.Marker({
             position: {lat: d._lat, lng: d._lng},
-            // Status Icon
             icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${d._status==='처리완료'?'blue':'red'}-dot.png`
         });
-        
         const info = new google.maps.InfoWindow({
             content: `<div style="padding:5px;"><b>${d["상호"]}</b><br>${d._branch} / ${d._agent}<br>${d._status}</div>`
         });
-        
-        marker.addListener('click', () => {
-            info.open(App.map, marker);
-            // Highlight Table Row Logic could go here
-        });
-        
+        marker.addListener('click', () => { info.open(App.map, marker); });
         App.markers.push(marker);
     });
-
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
 }
 
 function drawBarChart(id, data, key, label, color, filterType) {
     const counts = {};
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
-    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,15); // Top 15
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,15);
 
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
@@ -620,12 +574,7 @@ function drawBarChart(id, data, key, label, color, filterType) {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: {display:false} },
             onClick: (e, els) => {
-                if(els.length > 0) {
-                    const idx = els[0].index;
-                    const val = sorted[idx][0];
-                    // ★ 차트 클릭 시 필터 적용 (동적 연동)
-                    toggleFilter(filterType, val, document.body); // dummy btn
-                }
+                if(els.length > 0) toggleFilter(filterType, sorted[els[0].index][0], document.body);
             },
             onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
         }
@@ -633,19 +582,15 @@ function drawBarChart(id, data, key, label, color, filterType) {
 }
 
 function drawTrendChart(data) {
-    // 월별 추이 (날짜 콤마 제거 처리)
     const trend = {};
     data.forEach(d => {
-        let dateStr = String(d._date).replace(/,/g, '');
-        let date = dateStr;
-        if(!isNaN(date)) date = new Date((date-25569)*86400*1000).toISOString().slice(0,7);
-        else if(typeof date==='string') date = date.slice(0,7);
-        
-        if(!trend[date]) trend[date] = 0;
-        trend[date]++;
+        // 날짜 형식 YYYY-MM 추출
+        let ym = d._regDate ? d._regDate.slice(0, 7) : 'Unknown';
+        if(!trend[ym]) trend[ym] = 0;
+        trend[ym]++;
     });
     
-    const keys = Object.keys(trend).sort();
+    const keys = Object.keys(trend).sort().filter(k => k !== 'Unknown');
     const ctx = document.getElementById('pipe-chart-trend').getContext('2d');
     const id = 'pipe-chart-trend';
     if(App.charts[id]) App.charts[id].destroy();
@@ -655,7 +600,7 @@ function drawTrendChart(data) {
         data: {
             labels: keys,
             datasets: [{
-                label: '발생 건수', data: keys.map(k=>trend[k]),
+                label: '등록 건수', data: keys.map(k=>trend[k]),
                 borderColor: '#8b5cf6', backgroundColor: '#8b5cf620', fill:true, tension:0.3
             }]
         },
@@ -685,11 +630,10 @@ function drawPieChart(data) {
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    // Show top 50 for performance
     data.slice(0, 50).forEach(d => {
         const tr = document.createElement('tr');
         cols.forEach(k => {
-            let val = d[k] || d[k.replace('_','')]; // fallback
+            let val = d[k] || d[k.replace('_','')];
             if(k==='좌표') val = d._lat ? '<i class="ph ph-map-pin" style="color:var(--primary)"></i>' : '';
             if(k==='_fee') val = val.toLocaleString();
             if(k==='_risk') val = `<span class="badge ${val>=75?'bg-red':'bg-green'}">${val}%</span>`;
@@ -699,13 +643,10 @@ function renderTable(id, data, cols) {
             td.innerHTML = val;
             tr.appendChild(td);
         });
-        
-        // ★ 테이블 클릭 시 지도 이동 (동적 연동)
         if(d._lat && App.view === 'voc') {
             tr.onclick = () => {
                 App.map.panTo({lat:d._lat, lng:d._lng});
                 App.map.setZoom(14);
-                // Highlight row
                 document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
                 tr.classList.add('active-row');
             };
@@ -716,26 +657,21 @@ function renderTable(id, data, cols) {
 
 function switchView(view) {
     App.view = view;
-    // Tabs
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
     
-    // Panels
     document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
     document.getElementById(`view-${view}`).classList.add('active');
 
-    // Filter Visibility
     const isPipe = view === 'pipe';
     document.getElementById('filter-group-hq').style.display = isPipe ? 'block' : 'none';
     document.getElementById('filter-group-risk').style.display = isPipe ? 'block' : 'none';
     document.getElementById('filter-group-status').style.display = isPipe ? 'none' : 'block';
 
-    // Reset Filters appropriate for view
     resetFilter('hq');
     resetFilter('branch');
     resetFilter('agent');
     
-    // Resize Maps/Charts
     setTimeout(() => {
         if(view==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
         Object.values(App.charts).forEach(c=>c.resize());
@@ -744,14 +680,10 @@ function switchView(view) {
     updateDashboard();
 }
 
-/* ================= SECURITY FILE UPLOAD ================= */
 function triggerFileUpload() {
     const pwd = prompt("파일 교체를 위해 관리자 비밀번호를 입력하세요:");
-    if(pwd === "3867") {
-        document.getElementById('fileInput').click();
-    } else {
-        if(pwd !== null) alert("비밀번호가 일치하지 않습니다.");
-    }
+    if(pwd === "3867") document.getElementById('fileInput').click();
+    else if(pwd !== null) alert("비밀번호가 일치하지 않습니다.");
 }
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
@@ -761,7 +693,6 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     reader.onload = (evt) => {
         const res = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
         const headers = res.meta.fields || [];
-        
         if(headers.some(h=>h.includes('위치좌표'))) {
             App.rawData.voc = parseVoc(res.data);
             alert("VOC 데이터 업데이트 완료");
@@ -776,7 +707,6 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     };
     reader.readAsText(file, 'UTF-8');
 });
-
 </script>
 </body>
 </html>
