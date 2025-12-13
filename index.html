@@ -2,13 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Expert Retention Dashboard</title>
+<title>KTT Premium Dashboard (v11.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbmyeJMsApj38SRzWvaQGrZmpqUQTooMw" defer></script>
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 
@@ -132,8 +133,7 @@
             <button class="nav-btn" onclick="switchView('pipe')"><i class="ph ph-chart-line-up"></i> 파이프라인</button>
         </div>
 
-        <div id="filter-container">
-            </div>
+        <div id="filter-container"></div>
     </div>
 </div>
 
@@ -237,8 +237,8 @@
 
         <div class="grid-pipe">
             <div class="card">
-                <div class="card-head"><h3 class="card-title">월별 등록 추이 (Clickable)</h3></div>
-                <div class="chart-wrapper"><canvas id="chart-pipe-trend"></canvas></div>
+                <div class="card-head"><h3 class="card-title">방어 단계별 현황</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-pipe-step"></canvas></div>
             </div>
             <div class="card">
                 <div class="card-head"><h3 class="card-title">주요 해지 사유 (Top 5)</h3></div>
@@ -246,22 +246,11 @@
             </div>
         </div>
 
-        <div class="grid-pipe">
-            <div class="card">
-                <div class="card-head"><h3 class="card-title">위험도 vs 월정료 분포</h3></div>
-                <div class="chart-wrapper"><canvas id="chart-pipe-risk"></canvas></div>
-            </div>
-            <div class="card">
-                <div class="card-head"><h3 class="card-title">방어 단계별 현황</h3></div>
-                <div class="chart-wrapper"><canvas id="chart-pipe-step"></canvas></div>
-            </div>
-        </div>
-
-        <div class="card" style="flex:none; height:350px;">
+        <div class="card" style="flex:none; height:450px;">
             <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
             <div class="table-wrapper">
                 <table id="table-pipe">
-                    <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>등록일자</th><th>월정료</th></tr></thead>
+                    <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -286,15 +275,15 @@ let App = {
     map: null,
     clusterer: null,
     markers: [],
-    charts: {},
-    activeRow: null
+    charts: {}
 };
 
-// Chart.js Defaults (Premium Look)
+// Chart Defaults
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
 Chart.defaults.scale.grid.color = '#f1f5f9';
+const chartAnim = { duration: 1000, easing: 'easeOutQuart' };
 
 /* --- INIT --- */
 window.onload = async () => {
@@ -316,7 +305,7 @@ async function fetchCsv(url) {
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
 }
 
-/* --- DATA PARSING (Robust) --- */
+/* --- PARSING --- */
 const findKey = (r, k) => Object.keys(r).find(key => key.includes(k));
 
 function parseVoc(data) {
@@ -345,9 +334,10 @@ function parseVoc(data) {
 function parsePipe(data) {
     if(!data.length) return [];
     const kRisk = findKey(data[0], "위험도") || "해지위험도";
-    const kDate = findKey(data[0], "등록일자") || "등록일자";
+    const kDate = findKey(data[0], "해지예정일") || "해지예정일";
     const kFee = findKey(data[0], "월정료") || "KTT월정료(조정)";
     const kHQ = findKey(data[0], "관리본부") || "관리본부";
+    const kName = findKey(data[0], "상호") || "상호명";
 
     return data.map(r => {
         let risk = parseFloat(r[kRisk]||0);
@@ -363,13 +353,14 @@ function parsePipe(data) {
 
         return {
             ...r,
+            "상호": r[kName] || r["상호명"] || "-",
             _hq: (r[kHQ]||"기타").trim(),
             _branch: normStr(r["관리지사"]),
             _agent: (r["담당자"]||"미지정").trim(),
             _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(),
             _fee: parseMoney(r[kFee]),
-            _regDate: dateStr
+            _date: dateStr
         };
     });
 }
@@ -377,7 +368,7 @@ function parsePipe(data) {
 function normStr(s) { return (s||"기타").replace("지사","").trim(); }
 function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
 
-/* --- FILTER LOGIC --- */
+/* --- FILTERS --- */
 function initFiltersHTML() {
     const area = document.getElementById('filter-container');
     area.innerHTML = `
@@ -402,14 +393,11 @@ function initFiltersHTML() {
             <div id="chips-risk" class="chips"></div>
         </div>
     `;
-    
-    // Static chips
     renderChips('chips-status', ['전체','처리완료','접수','미접수'], 'status');
     renderChips('chips-risk', ['전체','고위험(75%↑)','중위험(50~75%)'], 'risk');
 }
 
 function updateDashboard() {
-    // 1. Filter Data
     const isVoc = App.view === 'voc';
     const source = isVoc ? App.data.voc : App.data.pipe;
     
@@ -426,23 +414,18 @@ function updateDashboard() {
         return true;
     });
 
-    // 2. Update Dynamic Filters
     updateDynamicFilters(source);
-
-    // 3. Render View
     if(isVoc) renderVocView(); else renderPipeView();
 }
 
 function updateDynamicFilters(source) {
     const isVoc = App.view === 'voc';
     
-    // HQ
     if(!isVoc) {
         const hqs = [...new Set(source.map(d=>d._hq))].sort();
         renderChips('chips-hq', ['전체',...hqs], 'hq', true);
     }
 
-    // Branch (Cascading)
     let bSrc = source;
     if(!isVoc && App.filters.hq!=='ALL') bSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(bSrc.map(d=>d._branch))];
@@ -454,7 +437,6 @@ function updateDynamicFilters(source) {
     });
     renderChips('chips-branch', ['전체',...branches], 'branch', true);
 
-    // Agent (Cascading)
     let aSrc = bSrc;
     if(App.filters.branch!=='ALL') aSrc = bSrc.filter(d=>d._branch===App.filters.branch);
     const agents = [...new Set(aSrc.map(d=>d._agent))].sort();
@@ -463,10 +445,9 @@ function updateDynamicFilters(source) {
 
 function renderChips(id, items, type, isDynamic=false) {
     const container = document.getElementById(id);
-    if(isDynamic) container.innerHTML = ''; // Clear if dynamic
+    if(isDynamic) container.innerHTML = '';
     
     items.forEach(val => {
-        // 이미 있으면 패스 (정적 필터용)
         if(!isDynamic && Array.from(container.children).some(c=>c.innerText===val)) return;
         
         const btn = document.createElement('div');
@@ -479,7 +460,6 @@ function renderChips(id, items, type, isDynamic=false) {
             if(!isAll && App.filters[type]===filterVal) App.filters[type] = 'ALL';
             else App.filters[type] = filterVal;
             
-            // Cascade Reset
             if(type==='hq') { App.filters.branch='ALL'; App.filters.agent='ALL'; }
             if(type==='branch') { App.filters.agent='ALL'; }
             
@@ -489,12 +469,9 @@ function renderChips(id, items, type, isDynamic=false) {
     });
 }
 
-function resetFilter(type) {
-    App.filters[type] = 'ALL';
-    updateDashboard();
-}
+function resetFilter(type) { App.filters[type] = 'ALL'; updateDashboard(); }
 
-/* --- RENDER VIEW: VOC --- */
+/* --- RENDER --- */
 function renderVocView() {
     const data = App.filtered;
     const unique = new Set(data.map(d=>d["계약번호"])).size;
@@ -506,14 +483,11 @@ function renderVocView() {
     document.getElementById('voc-rate').innerText = unique ? ((done/data.length)*100).toFixed(1)+'%' : '0%';
 
     updateMap(data);
-    
     drawBar('chart-voc-branch', data, '_branch', '건수', '#6366f1', 'branch');
     drawBar('chart-voc-agent', data.filter(d=>d._status!=='처리완료'), '_agent', '미처리', '#ef4444', 'agent');
-    
     renderTable('table-voc', data, ['_branch', '_agent', '계약번호', '상호', '_status', 'VOC유형소', '좌표']);
 }
 
-/* --- RENDER VIEW: PIPE --- */
 function renderPipeView() {
     const data = App.filtered;
     const high = data.filter(d=>d._risk>=75);
@@ -525,12 +499,9 @@ function renderPipeView() {
     document.getElementById('pipe-loss').innerText = (loss/10000).toFixed(0)+'만';
     document.getElementById('pipe-rate').innerText = data.length ? ((suc/data.length)*100).toFixed(1)+'%' : '0%';
 
-    drawTrend(data);
     drawPie(data);
-    drawBubble(data);
     drawStep(data);
-    
-    renderTable('table-pipe', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
+    renderTable('table-pipe', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_date', '_fee']);
 }
 
 /* --- MAP & CHARTS --- */
@@ -561,7 +532,6 @@ function updateMap(data) {
             setTimeout(()=>m.setAnimation(null), 1500);
         });
         
-        // Link for table click
         d._marker = m;
         bounds.extend(m.getPosition());
         App.markers.push(m);
@@ -576,7 +546,6 @@ function drawBar(id, data, key, label, color, fType) {
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
     
     let keys = Object.keys(counts);
-    // Sort logic
     if(key === '_branch') {
         keys.sort((a,b) => {
             const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
@@ -595,48 +564,20 @@ function drawBar(id, data, key, label, color, fType) {
         type: 'bar',
         data: {
             labels: keys,
-            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:4, barPercentage:0.7 }]
+            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:6 }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend:{display:false}, datalabels:{anchor:'end', align:'top', color:'#64748b'} },
+            animation: chartAnim,
+            plugins: { 
+                legend: {display:false},
+                datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} }
+            },
             scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
             onClick: (e, els) => {
-                if(els.length) {
-                    const val = keys[els[0].index];
-                    App.filters[fType] = val; // Direct set
-                    updateDashboard();
-                }
+                if(els.length > 0) toggleFilter(fType, keys[els[0].index], null);
             },
             onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-        }
-    });
-}
-
-function drawTrend(data) {
-    const trend = {};
-    data.forEach(d => {
-        let ym = d._regDate ? d._regDate.slice(0, 7) : 'Unknown';
-        trend[ym] = (trend[ym]||0) + 1;
-    });
-    const keys = Object.keys(trend).sort().filter(k=>k!=='Unknown');
-    
-    const ctx = document.getElementById('chart-pipe-trend').getContext('2d');
-    if(App.charts['trend']) App.charts['trend'].destroy();
-    
-    App.charts['trend'] = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: keys,
-            datasets: [{
-                label: '등록 건수', data: keys.map(k=>trend[k]),
-                borderColor: '#8b5cf6', backgroundColor: '#8b5cf620', fill:true, tension:0.3
-            }]
-        },
-        options: { 
-            responsive: true, maintainAspectRatio: false,
-            plugins: { datalabels:{display:true, align:'top'} },
-            scales: { y: { beginAtZero: true, grace: '10%' } }
         }
     });
 }
@@ -645,46 +586,24 @@ function drawPie(data) {
     const counts = {};
     data.forEach(d => { const r = d['해지사유']||"미입력"; counts[r] = (counts[r]||0)+1; });
     const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    
+
     const ctx = document.getElementById('chart-pipe-reason').getContext('2d');
     if(App.charts['pie']) App.charts['pie'].destroy();
-    
+
     App.charts['pie'] = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: sorted.map(x=>x[0]),
-            datasets: [{ data: sorted.map(x=>x[1]), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#6366f1'] }]
+            datasets: [{ 
+                data: sorted.map(x=>x[1]), 
+                backgroundColor: ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6'],
+                hoverOffset: 10
+            }]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
-    });
-}
-
-function drawBubble(data) {
-    const brData = {};
-    data.forEach(d => {
-        if(!brData[d._branch]) brData[d._branch] = { riskSum:0, feeSum:0, count:0 };
-        brData[d._branch].riskSum += d._risk;
-        brData[d._branch].feeSum += d._fee;
-        brData[d._branch].count++;
-    });
-    
-    const bubbles = Object.entries(brData).map(([br, v]) => ({
-        x: v.riskSum / v.count, y: v.feeSum / v.count, r: Math.min(v.count*1.5, 30), branch: br
-    }));
-
-    const ctx = document.getElementById('chart-pipe-risk').getContext('2d');
-    if(App.charts['bubble']) App.charts['bubble'].destroy();
-    
-    App.charts['bubble'] = new Chart(ctx, {
-        type: 'bubble',
-        data: { datasets: [{ label: '지사별', data: bubbles, backgroundColor: 'rgba(59, 130, 246, 0.6)', borderColor: '#2563eb' }] },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { 
-                legend:{display:false}, 
-                tooltip:{callbacks:{label:c=>`${c.raw.branch}: 위험${c.raw.x.toFixed(0)}% / 료${Math.round(c.raw.y/1000)}k`}}
-            },
-            scales: { x:{title:{display:true, text:'평균 위험도'}, min:0, max:100}, y:{title:{display:true, text:'평균 월정료'}} }
+            animation: { duration: 1500, animateScale: true },
+            plugins: { legend:{position:'right'}, datalabels:{color:'#fff', font:{weight:'bold'}} }
         }
     });
 }
@@ -692,24 +611,35 @@ function drawBubble(data) {
 function drawStep(data) {
     const counts = {};
     data.forEach(d => { const s = d._step||"미정"; counts[s] = (counts[s]||0)+1; });
-    
+    const keys = Object.keys(counts);
+
     const ctx = document.getElementById('chart-pipe-step').getContext('2d');
     if(App.charts['step']) App.charts['step'].destroy();
-    
+
     App.charts['step'] = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: Object.keys(counts),
-            datasets: [{ label: '건수', data: Object.values(counts), backgroundColor: '#10b981', borderRadius:4 }]
+            labels: keys,
+            datasets: [{ label: '건수', data: Object.values(counts), backgroundColor: '#10b981', borderRadius:6 }]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: chartAnim,
+            plugins: { legend:{display:false} },
+            scales: { y: { beginAtZero: true, grace: '10%' } }
+        }
     });
 }
 
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    // Show top 100
+    
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center; padding:30px; color:#94a3b8;">데이터가 없습니다.</td></tr>`;
+        return;
+    }
+
     data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
         cols.forEach(k => {
@@ -723,14 +653,12 @@ function renderTable(id, data, cols) {
             tr.appendChild(td);
         });
         
-        if(id === 'table-voc' && d._lat) {
+        if(d._lat && App.view === 'voc') {
             tr.onclick = () => {
                 App.map.panTo({lat:d._lat, lng:d._lng});
                 App.map.setZoom(14);
-                // Highlight
                 document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
                 tr.classList.add('active-row');
-                // Trigger Marker
                 if(d._marker) google.maps.event.trigger(d._marker, 'click');
             };
         }
@@ -738,12 +666,10 @@ function renderTable(id, data, cols) {
     });
 }
 
-/* --- UTILS --- */
 function animateNum(id, target) {
     const el = document.getElementById(id);
     const start = parseInt(el.innerText.replace(/,/g,'')) || 0;
     if(start === target) return;
-    
     let current = start;
     const step = Math.ceil((target - start) / 20);
     const timer = setInterval(() => {
@@ -761,20 +687,17 @@ function switchView(v) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
     
-    // Sync buttons
     const btns = document.querySelectorAll(`button[onclick="switchView('${v}')"]`);
     btns.forEach(b => b.classList.add('active'));
 
     document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
     document.getElementById(`view-${v}`).classList.add('active');
 
-    // Filter Visibility
     const isPipe = v === 'pipe';
     document.getElementById('fb-hq').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-risk').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isPipe ? 'none' : 'block';
     
-    // Resize
     setTimeout(() => {
         if(v==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
         Object.values(App.charts).forEach(c => c.resize());
