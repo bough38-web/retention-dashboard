@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Interactive Dashboard</title>
+<title>KTT Premium Retention Dashboard (Final Fixed)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -15,101 +15,111 @@
 
 <style>
     :root {
-        --primary: #2563eb; --primary-dark: #1e40af; --bg: #f8fafc; --surface: #ffffff;
-        --text: #1e293b; --text-light: #64748b; --border: #e2e8f0;
-        --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --primary: #2563eb; --primary-light: #eff6ff; --primary-dark: #1e40af;
+        --secondary: #64748b; --bg: #f8fafc; --surface: #ffffff;
+        --border: #e2e8f0; --text: #0f172a; --text-light: #64748b;
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+        --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --radius: 12px;
     }
-    body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
+
+    /* 기본 레이아웃 */
+    body { margin:0; font-family:'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
 
     /* 사이드바 */
-    .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
-    .logo-area { padding:20px; border-bottom:1px solid var(--border); }
+    .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow-md); }
+    .logo-area { padding:24px; border-bottom:1px solid var(--border); }
     .logo-area h1 { margin:0; font-size:18px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
     .sidebar-scroll { flex:1; overflow-y:auto; padding:20px; }
 
-    /* 보안 업로드 */
-    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:12px; text-align:center; margin-bottom:20px; cursor:pointer; transition:0.2s; }
-    .upload-box:hover { border-color:var(--primary); background:#eff6ff; }
-    .upload-box span { font-size:12px; font-weight:600; color:var(--text); display:block; }
+    /* 업로드 박스 */
+    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; }
+    .upload-box:hover { border-color:var(--primary); background:var(--primary-light); }
+    .upload-box label { cursor:pointer; font-size:13px; font-weight:600; color:var(--secondary); display:block; }
+    .upload-box input { display:none; }
 
     /* 탭 메뉴 */
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
-    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-light); cursor:pointer; border-radius:8px; transition:0.2s; }
-    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
+    .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-light); cursor:pointer; border-radius:8px; transition:0.2s; }
+    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:var(--shadow-sm); }
 
-    /* 필터 칩 */
-    .filter-group { margin-bottom:16px; }
-    .filter-header { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-light); margin-bottom:6px; }
-    .reset-btn { cursor:pointer; color:var(--primary); display:none; }
-    .reset-btn.show { display:inline; }
-    
-    .chip-box { display:flex; flex-wrap:wrap; gap:5px; max-height:150px; overflow-y:auto; align-content:flex-start; }
+    /* 필터 (버튼식) */
+    .filter-section { margin-bottom:24px; }
+    .filter-label { font-size:12px; font-weight:700; color:var(--text); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+    .chip-container { display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start; }
     .chip { 
-        padding:5px 10px; border:1px solid var(--border); background:var(--surface); 
-        border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; transition:0.1s; 
+        padding:6px 12px; border:1px solid var(--border); background:var(--surface); 
+        border-radius:20px; font-size:12px; color:var(--text-light); cursor:pointer; transition:0.15s; font-weight:500;
     }
     .chip:hover { background:var(--bg); border-color:#cbd5e1; }
-    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(37,99,235,0.3); }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow: 0 2px 4px rgba(37,99,235,0.3); }
+    .chip.small { padding:4px 10px; font-size:11px; }
+    .reset-btn { font-size:11px; color:var(--primary); cursor:pointer; font-weight:600; }
 
     /* 메인 콘텐츠 */
     .main-content { flex:1; padding:24px; overflow-y:auto; position:relative; display:flex; flex-direction:column; }
-    .view-panel { display:none; animation:fadeIn 0.3s ease-out; flex:1; flex-direction:column; }
+    .view-panel { display:none; flex:1; flex-direction:column; animation:fadeIn 0.3s ease-out; }
     .view-panel.active { display:flex; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 
-    /* KPI */
+    /* 헤더 & KPI */
     .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-    .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px; }
-    .kpi-card { background:var(--surface); padding:20px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; overflow:hidden; }
-    .kpi-label { font-size:12px; font-weight:600; color:var(--text-light); text-transform:uppercase; }
-    .kpi-val { font-size:26px; font-weight:800; margin-top:6px; color:var(--text); letter-spacing:-0.5px; }
-    .kpi-deco { position:absolute; right:16px; top:16px; font-size:32px; opacity:0.1; color:var(--text); }
+    .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:20px; }
+    .kpi-card { background:var(--surface); padding:20px; border-radius:var(--radius); box-shadow:var(--shadow-sm); border-left:4px solid transparent; position:relative; transition:transform 0.2s; }
+    .kpi-card:hover { transform:translateY(-2px); }
+    .kpi-title { font-size:12px; color:var(--text-light); font-weight:700; text-transform:uppercase; margin-bottom:4px; }
+    .kpi-value { font-size:28px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+    .kpi-icon { position:absolute; right:20px; top:20px; font-size:32px; opacity:0.1; }
 
-    /* 그리드 & 카드 */
-    .grid-layout { display:grid; grid-template-columns:3fr 2fr; gap:20px; margin-bottom:20px; flex:1; min-height:0; }
-    .card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; display:flex; flex-direction:column; border:1px solid var(--border); height:100%; }
-    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-    .card h3 { margin:0; font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px; color:var(--text); }
+    /* 그리드 레이아웃 */
+    .dashboard-grid { display:flex; gap:20px; margin-bottom:20px; flex:1; min-height:0; }
+    .grid-left { flex:3; display:flex; flex-direction:column; } /* 지도 영역 */
+    .grid-right { flex:2; display:flex; flex-direction:column; gap:20px; } /* 차트 영역 */
+
+    .card { background:var(--surface); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; flex-direction:column; }
+    .card.full-height { flex:1; min-height:0; } /* 꽉 채우기 */
+    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .card-title { font-size:15px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
     
-    /* 지도 꽉 채우기 수정 */
-    .map-wrap { flex:1; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:400px; }
-    .chart-wrap { position:relative; flex:1; min-height:250px; width:100%; }
+    /* 지도 꽉 채우기 */
+    .map-container { flex:1; width:100%; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:400px; }
+    .chart-box { flex:1; position:relative; min-height:250px; }
 
     /* 테이블 */
-    .table-card { flex:none; height:300px; } /* 테이블 높이 고정 */
-    .table-wrap { overflow:auto; height:100%; border:1px solid #f1f5f9; border-radius:8px; }
+    .table-card { flex:none; height:320px; overflow:hidden; }
+    .table-container { overflow:auto; height:100%; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap; }
-    th { background:#f8fafc; padding:10px 14px; text-align:left; position:sticky; top:0; font-weight:700; color:var(--text-light); border-bottom:1px solid var(--border); z-index:10; }
-    td { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); }
-    tr:hover td { background:#f1f5f9; }
-    tr.active-row td { background:#eff6ff !important; font-weight:600; color:var(--primary); }
+    th { background:#f8fafc; padding:12px 16px; text-align:left; font-weight:700; color:var(--text-light); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+    td { padding:12px 16px; border-bottom:1px solid var(--border); color:var(--text); cursor:pointer; }
+    tr:hover td { background:#f8fafc; }
+    tr.selected td { background:var(--primary-light) !important; font-weight:600; color:var(--primary); }
 
-    /* 로딩 & 유틸 */
-    #loading { position:fixed; inset:0; background:rgba(255,255,255,0.9); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; }
-    .spinner { width:40px; height:40px; border:4px solid #eff6ff; border-top:4px solid var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
-    @keyframes spin { 100%{transform:rotate(360deg);} }
-    .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+    /* 유틸리티 */
+    .badge { padding:3px 8px; border-radius:99px; font-size:11px; font-weight:700; display:inline-block; min-width:50px; text-align:center; }
+    .bg-blue { background:#dbeafe; color:#1e40af; }
     .bg-green { background:#dcfce7; color:#166534; }
     .bg-red { background:#fee2e2; color:#991b1b; }
     .bg-yellow { background:#fef3c7; color:#92400e; }
-    .bg-blue { background:#dbeafe; color:#1e40af; }
-    #fileInput { display:none; }
+    
+    #loading { position:fixed; inset:0; background:rgba(255,255,255,0.95); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(2px); }
+    .loader { width:40px; height:40px; border:4px solid var(--primary-light); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+    @keyframes spin { 100% { transform:rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <div id="loading">
-    <div class="spinner"></div>
-    <div style="margin-top:15px; font-weight:600; color:#4b5563">데이터 로딩 중...</div>
+    <div class="loader"></div>
+    <p style="margin-top:15px; font-weight:600; color:#475569;">데이터 분석 중...</p>
 </div>
 
 <div class="sidebar">
     <div class="logo-area">
-        <h1><i class="ph ph-chart-polar"></i> KTT Dashboard</h1>
+        <h1><i class="ph ph-chart-polar" style="color:var(--primary)"></i> KTT Dashboard</h1>
     </div>
     
     <div class="sidebar-scroll">
@@ -124,37 +134,37 @@
             <button class="nav-tab" onclick="switchView('pipe')">파이프라인</button>
         </div>
 
-        <div id="filter-group-hq" class="filter-group" style="display:none;">
-            <div class="filter-header">관리본부 <span class="reset-btn" onclick="resetFilter('hq')">초기화</span></div>
-            <div id="chips-hq" class="chip-box"></div>
+        <div id="filter-group-hq" class="filter-section" style="display:none;">
+            <div class="filter-label">관리본부 <span class="reset-btn" onclick="resetFilter('hq')">초기화</span></div>
+            <div id="chips-hq" class="chip-container"></div>
         </div>
 
-        <div class="filter-group">
-            <div class="filter-header">관리지사 <span class="reset-btn" onclick="resetFilter('branch')">초기화</span></div>
-            <div id="chips-branch" class="chip-box"></div>
+        <div class="filter-section">
+            <div class="filter-label">관리지사 <span class="reset-btn" onclick="resetFilter('branch')">초기화</span></div>
+            <div id="chips-branch" class="chip-container"></div>
         </div>
 
-        <div class="filter-group">
-            <div class="filter-header">담당자 <span class="reset-btn" onclick="resetFilter('agent')">초기화</span></div>
-            <div id="chips-agent" class="chip-box" style="max-height:180px;"></div>
+        <div class="filter-section">
+            <div class="filter-label">담당자 <span class="reset-btn" onclick="resetFilter('agent')">초기화</span></div>
+            <div id="chips-agent" class="chip-container" style="max-height:180px; overflow-y:auto;"></div>
         </div>
 
-        <div id="filter-group-status" class="filter-group">
-            <div class="filter-header">처리 상태</div>
-            <div id="chips-status" class="chip-box">
-                <button class="chip active" onclick="toggleFilter('status', 'ALL', this)">전체</button>
-                <button class="chip" onclick="toggleFilter('status', '처리완료', this)">처리완료</button>
-                <button class="chip" onclick="toggleFilter('status', '접수', this)">접수</button>
-                <button class="chip" onclick="toggleFilter('status', '미접수', this)">미접수</button>
+        <div id="filter-group-status" class="filter-section">
+            <div class="filter-label">처리 상태</div>
+            <div id="chips-status" class="chip-container">
+                <button class="chip active" onclick="setStatus('ALL', this)">전체</button>
+                <button class="chip" onclick="setStatus('처리완료', this)">처리완료</button>
+                <button class="chip" onclick="setStatus('접수', this)">접수</button>
+                <button class="chip" onclick="setStatus('미접수', this)">미접수</button>
             </div>
         </div>
 
-        <div id="filter-group-risk" class="filter-group" style="display:none;">
-            <div class="filter-header">해지 위험도</div>
-            <div id="chips-risk" class="chip-box">
-                <button class="chip active" onclick="toggleFilter('risk', 'ALL', this)">전체</button>
-                <button class="chip" onclick="toggleFilter('risk', 'HIGH', this)">고위험 (75%↑)</button>
-                <button class="chip" onclick="toggleFilter('risk', 'MID', this)">중위험 (50~75%)</button>
+        <div id="filter-group-risk" class="filter-section" style="display:none;">
+            <div class="filter-label">해지 위험도</div>
+            <div id="chips-risk" class="chip-container">
+                <button class="chip active" onclick="setRisk('ALL', this)">전체</button>
+                <button class="chip" onclick="setRisk('HIGH', this)">고위험 (75%↑)</button>
+                <button class="chip" onclick="setRisk('MID', this)">중위험 (50~75%)</button>
             </div>
         </div>
     </div>
@@ -168,59 +178,62 @@
                 <h2 style="margin:0;">관리고객(VOC) 현황</h2>
                 <p style="margin:4px 0 0; color:var(--text-light); font-size:13px;">실시간 위치 및 처리 현황 모니터링</p>
             </div>
-            <button class="chip active" style="background:#10b981; color:#fff; border:none;" onclick="downloadCSV('voc')">
+            <button class="chip active" style="background:#10b981; color:#fff; border:none;" onclick="exportCSV('voc')">
                 <i class="ph ph-download-simple"></i> 엑셀 다운로드
             </button>
         </div>
 
         <div class="kpi-row">
-            <div class="kpi-card" style="border-left:4px solid var(--primary);">
-                <div class="kpi-label">총 계약 (Unique)</div>
-                <div class="kpi-val" id="voc-kpi-total">0</div>
-                <i class="ph ph-users kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--primary);">
+                <div class="kpi-title">총 계약 (Unique)</div>
+                <div class="kpi-value" id="voc-kpi-total">0</div>
+                <i class="ph ph-users kpi-icon" style="color:var(--primary)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--success);">
-                <div class="kpi-label">처리 완료</div>
-                <div class="kpi-val" id="voc-kpi-done" style="color:var(--success)">0</div>
-                <i class="ph ph-check-circle kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--success);">
+                <div class="kpi-title">처리 완료</div>
+                <div class="kpi-value" id="voc-kpi-done" style="color:var(--success)">0</div>
+                <i class="ph ph-check-circle kpi-icon" style="color:var(--success)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--warning);">
-                <div class="kpi-label">처리율</div>
-                <div class="kpi-val" id="voc-kpi-rate">0%</div>
-                <i class="ph ph-chart-pie-slice kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--warning);">
+                <div class="kpi-title">처리율</div>
+                <div class="kpi-value" id="voc-kpi-rate">0%</div>
+                <i class="ph ph-chart-pie-slice kpi-icon" style="color:var(--warning)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--danger);">
-                <div class="kpi-label">미접수</div>
-                <div class="kpi-val" id="voc-kpi-wait" style="color:var(--danger)">0</div>
-                <i class="ph ph-warning-circle kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--danger);">
+                <div class="kpi-title">미접수</div>
+                <div class="kpi-value" id="voc-kpi-wait" style="color:var(--danger)">0</div>
+                <i class="ph ph-warning-circle kpi-icon" style="color:var(--danger)"></i>
             </div>
         </div>
 
-        <div class="grid-layout">
-            <div class="card" style="padding:0; overflow:hidden;">
-                <div style="padding:16px; border-bottom:1px solid var(--border); background:var(--surface);">
-                    <h3 style="margin:0;"><i class="ph ph-map-trifold"></i> 고객 위치 분석</h3>
+        <div class="dashboard-grid">
+            <div class="grid-left">
+                <div class="card full-height" style="padding:0;">
+                    <div style="padding:16px; border-bottom:1px solid var(--border); background:var(--surface);">
+                        <h3 style="margin:0;"><i class="ph ph-map-trifold"></i> 고객 위치 분석 (Clickable)</h3>
+                    </div>
+                    <div id="voc-map" class="map-container"></div>
                 </div>
-                <div id="voc-map" class="map-wrap"></div>
             </div>
-            
-            <div style="display:flex; flex-direction:column; gap:20px;">
+            <div class="grid-right">
                 <div class="card" style="flex:1;">
-                    <h3><i class="ph ph-chart-bar"></i> 지사별 현황 (Click to Filter)</h3>
-                    <div class="chart-wrap"><canvas id="voc-chart-branch"></canvas></div>
+                    <div class="card-header">
+                        <div class="card-title">지사별 현황 <span style="font-size:11px; font-weight:400; color:#64748b;">(클릭하여 필터)</span></div>
+                    </div>
+                    <div class="chart-box"><canvas id="voc-chart-branch"></canvas></div>
                 </div>
                 <div class="card" style="flex:1;">
-                    <h3><i class="ph ph-user-list"></i> 미처리 담당자 Top 10</h3>
-                    <div class="chart-wrap"><canvas id="voc-chart-agent"></canvas></div>
+                    <div class="card-title">미처리 담당자 Top 10</div>
+                    <div class="chart-box"><canvas id="voc-chart-agent"></canvas></div>
                 </div>
             </div>
         </div>
 
         <div class="card table-card">
             <div class="card-header">
-                <h3><i class="ph ph-list-dashes"></i> 상세 리스트 (지도 연동)</h3>
+                <div class="card-title">상세 리스트 <span style="font-size:11px; font-weight:400; color:#64748b;">(행 클릭 시 지도 이동)</span></div>
             </div>
-            <div class="table-wrap">
+            <div class="table-container">
                 <table id="voc-table">
                     <thead><tr><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>서비스</th><th>좌표</th></tr></thead>
                     <tbody></tbody>
@@ -235,48 +248,52 @@
                 <h2 style="margin:0;">해지 파이프라인 분석</h2>
                 <p style="margin:4px 0 0; color:var(--text-light); font-size:13px;">고위험 고객 방어 성과 분석</p>
             </div>
-            <button class="chip active" style="background:#10b981; color:#fff; border:none;" onclick="downloadCSV('pipe')">
+            <button class="chip active" style="background:#10b981; color:#fff; border:none;" onclick="exportCSV('pipe')">
                 <i class="ph ph-download-simple"></i> 엑셀 다운로드
             </button>
         </div>
 
         <div class="kpi-row">
-            <div class="kpi-card" style="border-left:4px solid var(--primary);">
-                <div class="kpi-label">대상 총 건수</div>
-                <div class="kpi-val" id="pipe-kpi-total">0</div>
-                <i class="ph ph-funnel kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--primary);">
+                <div class="kpi-title">대상 총 건수</div>
+                <div class="kpi-value" id="pipe-kpi-total">0</div>
+                <i class="ph ph-funnel kpi-icon" style="color:var(--primary)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--danger);">
-                <div class="kpi-label">고위험군 (75%↑)</div>
-                <div class="kpi-val" id="pipe-kpi-high" style="color:var(--danger)">0</div>
-                <i class="ph ph-siren kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--danger);">
+                <div class="kpi-title">고위험군 (75%↑)</div>
+                <div class="kpi-value" id="pipe-kpi-high" style="color:var(--danger)">0</div>
+                <i class="ph ph-siren kpi-icon" style="color:var(--danger)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--warning);">
-                <div class="kpi-label">예상 손실액(월)</div>
-                <div class="kpi-val" id="pipe-kpi-loss">0</div>
-                <i class="ph ph-currency-krw kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--warning);">
+                <div class="kpi-title">예상 손실액(월)</div>
+                <div class="kpi-value" id="pipe-kpi-loss">0</div>
+                <i class="ph ph-currency-krw kpi-icon" style="color:var(--warning)"></i>
             </div>
-            <div class="kpi-card" style="border-left:4px solid var(--success);">
-                <div class="kpi-label">방어 성공률</div>
-                <div class="kpi-val" id="pipe-kpi-rate" style="color:var(--success)">0%</div>
-                <i class="ph ph-shield-check kpi-deco"></i>
+            <div class="kpi-card" style="border-left-color:var(--success);">
+                <div class="kpi-title">방어 성공률</div>
+                <div class="kpi-value" id="pipe-kpi-rate" style="color:var(--success)">0%</div>
+                <i class="ph ph-shield-check kpi-icon" style="color:var(--success)"></i>
             </div>
         </div>
 
-        <div class="grid-layout">
-            <div class="card">
-                <h3><i class="ph ph-chart-line-up"></i> 월별 등록 추이 (Clickable)</h3>
-                <div class="chart-wrap"><canvas id="pipe-chart-trend"></canvas></div>
+        <div class="dashboard-grid">
+            <div class="grid-left">
+                <div class="card full-height">
+                    <div class="card-title">월별 등록 추이 (클릭하여 필터)</div>
+                    <div class="chart-box"><canvas id="pipe-chart-trend"></canvas></div>
+                </div>
             </div>
-            <div class="card">
-                <h3><i class="ph ph-chart-pie-slice"></i> 해지 사유 분석 (Top 5)</h3>
-                <div class="chart-wrap"><canvas id="pipe-chart-reason"></canvas></div>
+            <div class="grid-right">
+                <div class="card full-height">
+                    <div class="card-title">해지 사유 분석 (Top 5)</div>
+                    <div class="chart-box"><canvas id="pipe-chart-reason"></canvas></div>
+                </div>
             </div>
         </div>
 
         <div class="card table-card">
-            <h3><i class="ph ph-table"></i> 상세 파이프라인 리스트</h3>
-            <div class="table-wrap">
+            <div class="card-title">상세 파이프라인 리스트</div>
+            <div class="table-container">
                 <table id="pipe-table">
                     <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>등록일자</th><th>월정료</th></tr></thead>
                     <tbody></tbody>
@@ -289,18 +306,16 @@
 
 <script>
 /* ================= CONFIG ================= */
-// 지사 정렬 순서 (커스텀)
+// 강북/강원 본부 지사 정렬 순서 (그 외는 뒤로)
 const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
 
-// 데이터 URL (사용자가 업로드 시 덮어씌워짐)
 const DATA_SRC = {
     voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
-// 앱 상태 관리
 let App = {
-    view: 'voc',
+    view: 'voc', // voc | pipe
     rawData: { voc: [], pipe: [] },
     filteredData: [],
     filters: { hq: 'ALL', branch: 'ALL', agent: 'ALL', status: 'ALL', risk: 'ALL' },
@@ -310,7 +325,7 @@ let App = {
     markers: []
 };
 
-// Chart.js 플러그인 등록
+// Chart.js 플러그인
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
@@ -325,7 +340,7 @@ window.onload = async () => {
         initMap();
         initUI();
         updateDashboard();
-    } catch(e) { console.error(e); alert("기본 데이터 로드 실패 (콘솔 확인)"); }
+    } catch(e) { console.error(e); alert("데이터 로드 중 오류 발생"); }
     document.getElementById("loading").style.display = "none";
 };
 
@@ -367,7 +382,7 @@ function parsePipe(data) {
         let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk = risk * 100;
 
-        // ★ 날짜 파싱 (46002 -> 2025-12-11)
+        // ★ [FIX] 날짜 변환 (Excel Serial -> Date)
         let dateStr = r["등록일자"];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
@@ -398,15 +413,21 @@ function toggleFilter(type, val, btn) {
     if (val !== 'ALL' && App.filters[type] === val) App.filters[type] = 'ALL';
     else App.filters[type] = val;
     
-    // UI Active
-    if(btn) {
+    // UI 업데이트 (버튼이 전달되지 않았을 경우 DOM에서 찾음)
+    if (!btn) {
+        const containerId = (type==='branch')?'chips-branch':(type==='agent'?'chips-agent':'chips-hq');
+        const container = document.getElementById(containerId);
+        if(container) {
+            Array.from(container.children).forEach(c => {
+                c.classList.toggle('active', c.innerText === (val==='ALL'?'전체':val));
+            });
+        }
+    } else {
         const p = btn.parentElement;
         Array.from(p.children).forEach(c => c.classList.remove('active'));
-        const targetBtn = Array.from(p.children).find(c => c.innerText === (val==='ALL'?'전체':val));
-        if(targetBtn) targetBtn.classList.add('active');
+        btn.classList.add('active');
     }
 
-    // Cascading
     if (type === 'hq') { App.filters.branch = 'ALL'; App.filters.agent = 'ALL'; }
     if (type === 'branch') { App.filters.agent = 'ALL'; }
 
@@ -439,9 +460,6 @@ function getFilteredData() {
     });
 }
 
-/* ================= RENDERING ================= */
-function initUI() { switchView('voc'); }
-
 function updateDashboard() {
     App.filteredData = getFilteredData();
     renderFilters();
@@ -453,28 +471,28 @@ function renderFilters() {
     const isVoc = App.view === 'voc';
     const source = isVoc ? App.rawData.voc : App.rawData.pipe;
 
-    // HQ (Pipe only)
+    // A. HQ
     if (!isVoc) {
         const hqs = [...new Set(source.map(d=>d._hq))].sort();
         renderChips('chips-hq', hqs, 'hq');
     }
 
-    // Branch (Sorted by custom order)
+    // B. Branch
     let branchSource = source;
     if (!isVoc && App.filters.hq !== 'ALL') branchSource = source.filter(d => d._hq === App.filters.hq);
-    const branches = [...new Set(branchSource.map(d=>d._branch))];
-    // ★ 지사 정렬 로직 적용
+    
+    // ★ 지사 정렬 (중앙, 강북... 순)
+    let branches = [...new Set(branchSource.map(d=>d._branch))];
     branches.sort((a,b) => {
         const ia = BRANCH_ORDER.indexOf(a);
         const ib = BRANCH_ORDER.indexOf(b);
         if(ia !== -1 && ib !== -1) return ia - ib;
-        if(ia !== -1) return -1;
-        if(ib !== -1) return 1;
+        if(ia !== -1) return -1; if(ib !== -1) return 1;
         return a.localeCompare(b);
     });
     renderChips('chips-branch', branches, 'branch');
 
-    // Agent
+    // C. Agent
     let agentSource = branchSource;
     if (App.filters.branch !== 'ALL') agentSource = branchSource.filter(d => d._branch === App.filters.branch);
     const agents = [...new Set(agentSource.map(d=>d._agent))].sort();
@@ -509,7 +527,7 @@ function toggleResetBtn(type, show) {
     if(el) el.style.display = show ? 'inline' : 'none';
 }
 
-/* ================= VIEW: VOC ================= */
+/* ================= VIEWS ================= */
 function renderVocView() {
     const data = App.filteredData;
     const unique = new Set(data.map(d=>d["계약번호"])).size;
@@ -527,7 +545,6 @@ function renderVocView() {
     renderTable('voc-table', data, ['_branch', '_agent', '계약번호', '상호', '_status', 'VOC유형소', '좌표']);
 }
 
-/* ================= VIEW: PIPE ================= */
 function renderPipeView() {
     const data = App.filteredData;
     const total = data.length;
@@ -545,7 +562,7 @@ function renderPipeView() {
     renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
 }
 
-/* ================= MAP & CHART ================= */
+/* ================= CHART & MAP ================= */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
         center: {lat: 37.5665, lng: 126.9780}, zoom: 9,
@@ -571,7 +588,6 @@ function updateMap(data) {
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
     
-    // Auto Fit Bounds
     if(App.markers.length > 0) {
         const b = new google.maps.LatLngBounds();
         App.markers.forEach(m => b.extend(m.getPosition()));
@@ -583,7 +599,7 @@ function drawBarChart(id, data, key, label, color, filterType) {
     const counts = {};
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
     
-    // Sort logic (Custom order for branch)
+    // Sort
     let sortedKeys = Object.keys(counts);
     if(key === '_branch') {
         sortedKeys.sort((a,b) => {
@@ -593,9 +609,9 @@ function drawBarChart(id, data, key, label, color, filterType) {
             return a.localeCompare(b);
         });
     } else {
-        sortedKeys.sort((a,b) => counts[b] - counts[a]); // Descending
+        sortedKeys.sort((a,b) => counts[b] - counts[a]);
     }
-    sortedKeys = sortedKeys.slice(0, 15); // Limit 15
+    sortedKeys = sortedKeys.slice(0, 15);
 
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
@@ -610,10 +626,10 @@ function drawBarChart(id, data, key, label, color, filterType) {
             responsive: true, maintainAspectRatio: false,
             plugins: { 
                 legend: {display:false},
-                datalabels: { color:'#666', anchor:'end', align:'top', font:{weight:'bold', size:10} }
+                datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} }
             },
             onClick: (e, els) => {
-                if(els.length > 0) toggleFilter(filterType, sortedKeys[els[0].index], document.body);
+                if(els.length > 0) toggleFilter(filterType, sortedKeys[els[0].index], null);
             },
             onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
         }
@@ -665,7 +681,11 @@ function drawPieChart(data) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend:{position:'right'}, datalabels:{color:'#fff', font:{weight:'bold'}} }
+            plugins: { legend:{position:'right'}, datalabels:{color:'#fff', font:{weight:'bold'}} },
+            onClick: (e, els) => {
+                // 파이 차트 클릭 시 필터링 (구현 예시: Alert or Log)
+                // if(els.length > 0) console.log("Filtered by Reason:", sorted[els[0].index][0]);
+            }
         }
     });
 }
@@ -673,7 +693,7 @@ function drawPieChart(data) {
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    data.slice(0, 100).forEach(d => { // Limit 100 rows for performance
+    data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
         cols.forEach(k => {
             let val = d[k] || d[k.replace('_','')];
@@ -686,13 +706,12 @@ function renderTable(id, data, cols) {
             tr.appendChild(td);
         });
         
-        // 테이블 클릭 시 지도 이동
         if(d._lat && App.view === 'voc') {
             tr.onclick = () => {
                 App.map.panTo({lat:d._lat, lng:d._lng});
                 App.map.setZoom(14);
-                document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
-                tr.classList.add('active-row');
+                document.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));
+                tr.classList.add('selected');
             };
         }
         tbody.appendChild(tr);
@@ -747,6 +766,8 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     };
     reader.readAsText(file, 'UTF-8');
 });
+
+function initUI() { switchView('voc'); }
 </script>
 </body>
 </html>
