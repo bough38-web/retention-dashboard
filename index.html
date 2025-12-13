@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (Secure & Interactive)</title>
+<title>KTT Premium Dashboard (Secure & Interactive)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -94,9 +94,17 @@
     .bg-blue { background:#dbeafe; color:#1e40af; }
     
     #fileInput { display:none; }
+    #loading { position:fixed; inset:0; background:rgba(255,255,255,0.9); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; }
+    .spinner { width:40px; height:40px; border:4px solid #eff6ff; border-top:4px solid var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+    @keyframes spin { 100%{transform:rotate(360deg);} }
 </style>
 </head>
 <body>
+
+<div id="loading">
+    <div class="spinner"></div>
+    <div style="margin-top:15px; font-weight:600; color:#4b5563">데이터 분석 중...</div>
+</div>
 
 <div class="sidebar">
     <div class="logo-area">
@@ -219,7 +227,7 @@
         <div class="header-row">
             <div>
                 <h2 style="margin:0;">해지 파이프라인 분석</h2>
-                <p style="margin:5px 0 0; color:var(--text-light); font-size:14px;">고위험군 방어 활동 성과</p>
+                <p style="margin:5px 0 0; color:var(--text-light); font-size:14px;">고위험 고객 방어 성과 및 해지 사유 심층 분석</p>
             </div>
             <button class="chip active" style="background:#10b981; color:#fff; border:none;" onclick="downloadCSV('pipe')">
                 <i class="ph ph-download-simple"></i> 엑셀 다운로드
@@ -309,6 +317,7 @@ window.onload = async () => {
         initUI();
         updateDashboard();
     } catch(e) { console.error("Load Error", e); alert("데이터 로드 실패"); }
+    document.getElementById("loading").style.display = "none";
 };
 
 async function fetchCsv(url) {
@@ -349,16 +358,22 @@ function parseVoc(data) {
 }
 
 function parsePipe(data) {
-    return data.map(r => ({
-        ...r,
-        _hq: (r["관리본부"]||"기타").trim(),
-        _branch: normBranch(r["관리지사"]),
-        _agent: (r["담당자"]||"미지정").trim(),
-        _risk: parseFloat(r["해지위험도"]||0),
-        _step: (r["방어진행단계"]||"").trim(),
-        _fee: parseMoney(r["KTT월정료(조정)"]||r["월정료"]),
-        _date: r["등록일자"] // Trend용
-    }));
+    return data.map(r => {
+        // 해지위험도 정규화 (0~1 범위면 100을 곱함)
+        let risk = parseFloat(r["해지위험도"]||0);
+        if (risk > 0 && risk <= 1) risk = risk * 100;
+
+        return {
+            ...r,
+            _hq: (r["관리본부"]||"기타").trim(),
+            _branch: normBranch(r["관리지사"]),
+            _agent: (r["담당자"]||"미지정").trim(),
+            _risk: Math.round(risk),
+            _step: (r["방어진행단계"]||"").trim(),
+            _fee: parseMoney(r["KTT월정료(조정)"]||r["월정료"]),
+            _date: r["등록일자"] 
+        };
+    });
 }
 
 function normBranch(s) { return (s||"기타").replace("지사","").trim(); }
@@ -618,10 +633,11 @@ function drawBarChart(id, data, key, label, color, filterType) {
 }
 
 function drawTrendChart(data) {
-    // 월별 추이
+    // 월별 추이 (날짜 콤마 제거 처리)
     const trend = {};
     data.forEach(d => {
-        let date = d._date; // Simplify date parsing
+        let dateStr = String(d._date).replace(/,/g, '');
+        let date = dateStr;
         if(!isNaN(date)) date = new Date((date-25569)*86400*1000).toISOString().slice(0,7);
         else if(typeof date==='string') date = date.slice(0,7);
         
