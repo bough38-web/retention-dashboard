@@ -2,34 +2,53 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT 통합 리텐션 대시보드 (Premium)</title>
+<title>KTT 통합 리텐션 대시보드 (Premium Mixed)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- LIB -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbmyeJMsApj38SRzWvaQGrZmpqUQTooMw" defer></script>
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 
 <style>
-:root {
-  --primary:#2563eb; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0;
-}
-body {margin:0; font-family:Pretendard,system-ui; background:var(--bg);}
-.content {padding:32px;}
-.chart-card {
-  background:var(--card);
-  border-radius:12px;
-  padding:24px;
-  margin-bottom:24px;
-  box-shadow:0 4px 6px rgba(0,0,0,.05);
-}
-.card-header {
-  display:flex; justify-content:space-between; align-items:center;
-  margin-bottom:16px;
-}
-#vocMap {width:100%; height:420px; border-radius:12px;}
+:root { --primary:#2563eb; --bg:#f8fafc; --card:#fff; --border:#e2e8f0; --text:#334155; }
+body { margin:0; font-family:Pretendard, system-ui, sans-serif; background:var(--bg); color:var(--text); }
+.content { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+/* Layout Grid */
+.dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; }
+@media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+/* Cards */
+.chart-card { background:var(--card); border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,.05); border:1px solid var(--border); display: flex; flex-direction: column;}
+.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.card-title { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+
+/* Controls */
+.control-bar { display: flex; gap: 12px; align-items: center; background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: #fff; font-size: 14px; }
+.kpi-group { margin-left: auto; display: flex; gap: 20px; font-size: 14px; }
+.kpi-item b { color: var(--primary); font-size: 16px; margin-left: 4px; }
+
+/* Map & Chart */
+#vocMap { width:100%; height:500px; border-radius:8px; }
+#chartContainer { position: relative; flex-grow: 1; min-height: 200px; }
+
+/* Table */
+.table-container { max-height: 400px; overflow-y: auto; border-top: 1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:13px; text-align: left; }
+th { background: #f1f5f9; padding: 12px; position: sticky; top: 0; font-weight: 600; color: #475569; }
+td { padding: 10px 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+tr:hover { background: #f8fafc; }
+tr.highlight { background: #eff6ff !important; border-left: 4px solid var(--primary); }
+
+/* Custom Badge */
+.badge { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.bg-done { background: #dbeafe; color: #1e40af; }
+.bg-wait { background: #fee2e2; color: #991b1b; }
 </style>
 </head>
 
@@ -37,21 +56,60 @@ body {margin:0; font-family:Pretendard,system-ui; background:var(--bg);}
 
 <div class="content">
 
-  <h2>관리고객(VOC) 활동 현황</h2>
-
-  <!-- ✅ VOC MAP -->
-  <div class="chart-card" style="height:480px;">
-    <div class="card-header">
-      <h3><i class="ph ph-map-pin"></i> 고객 위치 현황 (VOC)</h3>
-      <span>필터 연동</span>
+    <div class="header" style="margin-bottom: 24px;">
+        <h2 style="margin:0">KTT 통합 리텐션 대시보드 <span style="font-size:14px; color:#64748b; font-weight:400;">(Premium Ver.)</span></h2>
     </div>
-    <div id="vocMap"></div>
-  </div>
 
-  <!-- 지사별 차트 -->
-  <div class="chart-card">
-    <canvas id="vocBranchChart"></canvas>
-  </div>
+    <div class="control-bar">
+        <span><i class="ph ph-funnel"></i> 필터:</span>
+        <select id="branchFilter"><option value="ALL">지사 전체</option></select>
+        <select id="agentFilter"><option value="ALL">담당자 전체</option></select>
+
+        <div class="kpi-group">
+            <span class="kpi-item">화면 내 VOC: <b id="kpiTotal">0</b>건</span>
+            <span class="kpi-item">처리완료: <b id="kpiDone">0</b>건</span>
+            <span class="kpi-item">처리율: <b id="kpiRate">0%</b></span>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="chart-card">
+            <div class="card-header">
+                <div class="card-title"><i class="ph ph-map-trifold"></i> VOC 지리적 분포</div>
+                <span style="font-size:12px; color:#64748b;">지도 이동 시 데이터 자동 갱신</span>
+            </div>
+            <div id="vocMap"></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="card-header">
+                <div class="card-title"><i class="ph ph-chart-bar"></i> 지사별 현황 (화면 내)</div>
+            </div>
+            <div id="chartContainer">
+                <canvas id="vocBranchChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-card" style="padding:0; overflow:hidden;">
+        <div style="padding:16px; border-bottom:1px solid #eee; font-weight:bold;">
+            <i class="ph ph-list-dashes"></i> 상세 리스트 (지도 영역 연동)
+        </div>
+        <div class="table-container">
+            <table id="vocTable">
+                <thead>
+                    <tr>
+                        <th>지사</th>
+                        <th>담당자</th>
+                        <th>상호(고객명)</th>
+                        <th>VOC 유형</th>
+                        <th>상태</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
 
 </div>
 
@@ -59,131 +117,311 @@ body {margin:0; font-family:Pretendard,system-ui; background:var(--bg);}
 /* ======================
    CONFIG
 ====================== */
-const VOC_CSV_URL =
-"https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
-
+const VOC_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
 Chart.register(ChartDataLabels);
 
 /* ======================
-   STATE
+   STATE MANAGEMENT
 ====================== */
 const state = {
-  voc: { data: [], filtered: [] }
+    voc: {
+        raw: [],        // 원본 데이터
+        filtered: [],   // 드롭다운 필터 적용된 데이터
+        view: []        // 현재 지도 범위(View) 내 데이터
+    }
 };
 
+let vocMap, vocInfo, vocClusterer;
+let chartInstance = null;
+let markers = []; 
+let markerMap = new Map(); // Index -> Marker 매핑
+
 /* ======================
-   UTIL
+   HELPER: Icons & Styling
 ====================== */
-function normalizeBranch(v){
-  return String(v||"").replace("지사","").trim();
+function getIconUrl(row) {
+    // 상태에 따른 색상
+    const color = { "처리완료": "blue", "접수": "orange", "미접수": "red" }[row["상태"]] || "gray";
+    // 유형에 따른 아이콘 (간단화)
+    return `https://maps.google.com/mapfiles/ms/icons/${color}-dot.png`;
 }
 
 /* ======================
-   MAP
+   INIT MAP
 ====================== */
-let vocMap, vocMarkers=[], vocInfo;
+function initVocMap() {
+    vocMap = new google.maps.Map(document.getElementById("vocMap"), {
+        center: { lat: 37.5665, lng: 126.9780 },
+        zoom: 9,
+        mapTypeControl: false,
+        fullscreenControl: false,
+        styles: [ // 지도 스타일 (약간 톤 다운)
+            { featureType: "poi", stylers: [{ visibility: "off" }] }
+        ]
+    });
+    vocInfo = new google.maps.InfoWindow();
 
-function initVocMap(){
-  vocMap = new google.maps.Map(document.getElementById("vocMap"),{
-    center:{lat:37.5665,lng:126.9780},
-    zoom:9,
-    mapTypeControl:false,
-    streetViewControl:false,
-    fullscreenControl:false
-  });
-  vocInfo = new google.maps.InfoWindow();
+    // 지도 이동/줌 멈춤 시 이벤트 -> 데이터 갱신
+    vocMap.addListener("idle", updateViewBasedOnBounds);
 }
 
-function renderVocMarkers(){
-  if(!vocMap) return;
+/* ======================
+   CORE LOGIC: Update View
+====================== */
+function updateViewBasedOnBounds() {
+    const bounds = vocMap.getBounds();
+    if (!bounds) return;
 
-  vocMarkers.forEach(m=>m.setMap(null));
-  vocMarkers=[];
-  const bounds=new google.maps.LatLngBounds();
-
-  state.voc.filtered.forEach(r=>{
-    const lat=parseFloat(r["위도"]);
-    const lng=parseFloat(r["경도"]);
-    if(isNaN(lat)||isNaN(lng)) return;
-
-    const marker=new google.maps.Marker({
-      position:{lat,lng},
-      map:vocMap,
-      title:r["상호"]||"고객"
+    // 1. 현재 지도 범위 안에 있는 데이터만 추출 (State.view 갱신)
+    state.voc.view = state.voc.filtered.filter(r => {
+        const lat = parseFloat(r["위도"]);
+        const lng = parseFloat(r["경도"]);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return bounds.contains({ lat, lng });
     });
 
-    marker.addListener("click",()=>{
-      vocInfo.setContent(`
-        <div style="font-size:12px; line-height:1.5">
-          <strong>${r["상호"]||"-"}</strong><br/>
-          지사: ${r["관리지사"]||"-"}<br/>
-          담당자: ${r["담당자"]||"-"}<br/>
-          상태: ${r["상태"]||"-"}<br/>
-          월정료: ${r["합산월정료"]||"-"}
-        </div>
-      `);
-      vocInfo.open(vocMap,marker);
+    // 2. UI 갱신 (테이블, 차트, KPI)
+    renderTable();
+    updateChart();
+    updateKPI();
+}
+
+/* ======================
+   RENDER: Markers
+====================== */
+function renderMarkers() {
+    // 기존 마커/클러스터 제거
+    if (vocClusterer) vocClusterer.clearMarkers();
+    markers = [];
+    markerMap.clear();
+
+    state.voc.filtered.forEach((r, idx) => {
+        const lat = parseFloat(r["위도"]);
+        const lng = parseFloat(r["경도"]);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const marker = new google.maps.Marker({
+            position: { lat, lng },
+            title: r["상호"],
+            icon: {
+                url: getIconUrl(r),
+                scaledSize: new google.maps.Size(32, 32)
+            }
+        });
+
+        // 마커 클릭 이벤트
+        marker.addListener("click", () => {
+            const content = `
+                <div style="padding:4px; min-width:150px;">
+                    <strong style="font-size:14px;">${r["상호"]}</strong><br/>
+                    <span style="color:#666; font-size:12px;">${r["관리지사"]} / ${r["담당자"]}</span><br/>
+                    <div style="margin-top:4px; font-weight:bold; color:${r["상태"]==="처리완료"?"blue":"red"}">
+                        ${r["상태"]} (${r["VOC유형대"]})
+                    </div>
+                </div>
+            `;
+            vocInfo.setContent(content);
+            vocInfo.open(vocMap, marker);
+            
+            // 테이블 하이라이트
+            highlightRowInView(r);
+        });
+
+        markers.push(marker);
+        markerMap.set(r, marker); // 데이터 객체를 키로 마커 저장
     });
 
-    vocMarkers.push(marker);
-    bounds.extend(marker.getPosition());
-  });
-
-  if(vocMarkers.length) vocMap.fitBounds(bounds);
+    // 클러스터링 적용
+    vocClusterer = new markerClusterer.MarkerClusterer({
+        map: vocMap,
+        markers: markers,
+        renderer: {
+            render: ({ count, position }) => {
+                return new google.maps.Marker({
+                    label: { text: String(count), color: "white", fontSize: "12px", fontWeight: "bold" },
+                    position,
+                    zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 18,
+                        fillColor: "#2563eb",
+                        fillOpacity: 0.9,
+                        strokeWeight: 2,
+                        strokeColor: "#fff"
+                    }
+                });
+            }
+        }
+    });
 }
 
 /* ======================
-   CHART
+   RENDER: Chart (Dynamic)
 ====================== */
-function drawVocBranchChart(){
-  const br={};
-  state.voc.filtered.forEach(r=>{
-    const b=normalizeBranch(r["관리지사"]);
-    if(!b) return;
-    br[b]=(br[b]||0)+1;
-  });
+function updateChart() {
+    // 현재 화면(view)에 있는 데이터로 통계 집계
+    const counts = {};
+    state.voc.view.forEach(r => {
+        let branch = (r["관리지사"] || "기타").replace("지사", "").trim();
+        counts[branch] = (counts[branch] || 0) + 1;
+    });
 
-  new Chart(document.getElementById("vocBranchChart"),{
-    type:"bar",
-    data:{
-      labels:Object.keys(br),
-      datasets:[{
-        data:Object.values(br),
-        backgroundColor:"#2563eb",
-        borderRadius:6
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true}}
+    const labels = Object.keys(counts);
+    const data = Object.values(counts);
+
+    if (chartInstance) {
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets[0].data = data;
+        chartInstance.update();
+    } else {
+        const ctx = document.getElementById("vocBranchChart").getContext("2d");
+        chartInstance = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "VOC 건수",
+                    data: data,
+                    backgroundColor: "#3b82f6",
+                    borderRadius: 4,
+                    barThickness: 20
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end', align: 'top', color:'#666', font:{size:11}
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
     }
-  });
 }
 
 /* ======================
-   DATA
+   RENDER: Table & KPI
 ====================== */
-async function loadVoc(){
-  const t = await (await fetch(VOC_CSV_URL)).text();
-  Papa.parse(t,{
-    header:true,
-    skipEmptyLines:true,
-    complete:r=>{
-      state.voc.data=r.data;
-      state.voc.filtered=r.data;
-      drawVocBranchChart();
-      renderVocMarkers();
+function renderTable() {
+    const tbody = document.querySelector("#vocTable tbody");
+    tbody.innerHTML = "";
+
+    state.voc.view.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${r["관리지사"]}</td>
+            <td>${r["담당자"]}</td>
+            <td style="font-weight:600">${r["상호"] || "-"}</td>
+            <td>${r["VOC유형대"]}</td>
+            <td><span class="badge ${r["상태"]==='처리완료'?'bg-done':'bg-wait'}">${r["상태"]}</span></td>
+        `;
+        
+        // 테이블 행 클릭 시 지도 이동 및 마커 오픈
+        tr.onclick = () => {
+            const marker = markerMap.get(r);
+            if (marker) {
+                vocMap.panTo(marker.getPosition());
+                vocMap.setZoom(14);
+                google.maps.event.trigger(marker, "click");
+            }
+        };
+        
+        // 데이터 참조 저장 (하이라이트용)
+        tr.dataset.ref = JSON.stringify(r); 
+        tbody.appendChild(tr);
+    });
+}
+
+function updateKPI() {
+    const total = state.voc.view.length;
+    const done = state.voc.view.filter(r => r["상태"] === "처리완료").length;
+    const rate = total ? ((done / total) * 100).toFixed(1) : 0;
+
+    document.getElementById("kpiTotal").innerText = total;
+    document.getElementById("kpiDone").innerText = done;
+    document.getElementById("kpiRate").innerText = rate + "%";
+}
+
+function highlightRowInView(dataObj) {
+    const rows = document.querySelectorAll("#vocTable tbody tr");
+    rows.forEach(tr => tr.classList.remove("highlight"));
+
+    // 현재 테이블 돔에서 찾기 (JSON 문자열 비교 - 간단 구현)
+    // 실제로는 ID가 있으면 ID로 찾는게 가장 좋음
+    const targetStr = JSON.stringify(dataObj);
+    for(let tr of rows) {
+        if(tr.dataset.ref === targetStr) {
+            tr.classList.add("highlight");
+            tr.scrollIntoView({ behavior: "smooth", block: "center" });
+            break;
+        }
     }
-  });
 }
 
 /* ======================
-   INIT
+   FILTERS
 ====================== */
-window.addEventListener("load", async ()=>{
-  initVocMap();
-  await loadVoc();
-});
+function initFilters() {
+    const bSel = document.getElementById("branchFilter");
+    const aSel = document.getElementById("agentFilter");
+
+    const branches = [...new Set(state.voc.raw.map(r => r["관리지사"]))].sort();
+    const agents = [...new Set(state.voc.raw.map(r => r["담당자"]))].sort();
+
+    branches.forEach(b => bSel.add(new Option(b, b)));
+    agents.forEach(a => aSel.add(new Option(a, a)));
+
+    const applyFilter = () => {
+        const bVal = bSel.value;
+        const aVal = aSel.value;
+
+        state.voc.filtered = state.voc.raw.filter(r => {
+            if (bVal !== "ALL" && r["관리지사"] !== bVal) return false;
+            if (aVal !== "ALL" && r["담당자"] !== aVal) return false;
+            return true;
+        });
+
+        renderMarkers(); // 마커 다시 찍기
+        // 마커가 다시 찍히고, idle 이벤트가 트리거되기를 기다리거나
+        // 강제로 뷰 업데이트 실행 (bounds가 바뀌지 않았을 경우 대비)
+        setTimeout(updateViewBasedOnBounds, 100); 
+    };
+
+    bSel.onchange = applyFilter;
+    aSel.onchange = applyFilter;
+}
+
+/* ======================
+   LOAD DATA
+====================== */
+async function loadData() {
+    const csv = await (await fetch(VOC_CSV_URL)).text();
+    Papa.parse(csv, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+            state.voc.raw = results.data;
+            state.voc.filtered = results.data; // 초기엔 필터 없음
+            
+            initFilters();
+            renderMarkers();
+            
+            // 초기 뷰 업데이트 (약간 지연시켜 맵 로드 대기)
+            setTimeout(updateViewBasedOnBounds, 500);
+        }
+    });
+}
+
+window.onload = () => {
+    initVocMap();
+    loadData();
+};
 </script>
 
 </body>
