@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v6.0 Fixed)</title>
+<title>KTT Premium Dashboard (Final - Map Only for VOC)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -61,7 +61,7 @@
     .view-panel.active { display:flex; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:translateY(0);} }
 
-    /* KPI */
+    /* 헤더 & KPI */
     .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex:none; }
     .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:16px; flex:none; }
     .kpi-card { background:var(--surface); padding:20px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; }
@@ -69,10 +69,13 @@
     .kpi-val { font-size:24px; font-weight:800; margin-top:4px; color:var(--text); }
     .kpi-icon { position:absolute; right:16px; top:16px; font-size:32px; opacity:0.1; }
 
-    /* 그리드 시스템 (높이 꽉 채우기) */
-    .dashboard-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
-    .grid-left { flex:1.2; display:flex; flex-direction:column; } /* 지도 영역 */
-    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; } /* 차트 영역 */
+    /* 그리드 시스템 */
+    /* VOC용: 지도 + 차트 */
+    .voc-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
+    .grid-left { flex:1.5; display:flex; flex-direction:column; } /* 지도 */
+    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; } /* 차트 */
+
+    /* 파이프라인용: 차트만 */
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
 
     .card { background:var(--surface); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); display:flex; flex-direction:column; }
@@ -81,7 +84,6 @@
     .card-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
 
     /* 지도 & 차트 */
-    /* 지도가 꽉 차도록 flex 설정 */
     .map-container { flex:1; width:100%; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:300px; }
     .chart-box { flex:1; position:relative; min-height:200px; }
 
@@ -169,7 +171,7 @@
             </div>
         </div>
 
-        <div class="dashboard-grid">
+        <div class="voc-grid">
             <div class="grid-left">
                 <div class="card full" style="padding:0;">
                     <div style="padding:16px; border-bottom:1px solid var(--border); background:var(--surface);">
@@ -276,16 +278,12 @@
 
 <script>
 /* ================= CONFIG ================= */
-// 지사 정렬 순서 (커스텀)
 const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
-
-// 데이터 URL (사용자가 업로드 시 덮어씌워짐)
 const DATA_SRC = {
     voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
-// 앱 상태 관리
 let App = {
     view: 'voc',
     rawData: { voc: [], pipe: [] },
@@ -297,7 +295,7 @@ let App = {
     markers: []
 };
 
-// Chart.js 플러그인 등록
+// Chart.js Default Config
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
@@ -352,7 +350,6 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     if(!data.length) return [];
-    // 컬럼명 퍼지 매칭
     const kRisk = findKey(data[0], "위험도") || "해지위험도";
     const kDate = findKey(data[0], "등록일자") || "등록일자";
     const kHQ = findKey(data[0], "관리본부") || "관리본부";
@@ -362,7 +359,7 @@ function parsePipe(data) {
         let risk = parseFloat(r[kRisk]||0);
         if(risk > 0 && risk <= 1) risk = risk * 100;
 
-        // ★ 날짜 파싱 (Excel Serial -> YYYY-MM-DD)
+        // ★ 날짜 자동 변환 (Excel Serial -> YYYY-MM-DD)
         let dateStr = r[kDate];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
@@ -435,9 +432,7 @@ function toggleFilter(type, val, btn) {
     
     if(btn) {
         Array.from(btn.parentElement.children).forEach(c => c.classList.remove('active'));
-        const target = Array.from(btn.parentElement.children).find(c => 
-            c.innerText === (val==='ALL'?'전체':btn.innerText)
-        );
+        const target = Array.from(btn.parentElement.children).find(c => c.innerText === (val==='ALL'?'전체':btn.innerText));
         if(target) target.classList.add('active');
     }
 
@@ -486,8 +481,6 @@ function renderDynamicFilters() {
     let branchSrc = source;
     if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(branchSrc.map(d=>d._branch))];
-    
-    // ★ 지사 정렬 (중앙~원주)
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
@@ -768,8 +761,8 @@ function renderTable(id, data, cols) {
             tr.onclick = () => {
                 App.map.panTo({lat:d._lat, lng:d._lng});
                 App.map.setZoom(14);
-                document.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));
-                tr.classList.add('selected');
+                document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
+                tr.classList.add('active-row');
             };
         }
         tbody.appendChild(tr);
