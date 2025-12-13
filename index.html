@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>KTT 통합 리텐션 대시보드 (Premium Map Edition)</title>
+    <title>KTT 통합 리텐션 대시보드 (Final Fix)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
@@ -14,705 +14,518 @@
     <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 
     <style>
-        /* :root 변수 (Premium 테마) */
-        :root {
-            --primary: #2563eb; --primary-dark: #1e40af; --primary-light: #eff6ff;
-            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --neutral: #64748b;
-            --bg-body: #f1f5f9; --bg-card: #ffffff;
-            --text-main: #0f172a; --text-sub: #64748b;
-            --border: #e2e8f0; --radius: 12px;
-            --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-        }
-
-        body { margin: 0; display: flex; background: var(--bg-body); font-family: 'Pretendard', sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        :root { --primary:#2563eb; --bg:#f8fafc; --card:#fff; --text:#334155; }
+        body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; display:flex; }
+        * { box-sizing:border-box; }
         
-        /* 로딩 & 토스트 */
-        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
-        .spinner { width: 40px; height: 40px; border: 4px solid var(--primary-light); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s ease-in-out infinite; margin-bottom: 15px; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 13px; opacity: 0; transition: 0.3s; z-index: 9999; pointer-events: none; }
-        .toast.show { opacity: 1; bottom: 40px; }
+        /* Spinner */
+        #loadingOverlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        .spinner { width:40px; height:40px; border:4px solid #eff6ff; border-top:4px solid var(--primary); border-radius:50%; animation:spin 0.8s infinite linear; }
+        @keyframes spin { 100%{transform:rotate(360deg);} }
 
-        /* 레이아웃 */
-        .sidebar { width: 280px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
-        .sidebar-header { padding: 24px; border-bottom: 1px solid var(--border); }
-        .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); }
-        .sidebar-content { flex: 1; overflow-y: auto; padding: 24px; }
-        .content { flex: 1; padding: 32px; overflow-y: auto; position: relative; }
+        /* Layout */
+        .sidebar { width:280px; background:var(--card); border-right:1px solid #e2e8f0; display:flex; flex-direction:column; z-index:10; }
+        .sidebar-header { padding:24px; font-size:18px; font-weight:700; border-bottom:1px solid #e2e8f0; }
+        .sidebar-content { flex:1; overflow-y:auto; padding:24px; }
+        .content { flex:1; padding:32px; overflow-y:auto; }
 
-        /* 컴포넌트 스타일 */
-        .file-upload-area { margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; }
-        .file-upload-area p { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; }
-        .view-switcher { display: flex; background: #f8fafc; padding: 4px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--border); }
-        .view-switcher button { flex: 1; padding: 10px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
-        .view-switcher button.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        /* Controls */
+        .file-box { background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; font-size:12px; }
+        .view-tabs { display:flex; background:#f1f5f9; padding:4px; border-radius:8px; margin-bottom:20px; }
+        .view-tabs button { flex:1; padding:8px; border:none; background:none; font-weight:600; cursor:pointer; color:#64748b; border-radius:6px; }
+        .view-tabs button.active { background:#fff; color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.1); }
         
-        .filter-panel label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 20px 0 8px; }
-        select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: #fff; outline: none; }
-        .filter-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-        .filter-btn { padding: 6px 12px; font-size: 12px; border: 1px solid var(--border); border-radius: 20px; background: #fff; color: var(--text-sub); cursor: pointer; transition: 0.2s; }
-        .filter-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
-        .radio-group label { margin: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; background: #fff; }
+        select { width:100%; padding:8px; margin-bottom:12px; border:1px solid #cbd5e1; border-radius:6px; }
+        .filter-btns { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
+        .btn-filter { padding:5px 10px; font-size:12px; border:1px solid #e2e8f0; background:#fff; border-radius:15px; cursor:pointer; }
+        .btn-filter.active { background:var(--primary); color:#fff; border-color:var(--primary); }
 
-        .dashboard-view { display: none; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        .dashboard-view.active { display: block; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Dashboard */
+        .dashboard-view { display:none; }
+        .dashboard-view.active { display:block; animation:fade 0.3s; }
+        @keyframes fade { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:translateY(0);} }
 
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px; }
-        .kpi-card { background: var(--bg-card); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow-card); border-left: 4px solid var(--primary); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-        .kpi-card h3 { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; }
-        .kpi-card .value { font-size: 28px; font-weight: 800; color: var(--text-main); }
-        .kpi-card .icon { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 32px; opacity: 0.08; color: var(--text-main); }
+        .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:24px; }
+        .kpi-box { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); border-left:4px solid var(--primary); }
+        .kpi-title { font-size:12px; color:#64748b; font-weight:600; text-transform:uppercase; }
+        .kpi-val { font-size:24px; font-weight:800; margin-top:5px; }
 
-        .map-section { margin-bottom: 24px; }
-        #vocMap { width: 100%; height: 500px; border-radius: var(--radius); border: 1px solid var(--border); }
+        .map-box { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:24px; }
+        #vocMap { width:100%; height:450px; border-radius:8px; background:#eee; }
 
-        .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
-        .chart-grid.three-cols { grid-template-columns: 2fr 1fr; }
-        @media (max-width: 1400px) { .chart-grid, .chart-grid.three-cols { grid-template-columns: 1fr; } }
-        .chart-card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-card); height: 420px; display: flex; flex-direction: column; }
-        .card-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .card-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-        .chart-wrapper { flex: 1; position: relative; width: 100%; overflow: hidden; }
+        .chart-row { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+        .chart-box { background:#fff; padding:20px; border-radius:12px; height:350px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
 
-        .list-card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-card); }
-        .table-container { overflow-x: auto; min-height: 300px; max-height: 500px; }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
-        .data-table th { background: #f8fafc; padding: 14px 16px; font-weight: 600; color: var(--text-sub); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; text-align: center; cursor: pointer; }
-        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); text-align: center; vertical-align: middle; cursor: pointer; }
-        .data-table tr:hover td { background: #f8fafc; }
-        tr.highlight td { background: #eff6ff !important; border-top: 1px solid var(--primary); border-bottom: 1px solid var(--primary); }
-        tr.highlight td:first-child { border-left: 4px solid var(--primary); }
-
-        .list-footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .pagination { display: flex; gap: 6px; }
-        .pagination button { padding: 6px 14px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-        .pagination button:hover:not(:disabled) { background: #f1f5f9; }
-        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-action { padding: 8px 16px; background: var(--success); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.2); }
+        /* Table */
+        .table-box { background:#fff; padding:20px; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
+        .tbl-wrap { overflow-x:auto; max-height:500px; margin-top:15px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
+        th { background:#f8fafc; padding:12px; text-align:left; position:sticky; top:0; z-index:5; border-bottom:1px solid #e2e8f0; }
+        td { padding:10px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+        tr:hover td { background:#f8fafc; }
+        tr.selected td { background:#eff6ff !important; font-weight:600; }
         
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-        .badge.stage-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
-        .badge.stage-fail { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
-        .badge.stage-ing { background: #fff7ed; color: #9a3412; border: 1px solid #ffedd5; }
-        .badge.voc-done { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
-        .badge.voc-receipt { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-        .badge.voc-yet { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .pg-controls { display:flex; justify-content:space-between; margin-top:15px; align-items:center; font-size:13px; color:#64748b; }
+        .pg-btn { padding:5px 12px; border:1px solid #e2e8f0; background:#fff; border-radius:4px; cursor:pointer; }
+        .pg-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+        .badge { padding:3px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+        .bd-done { background:#dbeafe; color:#1e40af; }
+        .bd-wait { background:#fee2e2; color:#991b1b; }
+        .bd-ing { background:#fef3c7; color:#92400e; }
     </style>
 </head>
-
 <body>
 
 <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="font-weight: 600; color: #1e293b; font-size: 14px;">데이터 로드 중...</div>
+    <div style="margin-top:15px; font-weight:600; color:#475569">데이터 로드 중...</div>
 </div>
 
-<div id="toast" class="toast">전체 데이터 조회 완료 (좌표 미보유 건 포함)</div>
-
 <div class="sidebar">
-    <div class="sidebar-header">
-        <h2><i class="ph ph-chart-polar" style="color:var(--primary);"></i> KTT 강북/강원본부</h2>
-    </div>
+    <div class="sidebar-header">KTT 리텐션 대시보드</div>
     <div class="sidebar-content">
-        <div class="file-upload-area">
-            <p><i class="ph ph-upload-simple"></i> 파일 직접 업로드 (csv)</p>
-            <input type="file" id="localFileInput" accept=".csv" />
+        <div class="file-box">
+            <input type="file" id="csvFile" accept=".csv" />
+            <div style="margin-top:5px; color:#64748b;">(VOC 또는 파이프라인 파일)</div>
         </div>
 
-        <div class="view-switcher">
-            <button id="showVocBtn" class="active" onclick="switchView('voc')">VOC 활동현황</button>
-            <button id="showPipelineBtn" onclick="switchView('pipeline')">파이프라인 분석</button>
+        <div class="view-tabs">
+            <button class="active" onclick="setView('voc')">VOC 현황</button>
+            <button onclick="setView('pipeline')">파이프라인</button>
         </div>
 
-        <div id="vocFilters" class="filter-panel">
-            <label>VOC 유형</label><select id="vocTypeFilter"></select>
-            <label>처리 상태</label>
-            <div id="vocStatusButtons" class="filter-buttons">
-                <button class="filter-btn active" data-value="ALL" onclick="setVocStatus('ALL', this)">전체</button>
-                <button class="filter-btn" data-value="처리완료" onclick="setVocStatus('처리완료', this)">완료</button>
-                <button class="filter-btn" data-value="접수" onclick="setVocStatus('접수', this)">접수</button>
-                <button class="filter-btn" data-value="미접수" onclick="setVocStatus('미접수', this)">미접수</button>
+        <div id="filterVoc">
+            <label style="font-size:12px; font-weight:600;">VOC 유형</label>
+            <select id="selVocType"><option value="ALL">전체</option></select>
+            
+            <label style="font-size:12px; font-weight:600;">처리 상태</label>
+            <div class="filter-btns" id="btnVocStatus">
+                <button class="btn-filter active" data-val="ALL">전체</button>
+                <button class="btn-filter" data-val="처리완료">완료</button>
+                <button class="btn-filter" data-val="접수">접수</button>
+                <button class="btn-filter" data-val="미접수">미접수</button>
             </div>
-            <hr style="border: 0; border-top: 1px dashed #e2e8f0; margin: 20px 0;">
-            <label>관리 지사</label><div id="vocBranchButtons" class="filter-buttons"></div>
-            <label>담당자</label><select id="vocAgentFilter"><option value="ALL">전체 담당자</option></select>
-            <div style="margin-top:20px; font-size:12px; color:var(--text-sub); background:#f8fafc; padding:10px; border-radius:6px;">
-                <i class="ph ph-info"></i> <b>알림:</b> 전체 데이터를 기반으로<br/>현황을 집계합니다.<br/>(지도는 좌표 보유 건만 표시)
-            </div>
+
+            <label style="font-size:12px; font-weight:600;">관리지사</label>
+            <select id="selVocBranch"><option value="ALL">전체</option></select>
+
+            <label style="font-size:12px; font-weight:600;">담당자</label>
+            <select id="selVocAgent"><option value="ALL">전체</option></select>
         </div>
 
-        <div id="pipelineFilters" class="filter-panel" style="display:none;">
-            <label>영업 채널</label>
-            <select id="channelFilter">
-                <option value="ALL">전체 채널</option>
-                <option value="SP" selected>SP</option><option value="SC">SC</option><option value="AM">AM</option>
+        <div id="filterPipe" style="display:none;">
+            <label style="font-size:12px; font-weight:600;">위험도</label>
+            <select id="selPipeRisk">
+                <option value="ALL">전체</option>
+                <option value="75">고위험 (75%↑)</option>
+                <option value="50">중위험 (50~75%)</option>
             </select>
-            <label>해지 위험도</label>
-            <div class="radio-group">
-                <label><input type="radio" name="risk" value="ALL" checked>전체</label>
-                <label><input type="radio" name="risk" value="0">0~25%</label>
-                <label><input type="radio" name="risk" value="25">25~50%</label>
-                <label><input type="radio" name="risk" value="50">50~75%</label>
-                <label><input type="radio" name="risk" value="75">75%~</label>
-            </div>
-            <label>데이터 기준</label>
-            <div class="filter-buttons">
-                <button class="filter-btn active" onclick="setMode('count', this)">건수</button>
-                <button class="filter-btn" onclick="setMode('amount', this)">금액</button>
-            </div>
-            <hr style="border: 0; border-top: 1px dashed #e2e8f0; margin: 20px 0;">
-            <label>관리 지사</label><div id="pipelineBranchButtons" class="filter-buttons"></div>
-            <label>담당자</label><select id="pipelineAgentFilter"><option value="ALL">전체 담당자</option></select>
+            <label style="font-size:12px; font-weight:600;">관리지사</label>
+            <select id="selPipeBranch"><option value="ALL">전체</option></select>
         </div>
     </div>
 </div>
 
 <div class="content">
-
-    <div id="vocView" class="dashboard-view active">
-        <div class="view-header">
-            <div>
-                <h2>관리고객(VOC) 활동 현황</h2>
-                <p>전체 데이터 통합 조회 (지도 위치 연동)</p>
+    
+    <div id="viewVoc" class="dashboard-view active">
+        <h2 style="margin:0 0 20px 0;">관리고객(VOC) 활동 현황</h2>
+        
+        <div class="kpi-row">
+            <div class="kpi-box">
+                <div class="kpi-title">총 계약 (Unique)</div>
+                <div class="kpi-val" id="kpiVocTotal">0</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">처리 완료</div>
+                <div class="kpi-val" style="color:#10b981;" id="kpiVocDone">0</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">처리율</div>
+                <div class="kpi-val" id="kpiVocRate">0%</div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-title">미접수</div>
+                <div class="kpi-val" style="color:#ef4444;" id="kpiVocWait">0</div>
             </div>
         </div>
 
-        <div class="kpi-grid">
-            <div class="kpi-card" style="border-left-color: #3b82f6;"><h3>총 계약 건수</h3><div id="kpi-voc-total" class="value">0</div><i class="ph ph-file-text icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #10b981;"><h3>처리 완료</h3><div id="kpi-voc-complete" class="value">0</div><i class="ph ph-check-circle icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #f59e0b;"><h3>처리율</h3><div id="kpi-voc-complete-rate" class="value">0%</div><i class="ph ph-chart-pie-slice icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #ef4444;"><h3>미접수 건</h3><div id="kpi-voc-unassigned" class="value">0</div><i class="ph ph-warning-circle icon"></i></div>
+        <div class="map-box">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <h3 style="margin:0;">📍 고객 위치 현황</h3>
+                <span style="font-size:12px; color:#64748b;">*좌표가 있는 데이터만 지도에 표시됩니다. (테이블은 전체 표시)</span>
+            </div>
+            <div id="vocMap"></div>
         </div>
 
-        <div class="map-section">
-            <div class="chart-card" style="height:auto;">
-                <div class="card-header">
-                    <h3><i class="ph ph-map-trifold"></i> VOC 위치 현황</h3>
-                    <span>좌표가 있는 데이터만 표시됩니다</span>
+        <div class="chart-row">
+            <div class="chart-box">
+                <h4 style="margin:0 0 10px 0;">지사별 현황</h4>
+                <canvas id="chartVocBranch"></canvas>
+            </div>
+            <div class="chart-box">
+                <h4 style="margin:0 0 10px 0;">담당자 활동 (상위 10)</h4>
+                <canvas id="chartVocAgent"></canvas>
+            </div>
+        </div>
+
+        <div class="table-box">
+            <h3 style="margin:0;">상세 데이터 (전체)</h3>
+            <div class="tbl-wrap">
+                <table id="tblVoc">
+                    <thead>
+                        <tr>
+                            <th>지사</th><th>담당자</th><th>계약번호</th><th>상호</th><th>상태</th><th>서비스</th><th>좌표유무</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="pg-controls">
+                <span id="pgInfoVoc">0 / 0</span>
+                <div>
+                    <button class="pg-btn" onclick="movePage(-1)">이전</button>
+                    <button class="pg-btn" onclick="movePage(1)">다음</button>
                 </div>
-                <div id="vocMap"></div>
-            </div>
-        </div>
-
-        <div class="chart-grid">
-            <div class="chart-card">
-                <div class="card-header"><h3>📉 조치 필요 담당자</h3><span>미접수/접수 상위</span></div>
-                <div class="chart-wrapper"><canvas id="vocActivityChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="card-header"><h3>지사별 처리 현황</h3><span>건수 기준</span></div>
-                <div class="chart-wrapper"><canvas id="vocBranchChart"></canvas></div>
-            </div>
-        </div>
-
-        <div class="list-card">
-            <div class="card-header">
-                <h3>상세 데이터 리스트 (전체)</h3>
-                <button class="btn-action" onclick="exportToCSV('voc')"><i class="ph ph-download-simple"></i> 엑셀 다운로드</button>
-            </div>
-            <div class="table-container">
-                <table id="vocListTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th data-field="관리지사">지사</th><th data-field="담당자">담당자</th><th data-field="계약번호">계약번호</th>
-                            <th data-field="상호">상호명</th><th data-field="상태">상태</th><th data-field="VOC유형소">서비스(소)</th>
-                            <th data-field="합산월정료">합산월정료</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            <div class="list-footer">
-                <div id="vocPaginationInfo" style="font-size:13px; color:#64748b;"></div>
-                <div class="pagination"><button onclick="changePage('voc', -1)">이전</button><button onclick="changePage('voc', 1)">다음</button></div>
             </div>
         </div>
     </div>
 
-    <div id="pipelineView" class="dashboard-view">
-        <div class="view-header">
-            <div>
-                <h2>해지 파이프라인 분석</h2>
-                <p>고위험 고객 방어 성과 및 해지 사유 심층 분석</p>
-            </div>
+    <div id="viewPipe" class="dashboard-view">
+        <h2 style="margin:0 0 20px 0;">해지 파이프라인 분석</h2>
+        <div class="kpi-row">
+            <div class="kpi-box"><div class="kpi-title">대상 건수</div><div class="kpi-val" id="kpiPipeTotal">0</div></div>
+            <div class="kpi-box"><div class="kpi-title">고위험군</div><div class="kpi-val" style="color:#ef4444;" id="kpiPipeHigh">0</div></div>
+            <div class="kpi-box"><div class="kpi-title">방어 성공</div><div class="kpi-val" style="color:#10b981;" id="kpiPipeSuc">0</div></div>
+            <div class="kpi-box"><div class="kpi-title">방어율</div><div class="kpi-val" id="kpiPipeRate">0%</div></div>
         </div>
-        
-        <div class="kpi-grid">
-            <div class="kpi-card" style="border-left-color: #2563eb;"><h3>대상 총 건수</h3><div id="kpi-pipeline-count" class="value">0</div><i class="ph ph-funnel icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #10b981;"><h3>월정료 규모</h3><div id="kpi-pipeline-amount" class="value">0</div><i class="ph ph-currency-krw icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #ef4444;"><h3>고위험군 (75%↑)</h3><div id="kpi-high-risk-count" class="value">0</div><i class="ph ph-siren icon"></i></div>
-            <div class="kpi-card" style="border-left-color: #f59e0b;"><h3>방어 성공률</h3><div id="kpi-defense-success-rate" class="value">0%</div><i class="ph ph-shield-check icon"></i></div>
-        </div>
-        
-        <div class="chart-grid">
-            <div class="chart-card">
-                <div class="card-header"><h3><i class="ph ph-chart-bar"></i> 지사별 방어 단계</h3><span>막대를 클릭하여 필터링</span></div>
-                <div class="chart-wrapper"><canvas id="pipelineBranchStageChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="card-header"><h3><i class="ph ph-chart-line-up"></i> 월별 방어 현황</h3><span>단계별 건수 + 성공률</span></div>
-                <div class="chart-wrapper"><canvas id="pipelineTrendChart"></canvas></div>
-            </div>
-        </div>
-
-        <div class="chart-grid three-cols">
-            <div class="chart-card">
-                <div class="card-header"><h3><i class="ph ph-crosshair"></i> 위험도 vs 월정료</h3><span>전략적 중요군 식별</span></div>
-                <div class="chart-wrapper"><canvas id="pipelineRiskBubbleChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="card-header"><h3><i class="ph ph-chart-donut"></i> 해지 사유 분석</h3><span>Top 5 Reasons</span></div>
-                <div class="chart-wrapper"><canvas id="pipelineReasonChart"></canvas></div>
-            </div>
-        </div>
-
-        <div class="list-card">
-            <div class="card-header">
-                <h3>상세 파이프라인 리스트</h3>
-                <button class="btn-action" onclick="exportToCSV('pipeline')"><i class="ph ph-download-simple"></i> 엑셀 다운로드</button>
-            </div>
-            <div class="table-container">
-                <table id="pipelineListTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th data-field="관리지사">지사</th><th data-field="담당자">담당자</th><th data-field="계약번호">계약번호</th>
-                            <th data-field="상호">상호명</th><th data-field="담당영업채널">채널</th><th data-field="KTT월정료(조정)">월정료(천원)</th>
-                            <th data-field="재계약여부">재계약여부</th><th data-field="방어진행단계">단계</th><th data-field="해지위험도">위험도</th>
-                            <th data-field="해지예정일">해지예정일</th><th data-field="등록일자">등록일자</th>
-                        </tr>
-                    </thead>
+        <div class="table-box">
+            <div class="tbl-wrap">
+                <table id="tblPipe">
+                    <thead><tr><th>지사</th><th>계약번호</th><th>상호</th><th>위험도</th><th>단계</th><th>해지예정일</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
-            <div class="list-footer">
-                <div id="pipelinePaginationInfo" style="font-size:13px; color:#64748b;"></div>
-                <div class="pagination"><button onclick="changePage('pipeline', -1)">이전</button><button onclick="changePage('pipeline', 1)">다음</button></div>
-            </div>
         </div>
     </div>
+
 </div>
 
 <script>
-    // Config
-    const VOC_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv";
-    const PIPELINE_CSV_URL = "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv";
-    
-    Chart.register(ChartDataLabels);
-    Chart.defaults.font.family = "'Pretendard', sans-serif";
-    Chart.defaults.color = "#64748b";
-    
-    // Helpers
-    const util = {
-        normalizeBranch: (n) => String(n||"").replace("지사","").trim(),
-        cleanContract: (r) => String(r||"").replace(/\D/g,"").slice(0,8),
-        toThousand: (r) => { const n=parseFloat(String(r).replace(/,/g,"")); return isNaN(n)?0:Math.round(n/1000); },
-        formatNum: (n) => n.toLocaleString(),
-        excelDateToJSDate: (s) => {
-            if(!s) return "-"; if(isNaN(s) && String(s).includes('-')) return s;
-            const c=parseFloat(String(s).replace(/,/g,'')); if(isNaN(c)) return s;
-            const d=new Date((c-25569)*86400*1000);
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        },
-        sortBranches: (a,b)=>{ const o=["중앙","강북","서대문","고양","의정부","남양주","강릉","원주"]; const ia=o.indexOf(a),ib=o.indexOf(b); if(ia===-1&&ib===-1)return a.localeCompare(b); if(ia===-1)return 1; if(ib===-1)return -1; return ia-ib; }
-    };
+/* ================= DATA & STATE ================= */
+const DATA_URLS = {
+    voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
+    pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
+};
 
-    // State
-    const state = {
-        currentView: 'voc',
-        voc: { 
-            data: [], filtered: [], viewData: [],
-            page: 1, limit: 10, sortField: 'VOC유형대', sortDir: 'desc', branch: 'ALL', agent: 'ALL' 
-        },
-        pipeline: { 
-            data: [], filtered: [], 
-            page: 1, limit: 15, sortField: 'KTT월정료(조정)', sortDir: 'desc', mode: 'count', hq: 'ALL', branch: 'ALL', agent: 'ALL', channel: 'SP' 
+let appState = {
+    view: 'voc', // 'voc' or 'pipeline'
+    data: { voc:[], pipe:[] },
+    filter: { voc:[], pipe:[] }, // filtered data
+    page: 1,
+    limit: 15
+};
+
+let map, clusterer, markers = [];
+let charts = {};
+
+/* ================= INIT ================= */
+window.onload = async () => {
+    try {
+        const [v, p] = await Promise.all([ fetchCsv(DATA_URLS.voc), fetchCsv(DATA_URLS.pipe) ]);
+        appState.data.voc = parseVocData(v.data);
+        appState.data.pipe = p.data;
+        
+        initMap();
+        initFilters();
+        applyFilter();
+    } catch(e) { console.error(e); }
+    document.getElementById("loadingOverlay").style.display = "none";
+};
+
+async function fetchCsv(url) {
+    const res = await fetch(url);
+    const txt = await res.text();
+    return Papa.parse(txt, { header:true, skipEmptyLines:true });
+}
+
+/* ================= PARSING LOGIC (CRITICAL FIX) ================= */
+function parseVocData(rows) {
+    // 1. Find the complex key matching "위치좌표"
+    if(!rows.length) return [];
+    const keys = Object.keys(rows[0]);
+    const coordKey = keys.find(k => k.includes("위치좌표")); // BOM safe check
+
+    return rows.map(r => {
+        // 좌표 파싱
+        let lat=null, lng=null;
+        
+        // 우선순위 1: "위치좌표(위도,경도)" 컬럼 파싱 (예: "37.123, 127.123")
+        if (coordKey && r[coordKey]) {
+            const parts = r[coordKey].split(',');
+            if(parts.length === 2) {
+                lat = parseFloat(parts[0].trim());
+                lng = parseFloat(parts[1].trim());
+            }
         }
-    };
-    
-    let vocMap, vocInfo, vocClusterer;
-    let vocMarkers = []; 
-    let markerMap = new Map();
-    const chartInstances = {};
+        // 우선순위 2: 별도 "위도", "경도" 컬럼
+        if ((isNaN(lat) || !lat) && r["위도"] && r["경도"]) {
+            lat = parseFloat(r["위도"]);
+            lng = parseFloat(r["경도"]);
+        }
 
-    window.addEventListener("load", async () => {
-        try { await loadDefaultData(); } catch(e) { console.error(e); }
+        return {
+            ...r,
+            _lat: (!isNaN(lat) && lat) ? lat : null,
+            _lng: (!isNaN(lng) && lng) ? lng : null,
+            _branch: (r["관리지사"]||"").replace("지사","").trim(),
+            _status: (r["상태"]||"").trim(),
+            _type: (r["VOC유형대"]||"").trim(),
+            _agent: (r["담당자"]||"").trim()
+        };
+    });
+}
+
+/* ================= FILTERS ================= */
+function initFilters() {
+    // VOC Options
+    const branches = [...new Set(appState.data.voc.map(r=>r._branch))].sort();
+    const agents = [...new Set(appState.data.voc.map(r=>r._agent))].sort();
+    const types = [...new Set(appState.data.voc.map(r=>r._type))].sort();
+
+    fillSelect("selVocBranch", branches);
+    fillSelect("selVocAgent", agents);
+    fillSelect("selVocType", types);
+
+    // Event Listeners
+    document.querySelectorAll("#filterVoc select").forEach(s => s.onchange = () => { appState.page=1; applyFilter(); });
+    
+    // Status Buttons
+    document.querySelectorAll("#btnVocStatus button").forEach(btn => {
+        btn.onclick = (e) => {
+            document.querySelectorAll("#btnVocStatus button").forEach(b=>b.classList.remove("active"));
+            e.target.classList.add("active");
+            appState.page=1; applyFilter();
+        };
+    });
+}
+
+function fillSelect(id, list) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="ALL">전체</option>';
+    list.forEach(v => { if(v) sel.innerHTML += `<option value="${v}">${v}</option>`; });
+}
+
+function applyFilter() {
+    if(appState.view === 'voc') {
+        const branch = document.getElementById("selVocBranch").value;
+        const agent = document.getElementById("selVocAgent").value;
+        const type = document.getElementById("selVocType").value;
+        const status = document.querySelector("#btnVocStatus .active").dataset.val;
+
+        appState.filter.voc = appState.data.voc.filter(r => {
+            if(branch !== 'ALL' && r._branch !== branch) return false;
+            if(agent !== 'ALL' && r._agent !== agent) return false;
+            if(type !== 'ALL' && r._type !== type) return false;
+            if(status !== 'ALL' && r._status !== status) return false;
+            return true;
+        });
+        
+        renderVocView();
+    } else {
+        // Pipeline filtering (Simplified for brevity)
+        appState.filter.pipe = appState.data.pipe;
+        renderPipeView();
+    }
+}
+
+/* ================= RENDER LOGIC ================= */
+function renderVocView() {
+    const data = appState.filter.voc;
+
+    // 1. KPIs (Unique Contract Count)
+    const uniqueContracts = new Set(data.map(r=>r["계약번호"])).size;
+    const done = data.filter(r=>r._status==='처리완료').length;
+    const wait = data.filter(r=>r._status==='미접수').length;
+    
+    document.getElementById("kpiVocTotal").innerText = uniqueContracts.toLocaleString();
+    document.getElementById("kpiVocDone").innerText = done.toLocaleString();
+    document.getElementById("kpiVocWait").innerText = wait.toLocaleString();
+    document.getElementById("kpiVocRate").innerText = uniqueContracts ? ((done/data.length)*100).toFixed(1)+"%" : "0%";
+
+    // 2. Map (Only rows with valid coords)
+    updateMap(data);
+
+    // 3. Table (All rows, paged)
+    renderTable(data, "tblVoc");
+
+    // 4. Charts
+    updateCharts(data);
+}
+
+/* ================= MAP ================= */
+function initMap() {
+    map = new google.maps.Map(document.getElementById("vocMap"), {
+        center: { lat: 37.5665, lng: 126.9780 },
+        zoom: 8,
+        fullscreenControl: false, mapTypeControl: false
+    });
+}
+
+function updateMap(data) {
+    if(!map) return;
+    if(clusterer) clusterer.clearMarkers();
+    markers = [];
+
+    // Filter valid coords ONLY for map
+    const mapData = data.filter(r => r._lat !== null && r._lng !== null);
+
+    mapData.forEach(r => {
+        const marker = new google.maps.Marker({
+            position: { lat: r._lat, lng: r._lng },
+            title: r["상호"],
+            // Simple Icon logic
+            icon: `https://maps.google.com/mapfiles/ms/icons/$${r._status==='처리완료'?'blue':'red'}-dot.png`
+        });
+        
+        const content = `<div style="padding:5px;"><b>${r["상호"]}</b><br>${r._status}</div>`;
+        const infowindow = new google.maps.InfoWindow({ content });
+        marker.addListener("click", () => infowindow.open(map, marker));
+        
+        markers.push(marker);
     });
 
-    async function loadDefaultData() {
-        const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
-        
-        state.voc.data = preprocessVocData(v); 
-        state.pipeline.data = preprocessPipelineData(p);
-        
-        initVocMap();
-        initializeApp();
-    }
+    clusterer = new markerClusterer.MarkerClusterer({ map, markers });
+}
 
-    async function loadCsv(url) {
-        const res = await fetch(url); const text = await res.text();
-        return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
-    }
+/* ================= TABLE ================= */
+function renderTable(data, tableId) {
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    tbody.innerHTML = "";
+    
+    const start = (appState.page - 1) * appState.limit;
+    const end = start + appState.limit;
+    const pageData = data.slice(start, end);
 
-    function preprocessVocData(data) {
-        if (!data || data.length === 0) return [];
-        const firstRow = data[0];
-        let targetKey = Object.keys(firstRow).find(k => k.replace(/[\ufeff\s"]/g, '').includes("위치좌표"));
-        if (!targetKey) {
-            const keys = Object.keys(firstRow);
-            for (let k of keys) {
-                const val = firstRow[k];
-                if (typeof val === 'string' && /^[0-9.]+\s*,\s*[0-9.]+$/.test(val)) {
-                    targetKey = k; break;
-                }
+    document.getElementById("pgInfoVoc").innerText = `${data.length}건 중 ${Math.min(end, data.length)} 표기`;
+
+    pageData.forEach(r => {
+        const tr = document.createElement("tr");
+        if(tableId === 'tblVoc') {
+            const hasLoc = (r._lat) ? "Y" : "<span style='color:#ccc'>N</span>";
+            let badgeClass = r._status === '처리완료' ? 'bd-done' : (r._status === '접수' ? 'bd-ing' : 'bd-wait');
+            
+            tr.innerHTML = `
+                <td>${r._branch}</td>
+                <td>${r._agent}</td>
+                <td>${r["계약번호"]}</td>
+                <td style="font-weight:bold; text-align:left;">${r["상호"]||"-"}</td>
+                <td><span class="badge ${badgeClass}">${r._status}</span></td>
+                <td>${r["VOC유형소"]||"-"}</td>
+                <td style="text-align:center;">${hasLoc}</td>
+            `;
+            // Click to pan map
+            if(r._lat) {
+                tr.onclick = () => {
+                    map.panTo({lat:r._lat, lng:r._lng});
+                    map.setZoom(14);
+                    // Highlight logic could go here
+                };
             }
         }
-        return data.map(row => {
-            if (targetKey && row[targetKey]) {
-                const rawVal = row[targetKey];
-                if (typeof rawVal === 'string' && rawVal.includes(',')) {
-                    const parts = rawVal.split(',');
-                    if (parts.length >= 2) {
-                        const lat = parseFloat(parts[0].trim().replace(/"/g,''));
-                        const lng = parseFloat(parts[1].trim().replace(/"/g,''));
-                        if (!isNaN(lat) && !isNaN(lng)) { row["위도"] = lat; row["경도"] = lng; }
-                    }
-                }
-            }
-            return row;
-        });
+        tbody.appendChild(tr);
+    });
+}
+
+function movePage(dir) {
+    const total = appState.filter.voc.length;
+    const maxPage = Math.ceil(total / appState.limit);
+    let newPage = appState.page + dir;
+    if(newPage > 0 && newPage <= maxPage) {
+        appState.page = newPage;
+        renderTable(appState.filter.voc, "tblVoc");
     }
+}
 
-    function preprocessPipelineData(data) {
-        return data.map(row => {
-            if (row["KTT월정료(조정)"]) {
-                const val = parseFloat(String(row["KTT월정료(조정)"]).replace(/,/g, ""));
-                if (!isNaN(val)) row["KTT월정료(조정)"] = String(Math.round(val));
-            }
-            let risk = row['해지위험도'];
-            if (risk) {
-                let riskNum = parseFloat(risk);
-                if (!isNaN(riskNum) && riskNum <= 1.0 && riskNum > 0) row['해지위험도'] = (riskNum * 100).toFixed(0);
-            }
-            return row;
-        });
-    }
+/* ================= CHARTS ================= */
+function updateCharts(data) {
+    // 1. Branch Chart
+    const brCounts = {};
+    data.forEach(r => { brCounts[r._branch] = (brCounts[r._branch]||0)+1; });
+    
+    if(charts.branch) charts.branch.destroy();
+    charts.branch = new Chart(document.getElementById("chartVocBranch"), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(brCounts),
+            datasets: [{
+                label: '건수',
+                data: Object.values(brCounts),
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+    });
 
-    function initializeApp() {
-        const hqs = [...new Set(state.pipeline.data.map(r=>(r["관리본부"]||"").trim()).filter(Boolean))];
-        state.pipeline.hq = hqs.includes('강북/강원') ? '강북/강원' : 'ALL';
-        initFilters();
-        filterData('voc'); 
-        filterData('pipeline');
-        renderVocMarkers();
-        updateDashboard('pipeline');
-        document.getElementById("loadingOverlay").style.display = "none";
-        showToast();
-    }
+    // 2. Agent Chart (Top 10)
+    const agCounts = {};
+    data.forEach(r => { if(r._agent) agCounts[r._agent] = (agCounts[r._agent]||0)+1; });
+    const sortedAg = Object.entries(agCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
-    function initVocMap(){
-        vocMap = new google.maps.Map(document.getElementById("vocMap"),{
-            center:{lat:37.5665,lng:126.9780}, zoom:9,
-            mapTypeControl: false, fullscreenControl: false
-        });
-        vocInfo = new google.maps.InfoWindow();
-        // ★ 중요: 지도가 움직여도 데이터 필터링을 하지 않도록 리스너 제거 또는 수정
-        // vocMap.addListener("idle", () => { applyMapBoundsFilter(); });
-    }
+    if(charts.agent) charts.agent.destroy();
+    charts.agent = new Chart(document.getElementById("chartVocAgent"), {
+        type: 'bar',
+        data: {
+            labels: sortedAg.map(x=>x[0]),
+            datasets: [{
+                label: '건수',
+                data: sortedAg.map(x=>x[1]),
+                backgroundColor: '#10b981',
+                borderRadius: 4
+            }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}} }
+    });
+}
 
-    function getVocIcon(row){
-        const statusColor = { "처리완료":"blue", "접수":"orange", "미접수":"red" }[row["상태"]] || "gray";
-        return `https://maps.google.com/mapfiles/ms/icons/${statusColor}-dot.png`;
-    }
+/* ================= UTILS ================= */
+function setView(v) {
+    appState.view = v;
+    document.querySelectorAll(".view-tabs button").forEach(b => b.classList.remove("active"));
+    event.target.classList.add("active");
+    
+    document.querySelectorAll(".dashboard-view").forEach(d => d.classList.remove("active"));
+    document.getElementById(v==='voc' ? 'viewVoc' : 'viewPipe').classList.add("active");
+    
+    document.getElementById("filterVoc").style.display = (v==='voc') ? 'block' : 'none';
+    document.getElementById("filterPipe").style.display = (v==='pipeline') ? 'block' : 'none';
+    
+    applyFilter();
+}
 
-    function renderVocMarkers(){
-        if(!vocMap) return;
-        if(vocClusterer) vocClusterer.clearMarkers();
-        vocMarkers = [];
-        markerMap.clear();
-
-        state.voc.filtered.forEach((r) => {
-            const lat = parseFloat(r["위도"]);
-            const lng = parseFloat(r["경도"]);
-            if(isNaN(lat) || isNaN(lng)) return; // ★ 좌표 없는 건은 마커만 패스
-
-            const marker = new google.maps.Marker({
-                position: {lat, lng},
-                title: r["상호"],
-                icon: { url: getVocIcon(r), scaledSize: new google.maps.Size(32,32) }
-            });
-
-            marker.addListener("click", () => {
-                vocInfo.setContent(`
-                    <div style="padding:5px; min-width:150px;">
-                        <b>${r["상호"] || "고객"}</b><br/>
-                        <span style="color:#666">${r["관리지사"]} / ${r["담당자"]}</span><br/>
-                        <span style="font-weight:bold; color:${r["상태"]==='처리완료'?'blue':'red'}">${r["상태"]}</span>
-                    </div>
-                `);
-                vocInfo.open(vocMap, marker);
-                highlightRowInTable(r);
-            });
-
-            vocMarkers.push(marker);
-            markerMap.set(r, marker);
-        });
-
-        vocClusterer = new markerClusterer.MarkerClusterer({
-            map: vocMap, markers: vocMarkers,
-            renderer: {
-                render: ({ count, position }) => {
-                    return new google.maps.Marker({
-                        label: { text: String(count), color: "white", fontSize: "12px", fontWeight: "bold" },
-                        position, zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
-                        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: "#2563eb", fillOpacity: 0.9, strokeWeight: 2, strokeColor: "#fff" }
-                    });
-                }
-            }
-        });
-    }
-
-    // ★ 수정됨: 이제 지도가 뷰를 제한하지 않음. 전체 데이터를 뷰에 할당.
-    function applyMapBoundsFilter() {
-        state.voc.viewData = state.voc.filtered; 
-        updateVocDashboardComponents();
-    }
-
-    function updateVocDashboardComponents() {
-        updateVocKPIs();
-        drawVocCharts();
-        state.voc.page = 1;
-        renderTable('voc');
-    }
-
-    function initFilters() {
-        const vt = [...new Set(state.voc.data.map(r=>(r["VOC유형대"]||"").trim()).filter(Boolean))].sort();
-        const sel = document.getElementById("vocTypeFilter");
-        sel.innerHTML = '<option value="ALL">전체 유형</option>' + vt.map(t=>`<option value="${t}">${t}</option>`).join('');
-        sel.addEventListener('change', () => updateDashboard('voc'));
-        
-        renderVocFilters('branch');
-        renderAgentOptions('voc');
-
-        document.getElementById("channelFilter").addEventListener("change", (e)=>{ state.pipeline.channel=e.target.value; updateDashboard('pipeline'); });
-        document.querySelectorAll('input[name="risk"]').forEach(e=>e.addEventListener("change", ()=>updateDashboard('pipeline')));
-        renderPipelineFilters('branch');
-        renderAgentOptions('pipeline');
-
-        document.getElementById("vocAgentFilter").addEventListener("change", (e) => { state.voc.agent = e.target.value; updateDashboard('voc'); });
-        document.getElementById("pipelineAgentFilter").addEventListener("change", (e) => { state.pipeline.agent = e.target.value; updateDashboard('pipeline'); });
-        setupSortEvents('pipelineListTable','pipeline'); setupSortEvents('vocListTable','voc');
-    }
-
-    function updateDashboard(v) {
-        filterData(v);
-        if(v === 'pipeline') { updatePipelineKPIs(); drawPipelineCharts(); renderTable('pipeline'); } 
-        else { 
-            // VOC 업데이트: 마커 새로 찍고, 전체 데이터로 차트/테이블 갱신
-            renderVocMarkers(); 
-            applyMapBoundsFilter(); 
-        }
-    }
-
-    function filterData(v) {
-        if(v === 'pipeline') {
-            const ch = state.pipeline.channel;
-            const rVal = document.querySelector('input[name="risk"]:checked').value;
-            state.pipeline.filtered = state.pipeline.data.filter(r => {
-                if(ch!=='ALL' && r["담당영업채널"]!==ch) return false;
-                const risk = parseFloat(r["해지위험도"]);
-                if(rVal!=='ALL') {
-                    const rv = parseInt(rVal);
-                    if(rv===75 && risk<75) return false;
-                    if(rv!==75 && (risk<rv || risk>=rv+25)) return false;
-                }
-                if(state.pipeline.hq!=='ALL' && (r["관리본부"]||"").trim()!==state.pipeline.hq) return false;
-                if(state.pipeline.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.pipeline.branch) return false;
-                if(state.pipeline.agent!=='ALL' && (r["담당자"]||"").trim()!==state.pipeline.agent) return false;
-                return true;
-            });
-            state.pipeline.page = 1;
+// Manual Upload
+document.getElementById('csvFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        const parsed = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
+        if(parsed.meta.fields.includes("위치좌표(위도,경도)") || parsed.meta.fields.includes("위도")) {
+            appState.data.voc = parseVocData(parsed.data);
+            initFilters();
+            setView('voc');
+            alert("VOC 데이터 업데이트 완료");
         } else {
-            const t = document.getElementById("vocTypeFilter").value;
-            const s = document.querySelector('#vocStatusButtons .active').dataset.value;
-            state.voc.filtered = state.voc.data.filter(r => {
-                if(t!=='ALL' && (r["VOC유형대"]||"").trim()!==t) return false;
-                if(s!=='ALL' && (r["상태"]||"").trim()!==s) return false;
-                if(state.voc.branch!=='ALL' && util.normalizeBranch(r["관리지사"])!==state.voc.branch) return false;
-                if(state.voc.agent!=='ALL' && (r["담당자"]||"").trim()!==state.voc.agent) return false;
-                return true;
-            });
+            appState.data.pipe = parsed.data;
+            setView('pipeline');
+            alert("파이프라인 데이터 업데이트 완료");
         }
-    }
-
-    function updateVocKPIs() {
-        const d = state.voc.viewData; 
-        // ★ 계약번호 기준으로 중복 제거 (전체 계약 건수)
-        const uniqueContracts = new Set(d.map(r => r["계약번호"])).size;
-        
-        const comp = d.filter(r=>(r["상태"]||"").trim()==='처리완료').length;
-        
-        document.getElementById("kpi-voc-total").innerText = util.formatNum(uniqueContracts); // 계약번호 기준
-        document.getElementById("kpi-voc-complete").innerText = util.formatNum(comp);
-        document.getElementById("kpi-voc-complete-rate").innerText = d.length>0 ? (comp/d.length*100).toFixed(1)+'%' : '0%';
-        document.getElementById("kpi-voc-unassigned").innerText = util.formatNum(d.filter(r=>(r["상태"]||"").trim()==='미접수').length);
-    }
-    
-    function updatePipelineKPIs() {
-        const d = state.pipeline.filtered;
-        const amt = d.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
-        const suc = d.filter(r=>r["방어진행단계"]==='방어성공').length;
-        const att = d.filter(r=>['방어성공','방어실패','진행중'].includes(r["방어진행단계"])).length;
-        const high = d.filter(r=>parseFloat(r["해지위험도"])>=75).length;
-        document.getElementById("kpi-pipeline-count").innerText = util.formatNum(d.length);
-        document.getElementById("kpi-pipeline-amount").innerText = util.formatNum(amt);
-        document.getElementById("kpi-high-risk-count").innerText = util.formatNum(high);
-        document.getElementById("kpi-defense-success-rate").innerText = att>0 ? (suc/att*100).toFixed(1)+'%' : '0%';
-    }
-
-    function newChart(id, conf) {
-        if(chartInstances[id]) chartInstances[id].destroy();
-        chartInstances[id] = new Chart(document.getElementById(id), conf);
-    }
-
-    function drawVocCharts() {
-        const d = state.voc.viewData; 
-        const act={}; d.forEach(r=>{const a=(r["담당자"]||"").trim();const s=(r["상태"]||"").trim();if(a&&(s==='미접수'||s==='접수')){if(!act[a])act[a]={y:0,r:0,t:0};if(s==='미접수')act[a].y++;else act[a].r++;act[a].t++;}});
-        const sAct = Object.entries(act).sort((a,b)=>b[1].t-a[1].t).slice(0,10);
-        newChart('vocActivityChart', {
-            type:'bar', data:{labels:sAct.map(e=>e[0]),datasets:[{label:'미접수',data:sAct.map(e=>e[1].y),backgroundColor:'#ef4444',borderRadius:4},{label:'접수',data:sAct.map(e=>e[1].r),backgroundColor:'#f59e0b',borderRadius:4}]},
-            options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{display:false}}},plugins:{legend:{position:'top'},datalabels:{display:c=>c.dataset.data[c.dataIndex]>0,color:'#fff'}}}
-        });
-        
-        const br={}; d.forEach(r=>{const b=util.normalizeBranch(r["관리지사"]);if(!b)return;if(!br[b])br[b]={d:0,r:0,y:0};const s=(r["상태"]||"").trim();if(s==='처리완료')br[b].d++;else if(s==='접수')br[b].r++;else br[b].y++;});
-        const lBr = Object.keys(br).sort(util.sortBranches);
-        newChart('vocBranchChart', {
-            type:'bar', data:{labels:lBr,datasets:[{label:'완료',data:lBr.map(k=>br[k].d),backgroundColor:'#3b82f6',borderRadius:4,stack:'s'},{label:'접수',data:lBr.map(k=>br[k].r),backgroundColor:'#fbbf24',borderRadius:4,stack:'s'},{label:'미접수',data:lBr.map(k=>br[k].y),backgroundColor:'#f87171',borderRadius:4,stack:'s'}]},
-            options:{responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true}},plugins:{legend:{position:'bottom'},datalabels:{display:false}}}
-        });
-    }
-
-    function drawPipelineCharts() {
-        const d = state.pipeline.filtered; const m = state.pipeline.mode;
-        const br={}; d.forEach(r=>{
-            const b = util.normalizeBranch(r["관리지사"]); if(!b)return; if(!br[b]) br[b]={suc:0,fail:0,ing:0,tot:0};
-            const v = m==='amount'?util.toThousand(r["KTT월정료(조정)"]):1; const s = r["방어진행단계"];
-            if(s==='방어성공')br[b].suc+=v; else if(s==='방어실패')br[b].fail+=v; else if(s==='진행중')br[b].ing+=v;
-            if(['방어성공','방어실패','진행중'].includes(s)) br[b].tot+=v;
-        });
-        const sBr = Object.entries(br).filter(e=>e[1].tot>0).sort((a,b)=>b[1].tot-a[1].tot).slice(0,10);
-        newChart('pipelineBranchStageChart', {
-            type: 'bar', data: { labels: sBr.map(e=>e[0]), datasets: [ {label:'성공', data:sBr.map(e=>e[1].suc), backgroundColor:'#34d399', stack:'s', borderRadius:4}, {label:'진행', data:sBr.map(e=>e[1].ing), backgroundColor:'#fbbf24', stack:'s', borderRadius:4}, {label:'실패', data:sBr.map(e=>e[1].fail), backgroundColor:'#f87171', stack:'s', borderRadius:4} ]},
-            options: { responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, plugins:{legend:{position:'bottom'}, datalabels:{display:false}}, onClick: (e, el) => { if(el.length>0) setPipelineFilter('branch', sBr.map(e=>e[0])[el[0].index]); } }
-        });
-
-        const trend = {}; d.forEach(r => {
-            let dateStr = util.excelDateToJSDate(r["등록일자"]); let month = dateStr.slice(0, 7); if(month.length < 7) return;
-            if(!trend[month]) trend[month] = { tot: 0, suc: 0, ing: 0, fail: 0 }; trend[month].tot += 1;
-            const s = (r["방어진행단계"]||"").trim(); if(s === '방어성공') trend[month].suc += 1; else if(s === '진행중') trend[month].ing += 1; else if(s === '방어실패') trend[month].fail += 1;
-        });
-        const sortedMonths = Object.keys(trend).sort();
-        newChart('pipelineTrendChart', {
-            type: 'bar', data: { labels: sortedMonths, datasets: [ { type: 'line', label: '성공률(%)', data: sortedMonths.map(m => (trend[m].tot===0 ? 0 : (trend[m].suc/trend[m].tot*100).toFixed(1))), borderColor: '#10b981', borderWidth: 2, tension:0.3, yAxisID: 'y_rate', order:1 }, { label: '방어성공', data: sortedMonths.map(m => trend[m].suc), backgroundColor: '#34d399', stack: 'combined', yAxisID: 'y_count', order:2 }, { label: '진행중', data: sortedMonths.map(m => trend[m].ing), backgroundColor: '#fbbf24', stack: 'combined', yAxisID: 'y_count', order:3 }, { label: '방어실패', data: sortedMonths.map(m => trend[m].fail), backgroundColor: '#f87171', stack: 'combined', yAxisID: 'y_count', order:4 } ]},
-            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { grid: {display: false} }, y_count: { position: 'left', stacked:true, grid:{borderDash:[4,4]} }, y_rate: { position: 'right', min: 0, max: 100, grid: {drawOnChartArea: false} } }, plugins: { legend: {display: true}, datalabels: {display: false} } }
-        });
-
-        const bub = Object.entries(br).map(([b,v])=>{
-            const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
-            const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
-            const amtTotal = sub.reduce((s,r)=>s+util.toThousand(r["KTT월정료(조정)"]),0);
-            return { label:b, data:[{x:risk, y:amtTotal/sub.length, r:Math.sqrt(amtTotal)*0.4}], backgroundColor:'rgba(37,99,235,0.6)', borderColor:'#2563eb' };
-        }).filter(b=>b.data[0].r>0);
-        newChart('pipelineRiskBubbleChart', { type: 'bubble', data: { datasets: bub }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, datalabels: { display: true, align: 'top', formatter: v=>Math.round(v.y).toLocaleString() } }, scales: { x:{title:{display:true,text:'위험도'}, min:0, max:100}, y:{title:{display:true,text:'평균월정료'}} } } });
-        
-        const reasons = {}; d.forEach(r => { let re = (r["해지사유"] || "미입력").trim(); reasons[re] = (reasons[re] || 0) + 1; });
-        const top5 = Object.entries(reasons).sort((a,b) => b[1] - a[1]).slice(0, 5);
-        newChart('pipelineReasonChart', { type: 'doughnut', data: { labels: top5.map(e => e[0]), datasets: [{ data: top5.map(e => e[1]), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, datalabels: { color: '#fff', formatter: (v, c) => (v/c.chart._metasets[c.datasetIndex].total*100).toFixed(0)+"%" } } } });
-    }
-
-    function renderTable(t) {
-        const s = state[t]; const dataSrc = t === 'voc' ? s.viewData : s.filtered;
-        const tb = document.querySelector(`#${t}ListTable tbody`); tb.innerHTML = "";
-        const sorted = [...dataSrc].sort((a,b)=>{
-            let va = a[s.sortField], vb = b[s.sortField];
-            if(s.sortField.includes('월정료')||s.sortField.includes('위험도')) { va=parseFloat(String(va).replace(/,/g,''))||0; vb=parseFloat(String(vb).replace(/,/g,''))||0; }
-            if(va<vb) return s.sortDir==='asc'?-1:1; if(va>vb) return s.sortDir==='asc'?1:-1; return 0;
-        });
-        const start = (s.page-1)*s.limit; const pageData = sorted.slice(start, start+s.limit);
-        const totalPages = Math.max(1, Math.ceil(sorted.length/s.limit)); 
-        document.getElementById(`${t}PaginationInfo`).innerText = `총 ${util.formatNum(sorted.length)}건 중 ${sorted.length > 0 ? start+1 : 0}-${Math.min(start+s.limit, sorted.length)}`;
-
-        pageData.forEach(r => {
-            const tr = document.createElement("tr"); const companyName = r["상호"] || r["상호명"] || '-';
-            if(t === 'voc') {
-                tr.onclick = () => { const marker = markerMap.get(r); if(marker) { vocMap.panTo(marker.getPosition()); vocMap.setZoom(14); google.maps.event.trigger(marker, "click"); } };
-                tr.dataset.ref = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
-            }
-            if(t === 'pipeline') {
-                let bc = '', st = (r["방어진행단계"]||"").trim(); if(st==='방어성공') bc='stage-success'; else if(st==='방어실패') bc='stage-fail'; else bc='stage-ing';
-                tr.innerHTML = `<td>${util.normalizeBranch(r["관리지사"])}</td><td>${r["담당자"]}</td><td>${util.cleanContract(r["계약번호"])}</td><td style="text-align:left;">${companyName}</td><td>${r["담당영업채널"]}</td><td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td><td>${r["재계약여부"]||'-'}</td><td><span class="badge ${bc}">${st}</span></td><td>${r["해지위험도"]}%</td><td>${r["해지예정일"]||'-'}</td><td>${util.excelDateToJSDate(r["등록일자"])}</td>`;
-            } else {
-                let bc = '', st = (r["상태"]||"").trim(); if(st==='처리완료') bc='voc-done'; else if(st==='접수') bc='voc-receipt'; else bc='voc-yet';
-                tr.innerHTML = `<td>${util.normalizeBranch(r["관리지사"])}</td><td>${r["담당자"]}</td><td>${util.cleanContract(r["계약번호"])}</td><td style="text-align:left;">${companyName}</td><td><span class="badge ${bc}">${st}</span></td><td>${r["VOC유형소"]||'-'}</td><td>${r["합산월정료"]?util.formatNum(util.toThousand(r["합산월정료"])):'-'}</td>`;
-            }
-            tb.appendChild(tr);
-        });
-        const btns = document.querySelectorAll(`#${t}View .pagination button`); if(btns.length >= 2) { btns[0].disabled = s.page <= 1; btns[1].disabled = s.page >= totalPages; }
-    }
-
-    function highlightRowInTable(r) {
-        const rows = document.querySelectorAll("#vocListTable tbody tr"); rows.forEach(row => row.classList.remove("highlight"));
-        const targetStr = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
-        for(let tr of rows) { if(tr.dataset.ref === targetStr) { tr.classList.add("highlight"); tr.scrollIntoView({behavior: "smooth", block: "center"}); break; } }
-    }
-
-    window.changePage = (t, d) => { state[t].page += d; renderTable(t); };
-    function setupSortEvents(id, t) {
-        document.querySelectorAll(`#${id} th[data-field]`).forEach(th => {
-            th.addEventListener('click', () => {
-                const f = th.dataset.field; if(state[t].sortField===f) state[t].sortDir = state[t].sortDir==='asc'?'desc':'asc'; else { state[t].sortField=f; state[t].sortDir='desc'; }
-                document.querySelectorAll(`#${id} th`).forEach(x=>x.innerText=x.innerText.replace(/ [▲▼]/,'')); th.innerText += state[t].sortDir==='asc'?' ▲':' ▼'; renderTable(t);
-            });
-        });
-    }
-    
-    window.switchView = (v) => {
-        state.currentView = v; document.querySelectorAll('.view-switcher button').forEach(b=>b.classList.remove('active'));
-        document.getElementById(v==='voc'?'showVocBtn':'showPipelineBtn').classList.add('active');
-        document.querySelectorAll('.dashboard-view').forEach(e=>e.classList.remove('active'));
-        document.getElementById(v+'View').classList.add('active');
-        document.getElementById('pipelineFilters').style.display = v==='pipeline'?'block':'none';
-        document.getElementById('vocFilters').style.display = v==='voc'?'block':'none';
-        setTimeout(()=>{ Object.values(chartInstances).forEach(c=>c&&c.resize()); if(v==='voc' && vocMap) { google.maps.event.trigger(vocMap, "resize"); vocMap.setCenter(vocMap.getCenter()); } }, 100);
     };
+    reader.readAsText(file, 'UTF-8');
+});
 
-    window.setPipelineFilter = (t,v) => { state.pipeline[t]=v; if(t==='branch') renderAgentOptions('pipeline'); renderPipelineFilters('branch'); updateDashboard('pipeline'); };
-    window.setVocFilter = (t,v) => { state.voc[t]=v; if(t==='branch') renderAgentOptions('voc'); updateDashboard('voc'); };
-    window.setVocStatus = (v,b) => { document.querySelectorAll('#vocStatusButtons .filter-btn').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('voc'); };
-    window.setMode = (m,b) => { state.pipeline.mode=m; document.querySelectorAll('#pipelineFilters .filter-buttons button').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('pipeline'); };
-    window.exportToCSV = (t) => { const d = t === 'voc' ? state.voc.viewData : state.pipeline.filtered; if(!d.length) return alert("데이터 없음"); const blob = new Blob(["\uFEFF"+Papa.unparse(d)], {type:'text/csv;charset=utf-8;'}); const link = document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`ktt_${t}_${new Date().toISOString().slice(0,10)}.csv`; link.click(); };
-    
-    function renderVocFilters(type) { const c = document.getElementById(`voc${type.charAt(0).toUpperCase()+type.slice(1)}Buttons`); let s = state.voc.data; let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches); c.innerHTML = `<button class="filter-btn ${state.voc[type]==='ALL'?'active':''}" onclick="setVocFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.voc[type]===i?'active':''}" onclick="setVocFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join(''); }
-    function renderPipelineFilters(type) { if(type!=='branch') return; const c = document.getElementById(`pipelineBranchButtons`); let s = state.pipeline.data; if(state.pipeline.hq!=='ALL') s = s.filter(r=>(r["관리본부"]||"").trim()===state.pipeline.hq); let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches); c.innerHTML = `<button class="filter-btn ${state.pipeline[type]==='ALL'?'active':''}" onclick="setPipelineFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.pipeline[type]===i?'active':''}" onclick="setPipelineFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join(''); }
-    function renderAgentOptions(view) { const s = state[view]; let filteredAgents = s.data; if(s.branch !== 'ALL') filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch); if(view === 'pipeline' && s.hq !== 'ALL') filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq); const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort(); const selectEl = document.getElementById(view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter'); selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + agents.map(a => `<option value="${a}">${a}</option>`).join(''); selectEl.value = agents.includes(s.agent) ? s.agent : 'ALL'; if(selectEl.value === 'ALL') s.agent = 'ALL'; }
-    function showToast() { const t = document.getElementById("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 3000); }
-
-    document.getElementById('localFileInput').addEventListener('change', function(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(evt) { Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) { 
-        const keys = Object.keys(results.data[0] || {});
-        const isVoc = keys.some(k => k.includes("위치좌표") || k.includes("지도링크"));
-        if (isVoc) {
-            state.voc.data = preprocessVocData(results.data);
-            renderVocFilters('branch'); renderAgentOptions('voc'); switchView('voc'); renderVocMarkers(); applyMapBoundsFilter();
-            alert("VOC 데이터 갱신 완료");
-        } else {
-            state.pipeline.data = preprocessPipelineData(results.data); initializeApp(); switchView('pipeline'); 
-            alert("파이프라인 데이터 갱신 완료");
-        }
-    }}); }; reader.readAsText(file, 'UTF-8'); });
 </script>
 </body>
 </html>
