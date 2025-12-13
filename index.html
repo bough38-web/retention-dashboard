@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (Final v8.0)</title>
+<title>KTT Premium Retention Dashboard (v9.0)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -70,12 +70,9 @@
     .kpi-icon { position:absolute; right:16px; top:16px; font-size:32px; opacity:0.1; }
 
     /* 그리드 시스템 */
-    /* VOC용: 지도 + 차트 */
-    .voc-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
-    .grid-left { flex:1.5; display:flex; flex-direction:column; } /* 지도 */
-    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; } /* 차트 */
-
-    /* 파이프라인용: 차트만 */
+    .dashboard-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
+    .grid-left { flex:1.2; display:flex; flex-direction:column; }
+    .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; }
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
 
     .card { background:var(--surface); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); border:1px solid var(--border); display:flex; flex-direction:column; }
@@ -171,7 +168,7 @@
             </div>
         </div>
 
-        <div class="voc-grid">
+        <div class="dashboard-grid">
             <div class="grid-left">
                 <div class="card full" style="padding:0;">
                     <div style="padding:16px; border-bottom:1px solid var(--border); background:var(--surface);">
@@ -242,24 +239,13 @@
         </div>
 
         <div class="pipeline-grid">
-            <div class="card full">
-                <div class="card-title">월별 등록 추이 (클릭 필터)</div>
-                <div class="chart-box"><canvas id="pipe-chart-trend"></canvas></div>
+             <div class="card full">
+                <div class="card-title">방어 단계별 현황</div>
+                <div class="chart-box"><canvas id="pipe-chart-step"></canvas></div>
             </div>
             <div class="card full">
                 <div class="card-title">주요 해지 사유 (Top 5)</div>
                 <div class="chart-box"><canvas id="pipe-chart-reason"></canvas></div>
-            </div>
-        </div>
-        
-        <div class="pipeline-grid">
-             <div class="card full">
-                <div class="card-title">위험도 vs 월정료 분포</div>
-                <div class="chart-box"><canvas id="pipe-chart-risk"></canvas></div>
-            </div>
-             <div class="card full">
-                <div class="card-title">방어 단계별 현황</div>
-                <div class="chart-box"><canvas id="pipe-chart-step"></canvas></div>
             </div>
         </div>
 
@@ -350,7 +336,6 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     if(!data.length) return [];
-    // 컬럼명 퍼지 매칭
     const kRisk = findKey(data[0], "위험도") || "해지위험도";
     const kDate = findKey(data[0], "등록일자") || "등록일자";
     const kHQ = findKey(data[0], "관리본부") || "관리본부";
@@ -360,17 +345,13 @@ function parsePipe(data) {
         let risk = parseFloat(r[kRisk]||0);
         if(risk > 0 && risk <= 1) risk = risk * 100;
 
-        // ★ 날짜 파싱 (Excel Serial or YYYY-MM-DD)
+        // ★ 날짜 파싱 (Excel Serial -> YYYY-MM-DD)
         let dateStr = r[kDate];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
             if (!isNaN(clean) && Number(clean) > 20000) {
-                // Excel Serial Date
                 const jsDate = new Date((Number(clean) - 25569) * 86400 * 1000);
-                const y = jsDate.getFullYear();
-                const m = String(jsDate.getMonth()+1).padStart(2,'0');
-                const d = String(jsDate.getDate()).padStart(2,'0');
-                dateStr = `${y}-${m}-${d}`;
+                dateStr = jsDate.toISOString().slice(0,10);
             }
         }
 
@@ -560,9 +541,7 @@ function renderPipeView() {
     document.getElementById('pipe-kpi-loss').innerText = (loss/10000).toFixed(0)+'만';
     document.getElementById('pipe-kpi-rate').innerText = total ? ((suc/total)*100).toFixed(1)+'%' : '0%';
 
-    drawTrend(data);
     drawPie(data);
-    drawBubble(data);
     drawStep(data);
     renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
 }
@@ -641,38 +620,6 @@ function drawBar(id, data, key, label, color, fType) {
     });
 }
 
-function drawTrend(data) {
-    const trend = {};
-    data.forEach(d => {
-        let ym = d._regDate ? d._regDate.slice(0, 7) : 'Unknown';
-        if(!trend[ym]) trend[ym] = 0; trend[ym]++;
-    });
-    const keys = Object.keys(trend).sort().filter(k => k!=='Unknown');
-    
-    const ctx = document.getElementById('pipe-chart-trend').getContext('2d');
-    const id = 'pipe-chart-trend';
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: keys,
-            datasets: [{
-                label: '건수', data: keys.map(k=>trend[k]),
-                borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', fill:true, tension:0.3
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { datalabels: { display:true, align:'top', font:{weight:'bold'} } },
-            onClick: (e, els) => {
-                // Future: Month Filter
-            },
-            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-        }
-    });
-}
-
 function drawPie(data) {
     const counts = {};
     data.forEach(d => { const r = d['해지사유']||"미입력"; counts[r] = (counts[r]||0)+1; });
@@ -691,40 +638,6 @@ function drawPie(data) {
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend:{position:'right'}, datalabels:{color:'#fff', font:{weight:'bold'}} }
-        }
-    });
-}
-
-function drawBubble(data) {
-    const brData = {};
-    data.forEach(d => {
-        if(!brData[d._branch]) brData[d._branch] = { riskSum:0, feeSum:0, count:0 };
-        brData[d._branch].riskSum += d._risk;
-        brData[d._branch].feeSum += d._fee;
-        brData[d._branch].count += 1;
-    });
-    
-    const bubbles = Object.entries(brData).map(([br, val]) => ({
-        x: val.riskSum / val.count,
-        y: val.feeSum / val.count,
-        r: Math.sqrt(val.count) * 2,
-        branch: br
-    }));
-
-    const ctx = document.getElementById('pipe-chart-risk').getContext('2d');
-    const id = 'pipe-chart-risk';
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
-        type: 'bubble',
-        data: { datasets: [{ label: '지사별', data: bubbles, backgroundColor: 'rgba(59, 130, 246, 0.6)', borderColor: '#2563eb' }] },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { 
-                legend: { display: false },
-                tooltip: { callbacks: { label: (c) => `${c.raw.branch}: 위험 ${c.raw.x.toFixed(0)}% / 료 ${Math.round(c.raw.y)}` } }
-            },
-            scales: { x: { title: {display:true, text:'위험도'}, min:0, max:100 }, y: { title: {display:true, text:'평균월정료'} } }
         }
     });
 }
