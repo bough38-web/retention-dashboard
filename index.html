@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (Final)</title>
+<title>KTT Premium Retention Dashboard (v6.0 Fixed)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -15,7 +15,7 @@
 
 <style>
     :root {
-        --primary: #2563eb; --bg: #f8fafc; --surface: #ffffff;
+        --primary: #2563eb; --primary-dark: #1e40af; --bg: #f8fafc; --surface: #ffffff;
         --text: #1e293b; --text-light: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
@@ -119,7 +119,7 @@
     </div>
     <div class="sidebar-scroll">
         <div class="upload-box" onclick="triggerFileUpload()">
-            <i class="ph ph-lock-key"></i> <span>데이터 파일 교체 (보안)</span>
+            <i class="ph ph-lock-key"></i> <span>파일 교체 (보안)</span>
             <input type="file" id="fileInput" accept=".csv" />
         </div>
 
@@ -312,7 +312,7 @@ window.onload = async () => {
         initMap();
         initFilterUI();
         updateDashboard();
-    } catch(e) { console.error(e); alert("데이터 로드 중 오류가 발생했습니다. 콘솔을 확인하세요."); }
+    } catch(e) { console.error(e); alert("기본 데이터 로드 실패 (콘솔 확인)"); }
     document.getElementById("loading").style.display = "none";
 };
 
@@ -487,7 +487,7 @@ function renderDynamicFilters() {
     if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(branchSrc.map(d=>d._branch))];
     
-    // ★ 지사 정렬 로직 (중앙~원주)
+    // ★ 지사 정렬 (중앙~원주)
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
@@ -824,6 +824,8 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     };
     reader.readAsText(file, 'UTF-8');
 });
+
+function initUI() { switchView('voc'); }
 </script>
 </body>
 </html>
