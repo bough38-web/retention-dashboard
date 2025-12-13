@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v5.0 Final)</title>
+<title>KTT Premium Retention Dashboard (Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -15,14 +15,16 @@
 
 <style>
     :root {
-        --primary: #2563eb; --primary-dark: #1e40af; --bg: #f8fafc; --surface: #ffffff;
+        --primary: #2563eb; --bg: #f8fafc; --surface: #ffffff;
         --text: #1e293b; --text-light: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
-    
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+
     /* 사이드바 */
     .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
     .logo-area { padding:20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
@@ -59,7 +61,7 @@
     .view-panel.active { display:flex; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:translateY(0);} }
 
-    /* 헤더 & KPI */
+    /* KPI */
     .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex:none; }
     .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:16px; flex:none; }
     .kpi-card { background:var(--surface); padding:20px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; }
@@ -79,6 +81,7 @@
     .card-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
 
     /* 지도 & 차트 */
+    /* 지도가 꽉 차도록 flex 설정 */
     .map-container { flex:1; width:100%; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:300px; }
     .chart-box { flex:1; position:relative; min-height:200px; }
 
@@ -116,7 +119,7 @@
     </div>
     <div class="sidebar-scroll">
         <div class="upload-box" onclick="triggerFileUpload()">
-            <i class="ph ph-lock-key"></i> <span>파일 교체 (보안)</span>
+            <i class="ph ph-lock-key"></i> <span>데이터 파일 교체 (보안)</span>
             <input type="file" id="fileInput" accept=".csv" />
         </div>
 
@@ -309,7 +312,7 @@ window.onload = async () => {
         initMap();
         initFilterUI();
         updateDashboard();
-    } catch(e) { console.error(e); alert("기본 데이터 로드 실패 (콘솔 확인)"); }
+    } catch(e) { console.error(e); alert("데이터 로드 중 오류가 발생했습니다. 콘솔을 확인하세요."); }
     document.getElementById("loading").style.display = "none";
 };
 
@@ -349,6 +352,7 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     if(!data.length) return [];
+    // 컬럼명 퍼지 매칭
     const kRisk = findKey(data[0], "위험도") || "해지위험도";
     const kDate = findKey(data[0], "등록일자") || "등록일자";
     const kHQ = findKey(data[0], "관리본부") || "관리본부";
@@ -358,7 +362,7 @@ function parsePipe(data) {
         let risk = parseFloat(r[kRisk]||0);
         if(risk > 0 && risk <= 1) risk = risk * 100;
 
-        // ★ 날짜 파싱 (Excel Serial or String)
+        // ★ 날짜 파싱 (Excel Serial -> YYYY-MM-DD)
         let dateStr = r[kDate];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
@@ -431,7 +435,9 @@ function toggleFilter(type, val, btn) {
     
     if(btn) {
         Array.from(btn.parentElement.children).forEach(c => c.classList.remove('active'));
-        const target = Array.from(btn.parentElement.children).find(c => c.innerText === (val==='ALL'?'전체':btn.innerText));
+        const target = Array.from(btn.parentElement.children).find(c => 
+            c.innerText === (val==='ALL'?'전체':btn.innerText)
+        );
         if(target) target.classList.add('active');
     }
 
@@ -480,6 +486,8 @@ function renderDynamicFilters() {
     let branchSrc = source;
     if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(branchSrc.map(d=>d._branch))];
+    
+    // ★ 지사 정렬 로직 (중앙~원주)
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
@@ -816,8 +824,6 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     };
     reader.readAsText(file, 'UTF-8');
 });
-
-function initUI() { switchView('voc'); }
 </script>
 </body>
 </html>
