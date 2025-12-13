@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard</title>
+<title>KTT Premium Retention Dashboard (v5.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -69,7 +69,7 @@
 
     /* 그리드 시스템 (높이 꽉 채우기) */
     .dashboard-grid { display:flex; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
-    .grid-left { flex:1.5; display:flex; flex-direction:column; } /* 지도 영역 */
+    .grid-left { flex:1.2; display:flex; flex-direction:column; } /* 지도 영역 */
     .grid-right { flex:1; display:flex; flex-direction:column; gap:16px; } /* 차트 영역 */
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; flex:1; min-height:0; margin-bottom:16px; }
 
@@ -79,9 +79,8 @@
     .card-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
 
     /* 지도 & 차트 */
-    /* 지도가 꽉 차도록 flex 설정 */
     .map-container { flex:1; width:100%; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:300px; }
-    .chart-box { flex:1; position:relative; min-height:0; }
+    .chart-box { flex:1; position:relative; min-height:200px; }
 
     /* 테이블 */
     .table-section { height:280px; flex:none; display:flex; flex-direction:column; }
@@ -274,25 +273,28 @@
 
 <script>
 /* ================= CONFIG ================= */
-// 지사 정렬 순서 (강북/강원 우선)
+// 지사 정렬 순서 (커스텀)
 const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
+
+// 데이터 URL (사용자가 업로드 시 덮어씌워짐)
 const DATA_SRC = {
     voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
+// 앱 상태 관리
 let App = {
     view: 'voc',
-    rawData: { voc:[], pipe:[] },
+    rawData: { voc: [], pipe: [] },
     filteredData: [],
-    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', risk:'ALL' },
+    filters: { hq: 'ALL', branch: 'ALL', agent: 'ALL', status: 'ALL', risk: 'ALL' },
     charts: {},
     map: null,
     clusterer: null,
     markers: []
 };
 
-// Chart.js Default Config
+// Chart.js 플러그인 등록
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
@@ -300,14 +302,14 @@ Chart.defaults.color = '#64748b';
 /* ================= INIT ================= */
 window.onload = async () => {
     try {
-        const [v, p] = await Promise.all([fetchCsv(DATA_SRC.voc), fetchCsv(DATA_SRC.pipe)]);
-        App.rawData.voc = parseVoc(v.data);
-        App.rawData.pipe = parsePipe(p.data);
+        const [vRes, pRes] = await Promise.all([ fetchCsv(DATA_SRC.voc), fetchCsv(DATA_SRC.pipe) ]);
+        App.rawData.voc = parseVoc(vRes.data);
+        App.rawData.pipe = parsePipe(pRes.data);
         
         initMap();
         initFilterUI();
         updateDashboard();
-    } catch(e) { console.error(e); alert("초기 데이터 로드 실패. 파일 업로드를 시도하세요."); }
+    } catch(e) { console.error(e); alert("기본 데이터 로드 실패 (콘솔 확인)"); }
     document.getElementById("loading").style.display = "none";
 };
 
@@ -317,7 +319,7 @@ async function fetchCsv(url) {
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
 }
 
-/* ================= DATA PARSING ================= */
+/* ================= PARSING (IMPROVED) ================= */
 const findKey = (row, keyword) => Object.keys(row).find(k => k.includes(keyword));
 
 function parseVoc(data) {
@@ -356,7 +358,7 @@ function parsePipe(data) {
         let risk = parseFloat(r[kRisk]||0);
         if(risk > 0 && risk <= 1) risk = risk * 100;
 
-        // ★ 날짜 자동 변환 (Excel Serial -> YYYY-MM-DD)
+        // ★ 날짜 파싱 (Excel Serial or String)
         let dateStr = r[kDate];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
@@ -374,7 +376,7 @@ function parsePipe(data) {
             _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(),
             _fee: parseMoney(r[kFee]),
-            _regDate: dateStr
+            _regDate: dateStr 
         };
     });
 }
@@ -429,9 +431,7 @@ function toggleFilter(type, val, btn) {
     
     if(btn) {
         Array.from(btn.parentElement.children).forEach(c => c.classList.remove('active'));
-        const target = Array.from(btn.parentElement.children).find(c => 
-            c.innerText === (val==='ALL'?'전체':btn.innerText)
-        );
+        const target = Array.from(btn.parentElement.children).find(c => c.innerText === (val==='ALL'?'전체':btn.innerText));
         if(target) target.classList.add('active');
     }
 
@@ -480,8 +480,6 @@ function renderDynamicFilters() {
     let branchSrc = source;
     if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
     let branches = [...new Set(branchSrc.map(d=>d._branch))];
-    
-    // ★ 지사 정렬 (중앙~원주)
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
@@ -605,8 +603,7 @@ function drawBar(id, data, key, label, color, fType) {
         keys.sort((a,b) => {
             const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
             if(ia!==-1 && ib!==-1) return ia-ib;
-            if(ia!==-1) return -1; if(ib!==-1) return 1;
-            return a.localeCompare(b);
+            return b - a; 
         });
     } else {
         keys.sort((a,b) => counts[b] - counts[a]);
@@ -819,6 +816,8 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     };
     reader.readAsText(file, 'UTF-8');
 });
+
+function initUI() { switchView('voc'); }
 </script>
 </body>
 </html>
