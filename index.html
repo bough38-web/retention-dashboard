@@ -16,133 +16,92 @@
     <style>
         /* :root 변수 (Premium 테마) */
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1e40af;
-            --primary-light: #eff6ff;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --neutral: #64748b;
-            --bg-body: #f1f5f9;
-            --bg-card: #ffffff;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-            --border: #e2e8f0;
+            --primary: #2563eb; --primary-dark: #1e40af; --primary-light: #eff6ff;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --neutral: #64748b;
+            --bg-body: #f1f5f9; --bg-card: #ffffff;
+            --text-main: #0f172a; --text-sub: #64748b;
+            --border: #e2e8f0; --radius: 12px;
             --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-            --radius: 12px;
         }
 
-        /* 기본 스타일 */
-        body { margin: 0; display: flex; background: var(--bg-body); font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
+        body { margin: 0; display: flex; background: var(--bg-body); font-family: 'Pretendard', sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         
-        /* 로딩 */
+        /* 로딩 & 토스트 */
         #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
         .spinner { width: 40px; height: 40px; border: 4px solid var(--primary-light); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s ease-in-out infinite; margin-bottom: 15px; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 13px; opacity: 0; transition: 0.3s; z-index: 9999; pointer-events: none; }
+        .toast.show { opacity: 1; bottom: 40px; }
 
         /* 레이아웃 */
         .sidebar { width: 280px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
         .sidebar-header { padding: 24px; border-bottom: 1px solid var(--border); }
-        .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+        .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main); }
         .sidebar-content { flex: 1; overflow-y: auto; padding: 24px; }
-        
         .content { flex: 1; padding: 32px; overflow-y: auto; position: relative; }
 
-        /* 파일 업로드 영역 */
+        /* 컴포넌트 스타일 */
         .file-upload-area { margin-bottom: 20px; padding: 15px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; }
         .file-upload-area p { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; }
-        .file-upload-area input { font-size: 11px; width: 100%; }
-
-        /* 뷰 스위처 */
         .view-switcher { display: flex; background: #f8fafc; padding: 4px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--border); }
         .view-switcher button { flex: 1; padding: 10px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
         .view-switcher button.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-        /* 필터 패널 */
+        
         .filter-panel label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin: 20px 0 8px; }
         select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: #fff; outline: none; }
         .filter-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
         .filter-btn { padding: 6px 12px; font-size: 12px; border: 1px solid var(--border); border-radius: 20px; background: #fff; color: var(--text-sub); cursor: pointer; transition: 0.2s; }
         .filter-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
-        
-        .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
         .radio-group label { margin: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; background: #fff; }
-        .radio-group input { margin-right: 6px; accent-color: var(--primary); }
 
-        /* 대시보드 뷰 */
         .dashboard-view { display: none; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         .dashboard-view.active { display: block; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .view-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
-        .view-header h2 { margin: 0; font-size: 24px; font-weight: 700; color: var(--text-main); }
-        .view-header p { margin: 6px 0 0; color: var(--text-sub); font-size: 14px; }
-
-        /* KPI 카드 */
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px; }
-        .kpi-card { 
-            background: var(--bg-card); padding: 20px; border-radius: var(--radius); 
-            box-shadow: var(--shadow-card); border-left: 4px solid var(--primary); 
-            position: relative; overflow: hidden; transition: transform 0.2s;
-            display: flex; flex-direction: column; justify-content: center;
-        }
-        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
-        .kpi-card h3 { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .kpi-card .value { font-size: 28px; font-weight: 800; color: var(--text-main); line-height: 1.2; letter-spacing: -0.5px; }
+        .kpi-card { background: var(--bg-card); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow-card); border-left: 4px solid var(--primary); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+        .kpi-card h3 { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; }
+        .kpi-card .value { font-size: 28px; font-weight: 800; color: var(--text-main); }
         .kpi-card .icon { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 32px; opacity: 0.08; color: var(--text-main); }
 
-        /* 지도 & 차트 영역 */
         .map-section { margin-bottom: 24px; }
         #vocMap { width: 100%; height: 500px; border-radius: var(--radius); border: 1px solid var(--border); }
 
         .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
         .chart-grid.three-cols { grid-template-columns: 2fr 1fr; }
         @media (max-width: 1400px) { .chart-grid, .chart-grid.three-cols { grid-template-columns: 1fr; } }
-
         .chart-card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-card); height: 420px; display: flex; flex-direction: column; }
         .card-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
         .card-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-        .card-header span { font-size: 11px; color: var(--text-sub); background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
         .chart-wrapper { flex: 1; position: relative; width: 100%; overflow: hidden; }
 
-        /* 테이블 */
         .list-card { background: var(--bg-card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-card); }
         .table-container { overflow-x: auto; min-height: 300px; max-height: 500px; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
-        .data-table th { background: #f8fafc; padding: 14px 16px; font-weight: 600; color: var(--text-sub); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; text-align: center; position: sticky; top: 0; z-index: 5; }
-        .data-table th:hover { background: #f1f5f9; color: var(--primary); }
-        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; text-align: center; cursor: pointer; }
+        .data-table th { background: #f8fafc; padding: 14px 16px; font-weight: 600; color: var(--text-sub); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; text-align: center; cursor: pointer; }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); text-align: center; vertical-align: middle; cursor: pointer; }
         .data-table tr:hover td { background: #f8fafc; }
-        /* 하이라이트 효과 */
         tr.highlight td { background: #eff6ff !important; border-top: 1px solid var(--primary); border-bottom: 1px solid var(--primary); }
         tr.highlight td:first-child { border-left: 4px solid var(--primary); }
 
         .list-footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
         .pagination { display: flex; gap: 6px; }
-        .pagination button { padding: 6px 14px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: 0.2s; }
+        .pagination button { padding: 6px 14px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .pagination button:hover:not(:disabled) { background: #f1f5f9; }
         .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-action { padding: 8px 16px; background: var(--success); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.2); }
         
-        .btn-action { padding: 8px 16px; background: var(--success); color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.2); }
-        .btn-action:hover { background: #059669; transform: translateY(-1px); }
-
-        /* Badges */
         .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-        .badge.risk-high { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
         .badge.stage-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
         .badge.stage-fail { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
         .badge.stage-ing { background: #fff7ed; color: #9a3412; border: 1px solid #ffedd5; }
         .badge.voc-done { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
         .badge.voc-receipt { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
         .badge.voc-yet { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
-        
-        /* 알림 메시지 */
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 13px; opacity: 0; transition: 0.3s; z-index: 9999; pointer-events: none; }
-        .toast.show { opacity: 1; bottom: 40px; }
     </style>
 </head>
 
@@ -150,10 +109,10 @@
 
 <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="font-weight: 600; color: #1e293b; font-size: 14px;">데이터 로드 및 지도 초기화 중...</div>
+    <div style="font-weight: 600; color: #1e293b; font-size: 14px;">데이터 분석 및 지도 로드 중...</div>
 </div>
 
-<div id="toast" class="toast">지도를 움직이면 테이블과 차트가 자동으로 갱신됩니다.</div>
+<div id="toast" class="toast">지도를 움직이면 화면 내 데이터로 차트가 갱신됩니다.</div>
 
 <div class="sidebar">
     <div class="sidebar-header">
@@ -181,13 +140,9 @@
             </div>
             <hr style="border: 0; border-top: 1px dashed #e2e8f0; margin: 20px 0;">
             <label>관리 지사</label><div id="vocBranchButtons" class="filter-buttons"></div>
-            
-            <label>담당자</label>
-            <select id="vocAgentFilter">
-                <option value="ALL">전체 담당자</option>
-            </select>
+            <label>담당자</label><select id="vocAgentFilter"><option value="ALL">전체 담당자</option></select>
             <div style="margin-top:20px; font-size:12px; color:var(--text-sub); background:#f8fafc; padding:10px; border-radius:6px;">
-                <i class="ph ph-info"></i> <b>Tip:</b> 지도를 움직이면<br/>화면에 보이는 지역 데이터만<br/>차트와 목록에 나타납니다.
+                <i class="ph ph-info"></i> <b>알림:</b> 지도 이동 시 <br/>해당 지역 데이터만 필터링됩니다.
             </div>
         </div>
 
@@ -370,9 +325,7 @@
     const state = {
         currentView: 'voc',
         voc: { 
-            data: [], 
-            filtered: [], // 사이드바 필터 결과
-            viewData: [], // 지도 바운스 필터까지 적용된 최종 데이터
+            data: [], filtered: [], viewData: [],
             page: 1, limit: 10, sortField: 'VOC유형대', sortDir: 'desc', branch: 'ALL', agent: 'ALL' 
         },
         pipeline: { 
@@ -381,29 +334,24 @@
         }
     };
     
-    const chartInstances = {};
-    
-    // Map Variables
     let vocMap, vocInfo, vocClusterer;
-    let vocMarkers = []; // 현재 지도에 찍힌 마커들
-    let markerMap = new Map(); // Data Row -> Marker 매핑
+    let vocMarkers = []; 
+    let markerMap = new Map();
+    const chartInstances = {};
 
-    // Init
     window.addEventListener("load", async () => {
-        try {
-            await loadDefaultData();
-        } catch(e) { console.error(e); }
+        try { await loadDefaultData(); } catch(e) { console.error(e); }
     });
 
     async function loadDefaultData() {
         const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
         
-        // ★ 전처리 적용: "위치좌표(위도,경도)" -> "위도", "경도"
+        // ★ 핵심 수정: 전처리 로직 강화
         state.voc.data = preprocessVocData(v); 
         state.pipeline.data = preprocessPipelineData(p);
         
-        initVocMap(); // 지도 초기화
-        initializeApp(); // 앱 로직 시작
+        initVocMap();
+        initializeApp();
     }
 
     async function loadCsv(url) {
@@ -411,20 +359,41 @@
         return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
     }
 
-    // ★ NEW: VOC 데이터 전처리 (위치좌표 분리)
+    // ★ [수정됨] 좌표 데이터 파싱 강화
     function preprocessVocData(data) {
+        if (!data || data.length === 0) return [];
+        
+        // 데이터의 첫 행을 검사하여 "위치좌표"가 포함된 실제 키 찾기
+        const firstRow = data[0];
+        let targetKey = null;
+        
+        // 1. 정확한 매칭 시도
+        if ("위치좌표(위도,경도)" in firstRow) targetKey = "위치좌표(위도,경도)";
+        // 2. 유연한 매칭 (BOM 제거 및 포함 여부 확인)
+        else {
+            const keys = Object.keys(firstRow);
+            targetKey = keys.find(k => k.replace(/[\ufeff\s"]/g, '').includes("위치좌표"));
+        }
+
+        console.log("좌표 컬럼 감지:", targetKey); // 디버깅용
+
         return data.map(row => {
-            // "위치좌표(위도,경도)" 컬럼이 있고 콤마가 포함된 경우
-            const rawLoc = row["위치좌표(위도,경도)"];
-            if (rawLoc && typeof rawLoc === 'string' && rawLoc.includes(',')) {
-                const parts = rawLoc.split(',');
-                if (parts.length >= 2) {
-                    row["위도"] = parts[0].trim();
-                    row["경도"] = parts[1].trim();
+            if (targetKey && row[targetKey]) {
+                const rawVal = row[targetKey];
+                // 값이 문자열이고 콤마가 있다면 분리
+                if (typeof rawVal === 'string' && rawVal.includes(',')) {
+                    const parts = rawVal.split(',');
+                    if (parts.length >= 2) {
+                        const lat = parseFloat(parts[0].trim());
+                        const lng = parseFloat(parts[1].trim());
+                        // 유효한 숫자인 경우에만 할당
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            row["위도"] = lat;
+                            row["경도"] = lng;
+                        }
+                    }
                 }
             }
-            // 이미 "위도", "경도"가 있거나 데이터가 없는 경우 안전장치
-            // (위에서 할당되지 않았다면 0 처리 or 원본 유지)
             return row;
         });
     }
@@ -445,41 +414,28 @@
     }
 
     function initializeApp() {
-        // Pipeline Init
         const hqs = [...new Set(state.pipeline.data.map(r=>(r["관리본부"]||"").trim()).filter(Boolean))];
         state.pipeline.hq = hqs.includes('강북/강원') ? '강북/강원' : 'ALL';
-        
-        initFilters(); // 필터 렌더링
-        
-        // Initial Rendering
+        initFilters();
         filterData('voc'); 
         filterData('pipeline');
-        
-        // Render View
-        renderVocMarkers(); // 지도 마커 찍기 -> 이게 완료되면 idle 이벤트 발생 -> updateDashboard('voc') 실행됨
+        renderVocMarkers();
         updateDashboard('pipeline');
-        
         document.getElementById("loadingOverlay").style.display = "none";
         showToast();
     }
 
-    // --- MAP FUNCTIONS (NEW) ---
     function initVocMap(){
         vocMap = new google.maps.Map(document.getElementById("vocMap"),{
             center:{lat:37.5665,lng:126.9780}, zoom:9,
             mapTypeControl: false, fullscreenControl: false
         });
         vocInfo = new google.maps.InfoWindow();
-
-        // 지도 움직임 멈추면 데이터 필터링 트리거
-        vocMap.addListener("idle", () => {
-            applyMapBoundsFilter();
-        });
+        vocMap.addListener("idle", () => { applyMapBoundsFilter(); });
     }
 
     function getVocIcon(row){
         const statusColor = { "처리완료":"blue", "접수":"orange", "미접수":"red" }[row["상태"]] || "gray";
-        // 간편 아이콘 사용
         return `https://maps.google.com/mapfiles/ms/icons/${statusColor}-dot.png`;
     }
 
@@ -489,7 +445,6 @@
         vocMarkers = [];
         markerMap.clear();
 
-        // 사이드바 필터가 적용된 state.voc.filtered 데이터 기반으로 마커 생성
         state.voc.filtered.forEach((r) => {
             const lat = parseFloat(r["위도"]);
             const lng = parseFloat(r["경도"]);
@@ -501,13 +456,12 @@
                 icon: { url: getVocIcon(r), scaledSize: new google.maps.Size(32,32) }
             });
 
-            // 마커 클릭 시
             marker.addListener("click", () => {
                 vocInfo.setContent(`
                     <div style="padding:5px; min-width:150px;">
                         <b>${r["상호"] || "고객"}</b><br/>
                         <span style="color:#666">${r["관리지사"]} / ${r["담당자"]}</span><br/>
-                        <span style="font-weight:bold; color:${r["상태"]==='처리완료'?'blue':'red'}">${r["상태"]}</span> (${r["VOC유형대"]})
+                        <span style="font-weight:bold; color:${r["상태"]==='처리완료'?'blue':'red'}">${r["상태"]}</span>
                     </div>
                 `);
                 vocInfo.open(vocMap, marker);
@@ -518,24 +472,14 @@
             markerMap.set(r, marker);
         });
 
-        // 클러스터링 적용
         vocClusterer = new markerClusterer.MarkerClusterer({
-            map: vocMap,
-            markers: vocMarkers,
+            map: vocMap, markers: vocMarkers,
             renderer: {
                 render: ({ count, position }) => {
                     return new google.maps.Marker({
                         label: { text: String(count), color: "white", fontSize: "12px", fontWeight: "bold" },
-                        position,
-                        zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 16,
-                            fillColor: "#2563eb",
-                            fillOpacity: 0.9,
-                            strokeWeight: 2,
-                            strokeColor: "#fff"
-                        }
+                        position, zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+                        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 16, fillColor: "#2563eb", fillOpacity: 0.9, strokeWeight: 2, strokeColor: "#fff" }
                     });
                 }
             }
@@ -545,10 +489,8 @@
     function applyMapBoundsFilter() {
         if(!vocMap) return;
         const bounds = vocMap.getBounds();
-        if (!bounds) {
-            state.voc.viewData = state.voc.filtered;
-        } else {
-            // 현재 화면(Bounds) 안에 있는 데이터만 추출
+        if (!bounds) { state.voc.viewData = state.voc.filtered; } 
+        else {
             state.voc.viewData = state.voc.filtered.filter(r => {
                 const lat = parseFloat(r["위도"]);
                 const lng = parseFloat(r["경도"]);
@@ -556,8 +498,6 @@
                 return bounds.contains({lat, lng});
             });
         }
-        
-        // 뷰 데이터 기반으로 대시보드 업데이트
         updateVocDashboardComponents();
     }
 
@@ -568,9 +508,7 @@
         renderTable('voc');
     }
 
-    // --- FILTERS & UPDATE LOGIC ---
     function initFilters() {
-        // VOC
         const vt = [...new Set(state.voc.data.map(r=>(r["VOC유형대"]||"").trim()).filter(Boolean))].sort();
         const sel = document.getElementById("vocTypeFilter");
         sel.innerHTML = '<option value="ALL">전체 유형</option>' + vt.map(t=>`<option value="${t}">${t}</option>`).join('');
@@ -579,37 +517,24 @@
         renderVocFilters('branch');
         renderAgentOptions('voc');
 
-        // Pipeline
         document.getElementById("channelFilter").addEventListener("change", (e)=>{ state.pipeline.channel=e.target.value; updateDashboard('pipeline'); });
         document.querySelectorAll('input[name="risk"]').forEach(e=>e.addEventListener("change", ()=>updateDashboard('pipeline')));
         renderPipelineFilters('branch');
         renderAgentOptions('pipeline');
 
-        // Agent Listeners
         document.getElementById("vocAgentFilter").addEventListener("change", (e) => { state.voc.agent = e.target.value; updateDashboard('voc'); });
         document.getElementById("pipelineAgentFilter").addEventListener("change", (e) => { state.pipeline.agent = e.target.value; updateDashboard('pipeline'); });
-
         setupSortEvents('pipelineListTable','pipeline'); setupSortEvents('vocListTable','voc');
     }
 
-    // 통합 업데이트 함수
     function updateDashboard(v) {
         filterData(v);
-        if(v === 'pipeline') {
-            updatePipelineKPIs();
-            drawPipelineCharts();
-            renderTable('pipeline');
-        } else {
-            // VOC의 경우: 데이터 필터링 -> 마커 렌더링 -> (지도가 idle되면 applyMapBoundsFilter 호출됨) -> 차트/테이블 업데이트
-            renderVocMarkers();
-            // 혹시 지도가 움직이지 않아 idle 이벤트가 안 생길 수 있으므로 강제 호출 (약간 딜레이)
-            setTimeout(applyMapBoundsFilter, 100);
-        }
+        if(v === 'pipeline') { updatePipelineKPIs(); drawPipelineCharts(); renderTable('pipeline'); } 
+        else { renderVocMarkers(); setTimeout(applyMapBoundsFilter, 100); }
     }
 
     function filterData(v) {
         if(v === 'pipeline') {
-            // 기존 Pipeline 로직 유지
             const ch = state.pipeline.channel;
             const rVal = document.querySelector('input[name="risk"]:checked').value;
             state.pipeline.filtered = state.pipeline.data.filter(r => {
@@ -627,7 +552,6 @@
             });
             state.pipeline.page = 1;
         } else {
-            // VOC 필터링 (사이드바 조건만 적용)
             const t = document.getElementById("vocTypeFilter").value;
             const s = document.querySelector('#vocStatusButtons .active').dataset.value;
             state.voc.filtered = state.voc.data.filter(r => {
@@ -637,13 +561,11 @@
                 if(state.voc.agent!=='ALL' && (r["담당자"]||"").trim()!==state.voc.agent) return false;
                 return true;
             });
-            // VOC는 여기서 page 초기화 하지 않음 (지도 바운스 체크 후 viewData 생성 시 함)
         }
     }
 
-    // --- CHART & KPI ---
     function updateVocKPIs() {
-        const d = state.voc.viewData; // 화면 내 데이터 기준
+        const d = state.voc.viewData; 
         const comp = d.filter(r=>(r["상태"]||"").trim()==='처리완료').length;
         document.getElementById("kpi-voc-total").innerText = util.formatNum(d.length);
         document.getElementById("kpi-voc-complete").innerText = util.formatNum(comp);
@@ -669,9 +591,7 @@
     }
 
     function drawVocCharts() {
-        const d = state.voc.viewData; // 화면 내 데이터 사용
-        
-        // 1. Activity
+        const d = state.voc.viewData; 
         const act={}; d.forEach(r=>{const a=(r["담당자"]||"").trim();const s=(r["상태"]||"").trim();if(a&&(s==='미접수'||s==='접수')){if(!act[a])act[a]={y:0,r:0,t:0};if(s==='미접수')act[a].y++;else act[a].r++;act[a].t++;}});
         const sAct = Object.entries(act).sort((a,b)=>b[1].t-a[1].t).slice(0,10);
         newChart('vocActivityChart', {
@@ -679,7 +599,6 @@
             options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{display:false}}},plugins:{legend:{position:'top'},datalabels:{display:c=>c.dataset.data[c.dataIndex]>0,color:'#fff'}}}
         });
         
-        // 2. Branch
         const br={}; d.forEach(r=>{const b=util.normalizeBranch(r["관리지사"]);if(!b)return;if(!br[b])br[b]={d:0,r:0,y:0};const s=(r["상태"]||"").trim();if(s==='처리완료')br[b].d++;else if(s==='접수')br[b].r++;else br[b].y++;});
         const lBr = Object.keys(br).sort(util.sortBranches);
         newChart('vocBranchChart', {
@@ -689,50 +608,30 @@
     }
 
     function drawPipelineCharts() {
-        const d = state.pipeline.filtered;
-        const m = state.pipeline.mode;
-
-        // Branch Stage
+        const d = state.pipeline.filtered; const m = state.pipeline.mode;
         const br={}; d.forEach(r=>{
-            const b = util.normalizeBranch(r["관리지사"]); if(!b)return;
-            if(!br[b]) br[b]={suc:0,fail:0,ing:0,tot:0};
-            const v = m==='amount'?util.toThousand(r["KTT월정료(조정)"]):1;
-            const s = r["방어진행단계"];
+            const b = util.normalizeBranch(r["관리지사"]); if(!b)return; if(!br[b]) br[b]={suc:0,fail:0,ing:0,tot:0};
+            const v = m==='amount'?util.toThousand(r["KTT월정료(조정)"]):1; const s = r["방어진행단계"];
             if(s==='방어성공')br[b].suc+=v; else if(s==='방어실패')br[b].fail+=v; else if(s==='진행중')br[b].ing+=v;
             if(['방어성공','방어실패','진행중'].includes(s)) br[b].tot+=v;
         });
         const sBr = Object.entries(br).filter(e=>e[1].tot>0).sort((a,b)=>b[1].tot-a[1].tot).slice(0,10);
         newChart('pipelineBranchStageChart', {
-            type: 'bar',
-            data: { labels: sBr.map(e=>e[0]), datasets: [
-                {label:'성공', data:sBr.map(e=>e[1].suc), backgroundColor:'#34d399', stack:'s', borderRadius:4},
-                {label:'진행', data:sBr.map(e=>e[1].ing), backgroundColor:'#fbbf24', stack:'s', borderRadius:4},
-                {label:'실패', data:sBr.map(e=>e[1].fail), backgroundColor:'#f87171', stack:'s', borderRadius:4}
-            ]},
+            type: 'bar', data: { labels: sBr.map(e=>e[0]), datasets: [ {label:'성공', data:sBr.map(e=>e[1].suc), backgroundColor:'#34d399', stack:'s', borderRadius:4}, {label:'진행', data:sBr.map(e=>e[1].ing), backgroundColor:'#fbbf24', stack:'s', borderRadius:4}, {label:'실패', data:sBr.map(e=>e[1].fail), backgroundColor:'#f87171', stack:'s', borderRadius:4} ]},
             options: { responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true, grid:{display:false}}, y:{stacked:true}}, plugins:{legend:{position:'bottom'}, datalabels:{display:false}}, onClick: (e, el) => { if(el.length>0) setPipelineFilter('branch', sBr.map(e=>e[0])[el[0].index]); } }
         });
 
-        // Trend
         const trend = {}; d.forEach(r => {
             let dateStr = util.excelDateToJSDate(r["등록일자"]); let month = dateStr.slice(0, 7); if(month.length < 7) return;
-            if(!trend[month]) trend[month] = { tot: 0, suc: 0, ing: 0, fail: 0 };
-            trend[month].tot += 1;
-            const s = (r["방어진행단계"]||"").trim();
-            if(s === '방어성공') trend[month].suc += 1; else if(s === '진행중') trend[month].ing += 1; else if(s === '방어실패') trend[month].fail += 1;
+            if(!trend[month]) trend[month] = { tot: 0, suc: 0, ing: 0, fail: 0 }; trend[month].tot += 1;
+            const s = (r["방어진행단계"]||"").trim(); if(s === '방어성공') trend[month].suc += 1; else if(s === '진행중') trend[month].ing += 1; else if(s === '방어실패') trend[month].fail += 1;
         });
         const sortedMonths = Object.keys(trend).sort();
         newChart('pipelineTrendChart', {
-            type: 'bar',
-            data: { labels: sortedMonths, datasets: [
-                { type: 'line', label: '성공률(%)', data: sortedMonths.map(m => (trend[m].tot===0 ? 0 : (trend[m].suc/trend[m].tot*100).toFixed(1))), borderColor: '#10b981', borderWidth: 2, tension:0.3, yAxisID: 'y_rate', order:1 },
-                { label: '방어성공', data: sortedMonths.map(m => trend[m].suc), backgroundColor: '#34d399', stack: 'combined', yAxisID: 'y_count', order:2 },
-                { label: '진행중', data: sortedMonths.map(m => trend[m].ing), backgroundColor: '#fbbf24', stack: 'combined', yAxisID: 'y_count', order:3 },
-                { label: '방어실패', data: sortedMonths.map(m => trend[m].fail), backgroundColor: '#f87171', stack: 'combined', yAxisID: 'y_count', order:4 }
-            ]},
+            type: 'bar', data: { labels: sortedMonths, datasets: [ { type: 'line', label: '성공률(%)', data: sortedMonths.map(m => (trend[m].tot===0 ? 0 : (trend[m].suc/trend[m].tot*100).toFixed(1))), borderColor: '#10b981', borderWidth: 2, tension:0.3, yAxisID: 'y_rate', order:1 }, { label: '방어성공', data: sortedMonths.map(m => trend[m].suc), backgroundColor: '#34d399', stack: 'combined', yAxisID: 'y_count', order:2 }, { label: '진행중', data: sortedMonths.map(m => trend[m].ing), backgroundColor: '#fbbf24', stack: 'combined', yAxisID: 'y_count', order:3 }, { label: '방어실패', data: sortedMonths.map(m => trend[m].fail), backgroundColor: '#f87171', stack: 'combined', yAxisID: 'y_count', order:4 } ]},
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { grid: {display: false} }, y_count: { position: 'left', stacked:true, grid:{borderDash:[4,4]} }, y_rate: { position: 'right', min: 0, max: 100, grid: {drawOnChartArea: false} } }, plugins: { legend: {display: true}, datalabels: {display: false} } }
         });
 
-        // Bubble
         const bub = Object.entries(br).map(([b,v])=>{
             const sub = d.filter(r=>util.normalizeBranch(r["관리지사"])===b);
             const risk = sub.reduce((s,r)=>s+parseFloat(r["해지위험도"]||0),0)/sub.length;
@@ -741,162 +640,79 @@
         }).filter(b=>b.data[0].r>0);
         newChart('pipelineRiskBubbleChart', { type: 'bubble', data: { datasets: bub }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{display:false}, datalabels: { display: true, align: 'top', formatter: v=>Math.round(v.y).toLocaleString() } }, scales: { x:{title:{display:true,text:'위험도'}, min:0, max:100}, y:{title:{display:true,text:'평균월정료'}} } } });
         
-        // Reason
         const reasons = {}; d.forEach(r => { let re = (r["해지사유"] || "미입력").trim(); reasons[re] = (reasons[re] || 0) + 1; });
         const top5 = Object.entries(reasons).sort((a,b) => b[1] - a[1]).slice(0, 5);
         newChart('pipelineReasonChart', { type: 'doughnut', data: { labels: top5.map(e => e[0]), datasets: [{ data: top5.map(e => e[1]), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, datalabels: { color: '#fff', formatter: (v, c) => (v/c.chart._metasets[c.datasetIndex].total*100).toFixed(0)+"%" } } } });
     }
 
-    // --- TABLE ---
     function renderTable(t) {
-        const s = state[t];
-        const dataSrc = t === 'voc' ? s.viewData : s.filtered;
-        const tb = document.querySelector(`#${t}ListTable tbody`);
-        tb.innerHTML = "";
-        
+        const s = state[t]; const dataSrc = t === 'voc' ? s.viewData : s.filtered;
+        const tb = document.querySelector(`#${t}ListTable tbody`); tb.innerHTML = "";
         const sorted = [...dataSrc].sort((a,b)=>{
             let va = a[s.sortField], vb = b[s.sortField];
             if(s.sortField.includes('월정료')||s.sortField.includes('위험도')) { va=parseFloat(String(va).replace(/,/g,''))||0; vb=parseFloat(String(vb).replace(/,/g,''))||0; }
             if(va<vb) return s.sortDir==='asc'?-1:1; if(va>vb) return s.sortDir==='asc'?1:-1; return 0;
         });
-
-        const start = (s.page-1)*s.limit;
-        const pageData = sorted.slice(start, start+s.limit);
+        const start = (s.page-1)*s.limit; const pageData = sorted.slice(start, start+s.limit);
         const totalPages = Math.max(1, Math.ceil(sorted.length/s.limit)); 
         document.getElementById(`${t}PaginationInfo`).innerText = `총 ${util.formatNum(sorted.length)}건 중 ${sorted.length > 0 ? start+1 : 0}-${Math.min(start+s.limit, sorted.length)}`;
 
         pageData.forEach(r => {
-            const tr = document.createElement("tr");
-            const companyName = r["상호"] || r["상호명"] || '-';
-            
-            // Interaction: Row Click -> Map Pan (VOC Only)
+            const tr = document.createElement("tr"); const companyName = r["상호"] || r["상호명"] || '-';
             if(t === 'voc') {
-                tr.onclick = () => {
-                    const marker = markerMap.get(r);
-                    if(marker) {
-                        vocMap.panTo(marker.getPosition());
-                        vocMap.setZoom(14);
-                        google.maps.event.trigger(marker, "click");
-                    }
-                };
+                tr.onclick = () => { const marker = markerMap.get(r); if(marker) { vocMap.panTo(marker.getPosition()); vocMap.setZoom(14); google.maps.event.trigger(marker, "click"); } };
                 tr.dataset.ref = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
             }
-
             if(t === 'pipeline') {
-                let bc = '', st = (r["방어진행단계"]||"").trim();
-                if(st==='방어성공') bc='stage-success'; else if(st==='방어실패') bc='stage-fail'; else bc='stage-ing';
+                let bc = '', st = (r["방어진행단계"]||"").trim(); if(st==='방어성공') bc='stage-success'; else if(st==='방어실패') bc='stage-fail'; else bc='stage-ing';
                 tr.innerHTML = `<td>${util.normalizeBranch(r["관리지사"])}</td><td>${r["담당자"]}</td><td>${util.cleanContract(r["계약번호"])}</td><td style="text-align:left;">${companyName}</td><td>${r["담당영업채널"]}</td><td>${util.formatNum(util.toThousand(r["KTT월정료(조정)"]))}</td><td>${r["재계약여부"]||'-'}</td><td><span class="badge ${bc}">${st}</span></td><td>${r["해지위험도"]}%</td><td>${r["해지예정일"]||'-'}</td><td>${util.excelDateToJSDate(r["등록일자"])}</td>`;
             } else {
-                let bc = '', st = (r["상태"]||"").trim();
-                if(st==='처리완료') bc='voc-done'; else if(st==='접수') bc='voc-receipt'; else bc='voc-yet';
+                let bc = '', st = (r["상태"]||"").trim(); if(st==='처리완료') bc='voc-done'; else if(st==='접수') bc='voc-receipt'; else bc='voc-yet';
                 tr.innerHTML = `<td>${util.normalizeBranch(r["관리지사"])}</td><td>${r["담당자"]}</td><td>${util.cleanContract(r["계약번호"])}</td><td style="text-align:left;">${companyName}</td><td><span class="badge ${bc}">${st}</span></td><td>${r["VOC유형소"]||'-'}</td><td>${r["합산월정료"]?util.formatNum(util.toThousand(r["합산월정료"])):'-'}</td>`;
             }
             tb.appendChild(tr);
         });
-
-        const btns = document.querySelectorAll(`#${t}View .pagination button`);
-        if(btns.length >= 2) { btns[0].disabled = s.page <= 1; btns[1].disabled = s.page >= totalPages; }
+        const btns = document.querySelectorAll(`#${t}View .pagination button`); if(btns.length >= 2) { btns[0].disabled = s.page <= 1; btns[1].disabled = s.page >= totalPages; }
     }
 
     function highlightRowInTable(r) {
-        const rows = document.querySelectorAll("#vocListTable tbody tr");
-        rows.forEach(row => row.classList.remove("highlight"));
+        const rows = document.querySelectorAll("#vocListTable tbody tr"); rows.forEach(row => row.classList.remove("highlight"));
         const targetStr = JSON.stringify({lat: r["위도"], lng: r["경도"], name: r["상호"]});
-        for(let tr of rows) {
-            if(tr.dataset.ref === targetStr) {
-                tr.classList.add("highlight");
-                tr.scrollIntoView({behavior: "smooth", block: "center"});
-                break;
-            }
-        }
+        for(let tr of rows) { if(tr.dataset.ref === targetStr) { tr.classList.add("highlight"); tr.scrollIntoView({behavior: "smooth", block: "center"}); break; } }
     }
 
     window.changePage = (t, d) => { state[t].page += d; renderTable(t); };
     function setupSortEvents(id, t) {
         document.querySelectorAll(`#${id} th[data-field]`).forEach(th => {
             th.addEventListener('click', () => {
-                const f = th.dataset.field;
-                if(state[t].sortField===f) state[t].sortDir = state[t].sortDir==='asc'?'desc':'asc';
-                else { state[t].sortField=f; state[t].sortDir='desc'; }
-                document.querySelectorAll(`#${id} th`).forEach(x=>x.innerText=x.innerText.replace(/ [▲▼]/,''));
-                th.innerText += state[t].sortDir==='asc'?' ▲':' ▼';
-                renderTable(t);
+                const f = th.dataset.field; if(state[t].sortField===f) state[t].sortDir = state[t].sortDir==='asc'?'desc':'asc'; else { state[t].sortField=f; state[t].sortDir='desc'; }
+                document.querySelectorAll(`#${id} th`).forEach(x=>x.innerText=x.innerText.replace(/ [▲▼]/,'')); th.innerText += state[t].sortDir==='asc'?' ▲':' ▼'; renderTable(t);
             });
         });
     }
     
-    // UI Helpers
     window.switchView = (v) => {
-        state.currentView = v;
-        document.querySelectorAll('.view-switcher button').forEach(b=>b.classList.remove('active'));
+        state.currentView = v; document.querySelectorAll('.view-switcher button').forEach(b=>b.classList.remove('active'));
         document.getElementById(v==='voc'?'showVocBtn':'showPipelineBtn').classList.add('active');
         document.querySelectorAll('.dashboard-view').forEach(e=>e.classList.remove('active'));
         document.getElementById(v+'View').classList.add('active');
         document.getElementById('pipelineFilters').style.display = v==='pipeline'?'block':'none';
         document.getElementById('vocFilters').style.display = v==='voc'?'block':'none';
-        setTimeout(()=>{
-            Object.values(chartInstances).forEach(c=>c&&c.resize());
-            if(v==='voc' && vocMap) {
-                google.maps.event.trigger(vocMap, "resize"); 
-                vocMap.setCenter(vocMap.getCenter());
-            }
-        }, 100);
+        setTimeout(()=>{ Object.values(chartInstances).forEach(c=>c&&c.resize()); if(v==='voc' && vocMap) { google.maps.event.trigger(vocMap, "resize"); vocMap.setCenter(vocMap.getCenter()); } }, 100);
     };
 
     window.setPipelineFilter = (t,v) => { state.pipeline[t]=v; if(t==='branch') renderAgentOptions('pipeline'); renderPipelineFilters('branch'); updateDashboard('pipeline'); };
     window.setVocFilter = (t,v) => { state.voc[t]=v; if(t==='branch') renderAgentOptions('voc'); updateDashboard('voc'); };
     window.setVocStatus = (v,b) => { document.querySelectorAll('#vocStatusButtons .filter-btn').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('voc'); };
     window.setMode = (m,b) => { state.pipeline.mode=m; document.querySelectorAll('#pipelineFilters .filter-buttons button').forEach(e=>e.classList.remove('active')); b.classList.add('active'); updateDashboard('pipeline'); };
+    window.exportToCSV = (t) => { const d = t === 'voc' ? state.voc.viewData : state.pipeline.filtered; if(!d.length) return alert("데이터 없음"); const blob = new Blob(["\uFEFF"+Papa.unparse(d)], {type:'text/csv;charset=utf-8;'}); const link = document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`ktt_${t}_${new Date().toISOString().slice(0,10)}.csv`; link.click(); };
     
-    window.exportToCSV = (t) => {
-        const d = t === 'voc' ? state.voc.viewData : state.pipeline.filtered;
-        if(!d.length) return alert("데이터 없음");
-        const blob = new Blob(["\uFEFF"+Papa.unparse(d)], {type:'text/csv;charset=utf-8;'});
-        const link = document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`ktt_${t}_${new Date().toISOString().slice(0,10)}.csv`; link.click();
-    };
-    
-    function renderVocFilters(type) {
-        const c = document.getElementById(`voc${type.charAt(0).toUpperCase()+type.slice(1)}Buttons`);
-        let s = state.voc.data;
-        let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches);
-        c.innerHTML = `<button class="filter-btn ${state.voc[type]==='ALL'?'active':''}" onclick="setVocFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.voc[type]===i?'active':''}" onclick="setVocFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join('');
-    }
-    function renderPipelineFilters(type) {
-        if(type!=='branch') return;
-        const c = document.getElementById(`pipelineBranchButtons`);
-        let s = state.pipeline.data; if(state.pipeline.hq!=='ALL') s = s.filter(r=>(r["관리본부"]||"").trim()===state.pipeline.hq);
-        let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches);
-        c.innerHTML = `<button class="filter-btn ${state.pipeline[type]==='ALL'?'active':''}" onclick="setPipelineFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.pipeline[type]===i?'active':''}" onclick="setPipelineFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join('');
-    }
-    function renderAgentOptions(view) {
-        const s = state[view];
-        let filteredAgents = s.data;
-        if(s.branch !== 'ALL') filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch);
-        if(view === 'pipeline' && s.hq !== 'ALL') filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq);
-        const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort();
-        const selectEl = document.getElementById(view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter');
-        selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + agents.map(a => `<option value="${a}">${a}</option>`).join('');
-        selectEl.value = agents.includes(s.agent) ? s.agent : 'ALL';
-        if(selectEl.value === 'ALL') s.agent = 'ALL';
-    }
-    
+    function renderVocFilters(type) { const c = document.getElementById(`voc${type.charAt(0).toUpperCase()+type.slice(1)}Buttons`); let s = state.voc.data; let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches); c.innerHTML = `<button class="filter-btn ${state.voc[type]==='ALL'?'active':''}" onclick="setVocFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.voc[type]===i?'active':''}" onclick="setVocFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join(''); }
+    function renderPipelineFilters(type) { if(type!=='branch') return; const c = document.getElementById(`pipelineBranchButtons`); let s = state.pipeline.data; if(state.pipeline.hq!=='ALL') s = s.filter(r=>(r["관리본부"]||"").trim()===state.pipeline.hq); let items = [...new Set(s.map(r=>util.normalizeBranch(r["관리지사"])).filter(Boolean))].sort(util.sortBranches); c.innerHTML = `<button class="filter-btn ${state.pipeline[type]==='ALL'?'active':''}" onclick="setPipelineFilter('${type}','ALL')">전체</button>` + items.map(i=>`<button class="filter-btn ${state.pipeline[type]===i?'active':''}" onclick="setPipelineFilter('${type}','${i.replace(/'/g,"\\'")}')">${i}</button>`).join(''); }
+    function renderAgentOptions(view) { const s = state[view]; let filteredAgents = s.data; if(s.branch !== 'ALL') filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch); if(view === 'pipeline' && s.hq !== 'ALL') filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq); const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort(); const selectEl = document.getElementById(view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter'); selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + agents.map(a => `<option value="${a}">${a}</option>`).join(''); selectEl.value = agents.includes(s.agent) ? s.agent : 'ALL'; if(selectEl.value === 'ALL') s.agent = 'ALL'; }
     function showToast() { const t = document.getElementById("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 3000); }
 
-    // File Upload (Local) with preprocessing
-    document.getElementById('localFileInput').addEventListener('change', function(e) {
-        const file = e.target.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) {
-                // 파이프라인 데이터라고 가정하고 전처리
-                state.pipeline.data = preprocessPipelineData(results.data); 
-                initializeApp(); 
-                switchView('pipeline'); 
-                alert("데이터 갱신 완료");
-            }});
-        };
-        reader.readAsText(file, 'UTF-8');
-    });
+    document.getElementById('localFileInput').addEventListener('change', function(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(evt) { Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) { state.pipeline.data = preprocessPipelineData(results.data); initializeApp(); switchView('pipeline'); alert("데이터 갱신 완료"); }}); }; reader.readAsText(file, 'UTF-8'); });
 </script>
 </body>
 </html>
