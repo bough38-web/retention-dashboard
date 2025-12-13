@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Dashboard (Fixed Date)</title>
+<title>KTT Premium Retention Dashboard (Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -15,9 +15,10 @@
 
 <style>
     :root {
-        --primary: #3b82f6; --primary-dark: #1d4ed8; --bg: #f3f4f6; --surface: #ffffff;
-        --text: #1f2937; --text-light: #6b7280; --border: #e5e7eb;
+        --primary: #2563eb; --primary-dark: #1e40af; --bg: #f8fafc; --surface: #ffffff;
+        --text: #1e293b; --text-light: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
@@ -27,21 +28,21 @@
     /* 사이드바 */
     .sidebar { width:320px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
     .logo-area { padding:24px; border-bottom:1px solid var(--border); }
-    .logo-area h1 { margin:0; font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
+    .logo-area h1 { margin:0; font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:10px; }
     .sidebar-scroll { flex:1; overflow-y:auto; padding:20px; }
 
-    /* 보안 업로드 박스 */
-    .upload-box { background:var(--bg); border:1px dashed #9ca3af; border-radius:var(--radius); padding:16px; text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; }
+    /* 보안 업로드 */
+    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; }
     .upload-box:hover { border-color:var(--primary); background:#eff6ff; }
     .upload-box i { font-size:24px; color:var(--text-light); margin-bottom:8px; }
     .upload-box span { font-size:13px; font-weight:600; color:var(--text); display:block; }
 
-    /* 탭 */
+    /* 탭 메뉴 */
     .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
     .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-light); cursor:pointer; border-radius:8px; transition:0.2s; }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
 
-    /* 필터 칩 */
+    /* 필터 스타일 */
     .filter-group { margin-bottom:20px; }
     .filter-header { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-light); margin-bottom:8px; }
     .reset-btn { cursor:pointer; color:var(--primary); display:none; }
@@ -52,30 +53,31 @@
         padding:6px 12px; border:1px solid var(--border); background:var(--surface); 
         border-radius:20px; font-size:12px; color:var(--text); cursor:pointer; transition:0.15s; 
     }
-    .chip:hover { background:var(--bg); border-color:#d1d5db; }
-    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(59,130,246,0.3); }
+    .chip:hover { background:var(--bg); border-color:#cbd5e1; }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(37,99,235,0.3); }
     .chip.small { padding:4px 10px; font-size:11px; }
 
-    /* 메인 영역 */
+    /* 메인 콘텐츠 */
     .main-content { flex:1; padding:30px; overflow-y:auto; position:relative; }
     .view-panel { display:none; animation:fadeIn 0.3s ease-out; }
     .view-panel.active { display:block; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 
-    /* 대시보드 컴포넌트 */
+    /* KPI */
     .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
     .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:24px; }
     .kpi-card { background:var(--surface); padding:24px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; overflow:hidden; }
     .kpi-label { font-size:13px; font-weight:600; color:var(--text-light); text-transform:uppercase; }
-    .kpi-val { font-size:28px; font-weight:800; margin-top:8px; color:var(--text); }
+    .kpi-val { font-size:28px; font-weight:800; margin-top:8px; color:var(--text); letter-spacing:-1px; }
     .kpi-deco { position:absolute; right:20px; top:20px; font-size:40px; opacity:0.1; color:var(--text); }
 
+    /* 그리드 & 카드 */
     .grid-layout { display:grid; grid-template-columns:3fr 2fr; gap:24px; margin-bottom:24px; }
     @media(max-width:1400px){ .grid-layout { grid-template-columns:1fr; } }
 
     .card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; display:flex; flex-direction:column; border:1px solid var(--border); }
     .card h3 { margin:0 0 16px 0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; }
-    .map-wrap { height:500px; border-radius:12px; overflow:hidden; background:#e5e7eb; position:relative; }
+    .map-wrap { height:500px; border-radius:12px; overflow:hidden; background:#e2e8f0; position:relative; }
     .chart-wrap { position:relative; height:300px; width:100%; }
 
     /* 테이블 */
@@ -86,7 +88,7 @@
     tr:hover td { background:#f3f4f6; }
     tr.active-row td { background:#eff6ff !important; font-weight:600; border-top:1px solid var(--primary); border-bottom:1px solid var(--primary); }
 
-    /* 유틸 */
+    /* 유틸리티 */
     .badge { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; }
     .bg-green { background:#dcfce7; color:#166534; }
     .bg-red { background:#fee2e2; color:#991b1b; }
@@ -103,7 +105,7 @@
 
 <div id="loading">
     <div class="spinner"></div>
-    <div style="margin-top:15px; font-weight:600; color:#4b5563">데이터 분석 중...</div>
+    <div style="margin-top:15px; font-weight:600; color:#4b5563">데이터 로딩 중...</div>
 </div>
 
 <div class="sidebar">
@@ -197,7 +199,7 @@
 
         <div class="grid-layout">
             <div class="card">
-                <h3><i class="ph ph-map-trifold"></i> 고객 위치 분석 (Clickable)</h3>
+                <h3><i class="ph ph-map-trifold"></i> 고객 위치 분석 (Google Maps)</h3>
                 <div id="voc-map" class="map-wrap"></div>
             </div>
             <div style="display:flex; flex-direction:column; gap:24px;">
@@ -289,10 +291,16 @@ const DATA_SRC = {
 };
 
 let App = {
-    view: 'voc',
+    view: 'voc', // voc | pipe
     rawData: { voc: [], pipe: [] },
     filteredData: [],
-    filters: { hq: 'ALL', branch: 'ALL', agent: 'ALL', status: 'ALL', risk: 'ALL' },
+    filters: {
+        hq: 'ALL',
+        branch: 'ALL',
+        agent: 'ALL',
+        status: 'ALL',
+        risk: 'ALL'
+    },
     charts: {},
     map: null,
     clusterer: null,
@@ -301,6 +309,7 @@ let App = {
 
 /* ================= INIT ================= */
 window.onload = async () => {
+    // 1. Load Data
     try {
         const [vRes, pRes] = await Promise.all([ fetchCsv(DATA_SRC.voc), fetchCsv(DATA_SRC.pipe) ]);
         App.rawData.voc = parseVoc(vRes.data);
@@ -309,17 +318,19 @@ window.onload = async () => {
         initMap();
         initUI();
         updateDashboard();
-    } catch(e) { console.error("Load Error", e); alert("데이터 로드 실패"); }
+    } catch(e) { console.error("Load Error", e); alert("데이터 로드 중 오류가 발생했습니다."); }
     document.getElementById("loading").style.display = "none";
 };
 
 async function fetchCsv(url) {
     const r = await fetch(url);
     const t = await r.text();
-    return Papa.parse(t, {header:true, skipEmptyLines:true});
+    // Remove invisible BOM characters if present
+    const cleanText = t.replace(/^\uFEFF/, '');
+    return Papa.parse(cleanText, {header:true, skipEmptyLines:true});
 }
 
-/* ================= DATA PARSING (IMPROVED DATE HANDLING) ================= */
+/* ================= DATA PARSING ================= */
 function parseVoc(data) {
     if(!data.length) return [];
     const keys = Object.keys(data[0]);
@@ -352,23 +363,18 @@ function parsePipe(data) {
         let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk = risk * 100;
 
-        // 등록일자(Excel Serial Date) 변환
-        let regDate = r["등록일자"];
-        let dateStr = "";
-        
-        if (regDate) {
-            // 콤마 제거 후 숫자 확인
-            let cleanVal = String(regDate).replace(/,/g, '');
-            if (!isNaN(cleanVal) && cleanVal > 20000) {
-                // Excel Date -> JS Date
-                const date = new Date((cleanVal - 25569) * 86400 * 1000);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                dateStr = `${year}-${month}-${day}`;
-            } else if (String(regDate).includes('-')) {
-                // 이미 YYYY-MM-DD 포맷인 경우
-                dateStr = regDate;
+        // ★ 날짜 변환 (Excel 46002... -> YYYY-MM-DD)
+        let dateStr = r["등록일자"];
+        if (dateStr) {
+            // 콤마 등 제거
+            let clean = String(dateStr).replace(/,/g, '').trim();
+            if (!isNaN(clean) && Number(clean) > 20000) {
+                // Excel Date Convert
+                const jsDate = new Date((Number(clean) - 25569) * 86400 * 1000);
+                const y = jsDate.getFullYear();
+                const m = String(jsDate.getMonth()+1).padStart(2,'0');
+                const d = String(jsDate.getDate()).padStart(2,'0');
+                dateStr = `${y}-${m}-${d}`;
             }
         }
 
@@ -380,7 +386,7 @@ function parsePipe(data) {
             _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(),
             _fee: parseMoney(r["KTT월정료(조정)"]||r["월정료"]),
-            _regDate: dateStr // 변환된 날짜 저장
+            _regDate: dateStr // 변환된 날짜
         };
     });
 }
@@ -388,20 +394,23 @@ function parsePipe(data) {
 function normBranch(s) { return (s||"기타").replace("지사","").trim(); }
 function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
 
-/* ================= UI LOGIC ================= */
+/* ================= FILTER LOGIC ================= */
 function toggleFilter(type, val, btn) {
+    // 같은 버튼 클릭 시 해제 (ALL 제외)
     if (val !== 'ALL' && App.filters[type] === val) App.filters[type] = 'ALL';
     else App.filters[type] = val;
     
     // UI 업데이트
     const container = btn.parentElement;
     Array.from(container.children).forEach(c => c.classList.remove('active'));
+    
     const targetVal = App.filters[type];
     const targetBtn = Array.from(container.children).find(c => 
         c.innerText === targetVal || (targetVal==='ALL' && c.innerText==='전체')
     );
     if(targetBtn) targetBtn.classList.add('active');
 
+    // 계단식 필터 초기화 (상위 변경 시 하위 초기화)
     if (type === 'hq') { App.filters.branch = 'ALL'; App.filters.agent = 'ALL'; }
     if (type === 'branch') { App.filters.agent = 'ALL'; }
 
@@ -418,6 +427,7 @@ function getFilteredData() {
     const source = isVoc ? App.rawData.voc : App.rawData.pipe;
 
     return source.filter(d => {
+        // 공통
         if (App.filters.branch !== 'ALL' && d._branch !== App.filters.branch) return false;
         if (App.filters.agent !== 'ALL' && d._agent !== App.filters.agent) return false;
 
@@ -434,6 +444,7 @@ function getFilteredData() {
     });
 }
 
+/* ================= UI RENDERING ================= */
 function initUI() { switchView('voc'); }
 
 function updateDashboard() {
@@ -447,16 +458,19 @@ function renderDynamicFilters() {
     const isVoc = App.view === 'voc';
     const source = isVoc ? App.rawData.voc : App.rawData.pipe;
 
+    // A. HQ (Pipeline Only)
     if (!isVoc) {
         const hqs = [...new Set(source.map(d=>d._hq))].sort();
         renderChips('chips-hq', hqs, 'hq');
     }
 
+    // B. Branch
     let branchSource = source;
     if (!isVoc && App.filters.hq !== 'ALL') branchSource = source.filter(d => d._hq === App.filters.hq);
     const branches = [...new Set(branchSource.map(d=>d._branch))].sort();
     renderChips('chips-branch', branches, 'branch');
 
+    // C. Agent
     let agentSource = branchSource;
     if (App.filters.branch !== 'ALL') agentSource = branchSource.filter(d => d._branch === App.filters.branch);
     const agents = [...new Set(agentSource.map(d=>d._agent))].sort();
@@ -523,7 +537,7 @@ function renderPipeView() {
 
     drawTrendChart(data);
     drawPieChart(data);
-    // 테이블 컬럼에 _regDate (등록일자) 추가
+    // 등록일자(_regDate) 컬럼 추가
     renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
 }
 
@@ -532,7 +546,7 @@ function setVal(id, n) { document.getElementById(id).innerText = n.toLocaleStrin
 /* ================= CHART & MAP ================= */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
-        center: {lat: 37.5665, lng: 126.9780}, zoom: 9,
+        center: {lat: 36.5, lng: 127.5}, zoom: 7,
         disableDefaultUI: true, zoomControl: true
     });
 }
@@ -542,7 +556,9 @@ function updateMap(data) {
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
 
-    data.filter(d => d._lat).forEach(d => {
+    const mapData = data.filter(d => d._lat);
+    
+    mapData.forEach(d => {
         const marker = new google.maps.Marker({
             position: {lat: d._lat, lng: d._lng},
             icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${d._status==='처리완료'?'blue':'red'}-dot.png`
@@ -554,6 +570,13 @@ function updateMap(data) {
         App.markers.push(marker);
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
+    
+    // Fit Bounds
+    if(App.markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        App.markers.forEach(m => bounds.extend(m.getPosition()));
+        App.map.fitBounds(bounds);
+    }
 }
 
 function drawBarChart(id, data, key, label, color, filterType) {
@@ -584,12 +607,10 @@ function drawBarChart(id, data, key, label, color, filterType) {
 function drawTrendChart(data) {
     const trend = {};
     data.forEach(d => {
-        // 날짜 형식 YYYY-MM 추출
         let ym = d._regDate ? d._regDate.slice(0, 7) : 'Unknown';
         if(!trend[ym]) trend[ym] = 0;
         trend[ym]++;
     });
-    
     const keys = Object.keys(trend).sort().filter(k => k !== 'Unknown');
     const ctx = document.getElementById('pipe-chart-trend').getContext('2d');
     const id = 'pipe-chart-trend';
