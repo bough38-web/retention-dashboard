@@ -2,135 +2,137 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v10.0)</title>
+<title>KTT Expert Retention Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbmyeJMsApj38SRzWvaQGrZmpqUQTooMw" defer></script>
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 
 <style>
     :root {
-        --primary: #4f46e5; --primary-dark: #3730a3; --bg: #f1f5f9; --surface: #ffffff;
-        --text: #1e293b; --text-light: #64748b; --border: #e2e8f0;
-        --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08);
+        --primary: #4f46e5; --primary-light: #e0e7ff; --bg: #f8fafc; --surface: #ffffff;
+        --text: #1e293b; --text-sub: #64748b; --border: #e2e8f0;
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --radius: 12px;
     }
-    body { margin:0; font-family:'Pretendard', -apple-system, sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
-    * { box-sizing:border-box; outline:none; }
-    ::-webkit-scrollbar { width:6px; height:6px; }
-    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
-
-    /* 사이드바 */
-    .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
-    .logo-area { padding:24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
-    .logo-area h1 { margin:0; font-size:20px; font-weight:800; color:var(--primary); letter-spacing:-0.5px; }
-    .sidebar-scroll { flex:1; overflow-y:auto; padding:20px; }
-
-    /* 업로드 */
-    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; }
-    .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
-    .upload-box span { font-size:13px; font-weight:600; color:var(--text); }
-
-    /* 탭 */
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
-    .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-light); cursor:pointer; border-radius:8px; transition:0.2s; }
-    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-
-    /* 필터 */
-    .filter-group { margin-bottom:24px; }
-    .filter-header { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-light); margin-bottom:8px; }
-    .reset-btn { cursor:pointer; color:var(--primary); display:none; font-size:11px; }
-    .reset-btn.show { display:inline; }
+    body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
+    * { box-sizing:border-box; }
     
-    .chip-box { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; align-content:flex-start; }
-    .chip { 
-        padding:6px 12px; border:1px solid var(--border); background:var(--surface); 
-        border-radius:20px; font-size:12px; color:var(--text); cursor:pointer; transition:0.2s; 
+    /* Layout */
+    .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
+    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; }
+    
+    /* Sidebar Components */
+    .logo { padding:24px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
+    .scroll-area { flex:1; overflow-y:auto; padding:20px; }
+    
+    .upload-btn { 
+        display:block; width:100%; padding:16px; border:2px dashed #cbd5e1; border-radius:var(--radius); 
+        background:var(--bg); text-align:center; cursor:pointer; transition:0.2s; margin-bottom:24px;
     }
-    .chip:hover { background:var(--bg); border-color:#cbd5e1; }
-    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 5px rgba(79, 70, 229, 0.3); }
-    .chip.small { padding:4px 10px; font-size:11px; }
+    .upload-btn:hover { border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+    .upload-btn i { font-size:24px; margin-bottom:8px; display:block; }
+    
+    .nav-btn { 
+        width:100%; padding:12px; border:none; background:none; text-align:left; font-size:14px; font-weight:600; 
+        color:var(--text-sub); cursor:pointer; border-radius:8px; margin-bottom:4px; display:flex; align-items:center; gap:10px;
+    }
+    .nav-btn.active { background:var(--primary-light); color:var(--primary); }
+    .nav-btn:hover:not(.active) { background:var(--bg); }
 
-    /* 메인 영역 */
-    .main-content { flex:1; padding:24px; overflow:hidden; display:flex; flex-direction:column; position:relative; }
-    .view-panel { display:none; flex:1; flex-direction:column; height:100%; animation:fadeIn 0.4s ease-out; }
+    /* Filters */
+    .filter-box { margin-top:24px; }
+    .filter-title { font-size:12px; font-weight:700; color:var(--text-sub); margin-bottom:8px; display:flex; justify-content:space-between; }
+    .reset { cursor:pointer; color:var(--primary); }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; }
+    .chip { 
+        padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:20px; 
+        font-size:12px; color:var(--text); cursor:pointer; transition:0.1s; 
+    }
+    .chip:hover { border-color:var(--text-sub); }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(79, 70, 229, 0.4); }
+
+    /* Dashboard Views */
+    .view-panel { display:none; flex-direction:column; gap:20px; animation:fadeIn 0.4s ease-out; }
     .view-panel.active { display:flex; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 
-    /* 헤더 & KPI */
-    .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex:none; }
-    .kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:20px; flex:none; }
-    .kpi-card { background:var(--surface); padding:24px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; transition:transform 0.2s; }
-    .kpi-card:hover { transform:translateY(-2px); }
-    .kpi-label { font-size:13px; font-weight:600; color:var(--text-light); text-transform:uppercase; letter-spacing:0.5px; }
-    .kpi-val { font-size:28px; font-weight:800; margin-top:8px; color:var(--text); letter-spacing:-0.5px; }
-    .kpi-icon { position:absolute; right:20px; top:20px; font-size:36px; opacity:0.1; }
+    /* Header */
+    .header { display:flex; justify-content:space-between; align-items:center; }
+    .header h2 { margin:0; font-size:24px; font-weight:800; }
+    .header p { margin:4px 0 0; color:var(--text-sub); font-size:14px; }
+    .action-btn { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
+    
+    /* KPI */
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; }
+    .kpi-card { background:var(--surface); padding:24px; border-radius:var(--radius); box-shadow:var(--shadow); position:relative; overflow:hidden; }
+    .kpi-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c); }
+    .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; }
+    .kpi-value { font-size:32px; font-weight:800; margin-top:8px; color:var(--text); }
+    .kpi-icon { position:absolute; right:20px; top:20px; font-size:40px; opacity:0.1; color:var(--c); }
 
-    /* 그리드 시스템 */
-    .dashboard-grid { display:flex; gap:20px; flex:1; min-height:0; margin-bottom:20px; }
-    .grid-left { flex:1.5; display:flex; flex-direction:column; }
-    .grid-right { flex:1; display:flex; flex-direction:column; gap:20px; }
-    .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; flex:1; min-height:0; margin-bottom:20px; }
+    /* Grids */
+    .grid-voc { display:flex; gap:20px; height:500px; }
+    .grid-pipe { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .col-left { flex:1.5; display:flex; flex-direction:column; }
+    .col-right { flex:1; display:flex; flex-direction:column; gap:20px; }
 
-    .card { background:var(--surface); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border:1px solid var(--border); display:flex; flex-direction:column; }
-    .card.full { flex:1; min-height:0; }
-    .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex:none; }
-    .card-title { font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; }
+    .card { background:var(--surface); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
+    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .card-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; }
 
-    /* 지도 & 차트 */
-    .map-container { flex:1; width:100%; border-radius:8px; overflow:hidden; background:#e2e8f0; position:relative; min-height:300px; }
-    .chart-box { flex:1; position:relative; min-height:200px; }
+    /* Map & Chart */
+    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; }
+    .chart-wrapper { flex:1; position:relative; min-height:0; }
 
-    /* 테이블 */
-    .table-section { height:300px; flex:none; display:flex; flex-direction:column; }
-    .table-wrap { flex:1; overflow:auto; border:1px solid var(--border); border-radius:8px; }
+    /* Table */
+    .table-wrapper { flex:1; overflow:auto; border:1px solid var(--border); border-radius:8px; max-height:400px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
-    th { background:#f8fafc; padding:12px 14px; text-align:left; position:sticky; top:0; font-weight:700; border-bottom:1px solid var(--border); z-index:10; }
-    td { padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:background 0.1s; }
+    th { background:#f8fafc; padding:12px 16px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
+    td { padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:background 0.1s; }
     tr:hover td { background:#f1f5f9; }
-    tr.active-row td { background:#eef2ff !important; font-weight:600; color:var(--primary); }
+    tr.active-row td { background:#e0e7ff !important; color:var(--primary); font-weight:600; }
+
+    /* Utils */
+    .badge { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+    .bd-blue { background:#dbeafe; color:#1e40af; }
+    .bd-red { background:#fee2e2; color:#991b1b; }
+    .bd-green { background:#dcfce7; color:#166534; }
     
-    /* 뱃지 */
-    .badge { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
-    .bg-green { background:#dcfce7; color:#166534; }
-    .bg-red { background:#fee2e2; color:#991b1b; }
-    .bg-yellow { background:#fef3c7; color:#92400e; }
-    .bg-blue { background:#dbeafe; color:#1e40af; }
-    
-    #fileInput { display:none; }
     #loading { position:fixed; inset:0; background:rgba(255,255,255,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; }
-    .loader { width:50px; height:50px; border:5px solid #eef2ff; border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+    .spinner { width:50px; height:50px; border:5px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
     @keyframes spin { 100%{transform:rotate(360deg);} }
 </style>
 </head>
 <body>
 
 <div id="loading">
-    <div class="loader"></div>
-    <div style="margin-top:20px; font-weight:700; color:#475569">데이터 분석 중...</div>
+    <div class="spinner"></div>
+    <div style="margin-top:20px; font-weight:700; color:#64748b">데이터 분석 중...</div>
 </div>
 
 <div class="sidebar">
-    <div class="logo-area">
-        <h1><i class="ph ph-chart-polar"></i> KTT Dashboard</h1>
+    <div class="logo">
+        <i class="ph ph-chart-polar"></i> KTT Dashboard
     </div>
-    <div class="sidebar-scroll">
-        <div class="upload-box" onclick="triggerFileUpload()">
-            <i class="ph ph-lock-key"></i> <span>파일 교체 (보안)</span>
-            <input type="file" id="fileInput" accept=".csv" />
+    <div class="scroll-area">
+        <label class="upload-btn" onclick="triggerUpload()">
+            <i class="ph ph-upload-simple"></i>
+            <span>파일 교체 (보안)</span>
+            <input type="file" id="fileInput" accept=".csv" style="display:none;" />
+        </label>
+
+        <div style="margin-bottom:24px;">
+            <button class="nav-btn active" onclick="switchView('voc')"><i class="ph ph-map-pin"></i> VOC 현황</button>
+            <button class="nav-btn" onclick="switchView('pipe')"><i class="ph ph-chart-line-up"></i> 파이프라인</button>
         </div>
 
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="switchView('voc')">VOC 현황</button>
-            <button class="nav-tab" onclick="switchView('pipe')">파이프라인</button>
-        </div>
-
-        <div id="filter-area">
+        <div id="filter-container">
             </div>
     </div>
 </div>
@@ -138,68 +140,62 @@
 <div class="main-content">
 
     <div id="view-voc" class="view-panel active">
-        <div class="header-row">
+        <div class="header">
             <div>
-                <h2 style="margin:0; font-size:24px;">관리고객(VOC) 현황</h2>
-                <p style="margin:5px 0 0; color:var(--text-light); font-size:14px;">실시간 위치 및 미처리 건수 모니터링</p>
+                <h2>관리고객(VOC) 현황</h2>
+                <p>실시간 위치 기반 모니터링 및 미처리 건수 분석</p>
             </div>
-            <button class="chip active" onclick="exportCSV('voc')" style="border:none; background:#10b981; color:#fff;">
-                <i class="ph ph-download-simple"></i> 엑셀 저장
-            </button>
+            <button class="action-btn" onclick="exportData('voc')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
         </div>
 
-        <div class="kpi-row">
-            <div class="kpi-card" style="border-left-color:var(--primary)">
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--c:var(--primary)">
                 <div class="kpi-label">총 계약 (Unique)</div>
-                <div class="kpi-val" id="voc-kpi-total">0</div>
+                <div class="kpi-value counter" id="voc-total">0</div>
                 <i class="ph ph-users kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--success)">
+            <div class="kpi-card" style="--c:var(--success)">
                 <div class="kpi-label">처리 완료</div>
-                <div class="kpi-val" id="voc-kpi-done" style="color:var(--success)">0</div>
+                <div class="kpi-value counter" id="voc-done">0</div>
                 <i class="ph ph-check-circle kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--warning)">
+            <div class="kpi-card" style="--c:var(--warning)">
                 <div class="kpi-label">처리율</div>
-                <div class="kpi-val" id="voc-kpi-rate">0%</div>
+                <div class="kpi-value" id="voc-rate">0%</div>
                 <i class="ph ph-chart-pie-slice kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--danger)">
+            <div class="kpi-card" style="--c:var(--danger)">
                 <div class="kpi-label">미접수</div>
-                <div class="kpi-val" id="voc-kpi-wait" style="color:var(--danger)">0</div>
+                <div class="kpi-value counter" id="voc-wait">0</div>
                 <i class="ph ph-warning-circle kpi-icon"></i>
             </div>
         </div>
 
-        <div class="dashboard-grid">
-            <div class="grid-left">
-                <div class="card full" style="padding:0;">
-                    <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--surface);">
-                        <h3 style="margin:0;"><i class="ph ph-map-trifold"></i> 고객 위치 분석 (Clickable)</h3>
+        <div class="grid-voc">
+            <div class="col-left">
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div style="padding:16px; border-bottom:1px solid var(--border); background:#fff;">
+                        <h3 class="card-title"><i class="ph ph-map-trifold"></i> 고객 위치 현황</h3>
                     </div>
-                    <div id="voc-map" class="map-container"></div>
+                    <div id="voc-map" class="map-wrapper"></div>
                 </div>
             </div>
-            <div class="grid-right">
-                <div class="card full">
-                    <div class="card-header">
-                        <div class="card-title">지사별 처리 현황</div>
-                    </div>
-                    <div class="chart-box"><canvas id="voc-chart-branch"></canvas></div>
+            <div class="col-right">
+                <div class="card">
+                    <div class="card-head"><h3 class="card-title">지사별 현황 (Clickable)</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
                 </div>
-                <div class="card full">
-                    <div class="card-title">미처리 담당자 Top 10</div>
-                    <div class="chart-box"><canvas id="voc-chart-agent"></canvas></div>
+                <div class="card">
+                    <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
                 </div>
             </div>
         </div>
 
-        <div class="card table-section">
-            <div class="card-header">
-                <div class="card-title">상세 리스트 (행 클릭 시 지도 이동)</div>
-            </div>
-            <div class="table-wrap">
-                <table id="voc-table">
+        <div class="card" style="flex:none; height:350px;">
+            <div class="card-head"><h3 class="card-title">상세 리스트 (행 클릭 시 지도 이동)</h3></div>
+            <div class="table-wrapper">
+                <table id="table-voc">
                     <thead><tr><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>서비스</th><th>좌표</th></tr></thead>
                     <tbody></tbody>
                 </table>
@@ -208,54 +204,63 @@
     </div>
 
     <div id="view-pipe" class="view-panel">
-        <div class="header-row">
+        <div class="header">
             <div>
-                <h2 style="margin:0; font-size:24px;">해지 파이프라인 분석</h2>
-                <p style="margin:5px 0 0; color:var(--text-light); font-size:14px;">고위험 고객 방어 성과 분석</p>
+                <h2>해지 파이프라인 분석</h2>
+                <p>고위험 고객 방어 성과 및 해지 징후 분석 (지도 제외)</p>
             </div>
-            <button class="chip active" onclick="exportCSV('pipe')" style="border:none; background:#10b981; color:#fff;">
-                <i class="ph ph-download-simple"></i> 엑셀 저장
-            </button>
+            <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
         </div>
 
-        <div class="kpi-row">
-            <div class="kpi-card" style="border-left-color:var(--primary)">
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--c:var(--primary)">
                 <div class="kpi-label">대상 총 건수</div>
-                <div class="kpi-val" id="pipe-kpi-total">0</div>
+                <div class="kpi-value counter" id="pipe-total">0</div>
                 <i class="ph ph-funnel kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--danger)">
+            <div class="kpi-card" style="--c:var(--danger)">
                 <div class="kpi-label">고위험군 (75%↑)</div>
-                <div class="kpi-val" id="pipe-kpi-high" style="color:var(--danger)">0</div>
+                <div class="kpi-value counter" id="pipe-high">0</div>
                 <i class="ph ph-siren kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--warning)">
+            <div class="kpi-card" style="--c:var(--warning)">
                 <div class="kpi-label">예상 손실액(월)</div>
-                <div class="kpi-val" id="pipe-kpi-loss">0</div>
+                <div class="kpi-value" id="pipe-loss">0</div>
                 <i class="ph ph-currency-krw kpi-icon"></i>
             </div>
-            <div class="kpi-card" style="border-left-color:var(--success)">
+            <div class="kpi-card" style="--c:var(--success)">
                 <div class="kpi-label">방어 성공률</div>
-                <div class="kpi-val" id="pipe-kpi-rate" style="color:var(--success)">0%</div>
+                <div class="kpi-value" id="pipe-rate">0%</div>
                 <i class="ph ph-shield-check kpi-icon"></i>
             </div>
         </div>
 
-        <div class="pipeline-grid">
-            <div class="card full">
-                <div class="card-title">방어 단계별 현황</div>
-                <div class="chart-box"><canvas id="pipe-chart-step"></canvas></div>
+        <div class="grid-pipe">
+            <div class="card">
+                <div class="card-head"><h3 class="card-title">월별 등록 추이 (Clickable)</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-pipe-trend"></canvas></div>
             </div>
-            <div class="card full">
-                <div class="card-title">주요 해지 사유 (Top 5)</div>
-                <div class="chart-box"><canvas id="pipe-chart-reason"></canvas></div>
+            <div class="card">
+                <div class="card-head"><h3 class="card-title">주요 해지 사유 (Top 5)</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-pipe-reason"></canvas></div>
             </div>
         </div>
 
-        <div class="card table-section">
-            <div class="card-title">상세 파이프라인 리스트</div>
-            <div class="table-wrap">
-                <table id="pipe-table">
+        <div class="grid-pipe">
+            <div class="card">
+                <div class="card-head"><h3 class="card-title">위험도 vs 월정료 분포</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-pipe-risk"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3 class="card-title">방어 단계별 현황</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-pipe-step"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card" style="flex:none; height:350px;">
+            <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
+            <div class="table-wrapper">
+                <table id="table-pipe">
                     <thead><tr><th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>등록일자</th><th>월정료</th></tr></thead>
                     <tbody></tbody>
                 </table>
@@ -266,42 +271,43 @@
 </div>
 
 <script>
-/* ================= CONFIG ================= */
+/* --- CONFIG --- */
 const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
-const DATA_SRC = {
+const URLS = {
     voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
 let App = {
     view: 'voc',
-    rawData: { voc: [], pipe: [] },
-    filteredData: [],
-    filters: { hq: 'ALL', branch: 'ALL', agent: 'ALL', status: 'ALL', risk: 'ALL' },
-    charts: {},
+    data: { voc:[], pipe:[] },
+    filtered: [],
+    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', risk:'ALL' },
     map: null,
     clusterer: null,
-    markers: []
+    markers: [],
+    charts: {},
+    activeRow: null
 };
 
-// Chart.js Premium Settings
+// Chart.js Defaults (Premium Look)
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
 Chart.defaults.scale.grid.color = '#f1f5f9';
 
-/* ================= INIT ================= */
+/* --- INIT --- */
 window.onload = async () => {
     try {
-        const [vRes, pRes] = await Promise.all([ fetchCsv(DATA_SRC.voc), fetchCsv(DATA_SRC.pipe) ]);
-        App.rawData.voc = parseVoc(vRes.data);
-        App.rawData.pipe = parsePipe(pRes.data);
+        const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
+        App.data.voc = parseVoc(v.data);
+        App.data.pipe = parsePipe(p.data);
         
         initMap();
-        initFilterUI();
+        initFiltersHTML();
         updateDashboard();
-    } catch(e) { console.error(e); alert("데이터 로드 중 오류가 발생했습니다. 콘솔을 확인하세요."); }
-    document.getElementById("loading").style.display = "none";
+    } catch(e) { console.error(e); alert("데이터 로드 실패"); }
+    document.getElementById('loading').style.display = 'none';
 };
 
 async function fetchCsv(url) {
@@ -310,25 +316,23 @@ async function fetchCsv(url) {
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
 }
 
-/* ================= PARSING (SMART) ================= */
-const findKey = (row, keyword) => Object.keys(row).find(k => k.includes(keyword));
+/* --- DATA PARSING (Robust) --- */
+const findKey = (r, k) => Object.keys(r).find(key => key.includes(k));
 
 function parseVoc(data) {
     if(!data.length) return [];
-    const coordKey = findKey(data[0], "위치좌표") || "위치좌표(위도,경도)";
-    
+    const kCoord = findKey(data[0], "위치좌표") || "위치좌표(위도,경도)";
     return data.map(r => {
         let lat=null, lng=null;
-        if(r[coordKey] && r[coordKey].includes(',')) {
-            const p = r[coordKey].split(',');
+        if(r[kCoord] && r[kCoord].includes(',')) {
+            const p = r[kCoord].split(',');
             lat = parseFloat(p[0]); lng = parseFloat(p[1]);
-        }
-        if((!lat || isNaN(lat)) && r["위도"]) {
+        } else if (r["위도"]) {
             lat = parseFloat(r["위도"]); lng = parseFloat(r["경도"]);
         }
         return {
             ...r,
-            _branch: normBranch(r["관리지사"]),
+            _branch: normStr(r["관리지사"]),
             _agent: (r["담당자"]||"미지정").trim(),
             _status: (r["상태"]||"").trim(),
             _lat: (!isNaN(lat) && lat) ? lat : null,
@@ -340,12 +344,10 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     if(!data.length) return [];
-    // 키워드 기반 컬럼 매칭
     const kRisk = findKey(data[0], "위험도") || "해지위험도";
     const kDate = findKey(data[0], "등록일자") || "등록일자";
-    const kHQ = findKey(data[0], "관리본부") || "관리본부";
     const kFee = findKey(data[0], "월정료") || "KTT월정료(조정)";
-    const kName = findKey(data[0], "상호") || "상호명"; // 상호명 매핑 추가
+    const kHQ = findKey(data[0], "관리본부") || "관리본부";
 
     return data.map(r => {
         let risk = parseFloat(r[kRisk]||0);
@@ -354,96 +356,64 @@ function parsePipe(data) {
         let dateStr = r[kDate];
         if (dateStr) {
             let clean = String(dateStr).replace(/,/g, '').trim();
-            if (!isNaN(clean) && Number(clean) > 20000) {
-                const jsDate = new Date((Number(clean) - 25569) * 86400 * 1000);
-                dateStr = jsDate.toISOString().slice(0,10);
+            if(!isNaN(clean) && Number(clean)>20000) {
+                dateStr = new Date((Number(clean)-25569)*86400000).toISOString().slice(0,10);
             }
         }
 
         return {
             ...r,
-            "상호": r[kName] || r["상호명"] || "-", // 상호명 강제 매핑
             _hq: (r[kHQ]||"기타").trim(),
-            _branch: normBranch(r["관리지사"]),
+            _branch: normStr(r["관리지사"]),
             _agent: (r["담당자"]||"미지정").trim(),
             _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(),
             _fee: parseMoney(r[kFee]),
-            _regDate: dateStr 
+            _regDate: dateStr
         };
     });
 }
 
-function normBranch(s) { return (s||"기타").replace("지사","").trim(); }
+function normStr(s) { return (s||"기타").replace("지사","").trim(); }
 function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
 
-/* ================= FILTER & LOGIC ================= */
-function initFilterUI() {
-    const container = document.getElementById("filter-area");
-    container.innerHTML = `
-        <div id="fg-hq" class="filter-group" style="display:none;">
-            <div class="filter-header">관리본부 <span class="reset-btn" onclick="resetFilter('hq')">초기화</span></div>
-            <div id="chips-hq" class="chip-box"></div>
+/* --- FILTER LOGIC --- */
+function initFiltersHTML() {
+    const area = document.getElementById('filter-container');
+    area.innerHTML = `
+        <div class="filter-box" id="fb-hq" style="display:none;">
+            <div class="filter-title">관리본부 <span class="reset" onclick="resetFilter('hq')">초기화</span></div>
+            <div id="chips-hq" class="chips"></div>
         </div>
-        <div class="filter-group">
-            <div class="filter-header">관리지사 <span class="reset-btn" onclick="resetFilter('branch')">초기화</span></div>
-            <div id="chips-branch" class="chip-box"></div>
+        <div class="filter-box">
+            <div class="filter-title">관리지사 <span class="reset" onclick="resetFilter('branch')">초기화</span></div>
+            <div id="chips-branch" class="chips"></div>
         </div>
-        <div class="filter-group">
-            <div class="filter-header">담당자 <span class="reset-btn" onclick="resetFilter('agent')">초기화</span></div>
-            <div id="chips-agent" class="chip-box" style="max-height:150px; overflow-y:auto;"></div>
+        <div class="filter-box">
+            <div class="filter-title">담당자 <span class="reset" onclick="resetFilter('agent')">초기화</span></div>
+            <div id="chips-agent" class="chips"></div>
         </div>
-        <div id="fg-status" class="filter-group">
-            <div class="filter-header">처리 상태</div>
-            <div id="chips-status" class="chip-box"></div>
+        <div class="filter-box" id="fb-status">
+            <div class="filter-title">처리 상태</div>
+            <div id="chips-status" class="chips"></div>
         </div>
-        <div id="fg-risk" class="filter-group" style="display:none;">
-            <div class="filter-header">해지 위험도</div>
-            <div id="chips-risk" class="chip-box"></div>
+        <div class="filter-box" id="fb-risk" style="display:none;">
+            <div class="filter-title">해지 위험도</div>
+            <div id="chips-risk" class="chips"></div>
         </div>
     `;
-    renderStaticChips('chips-status', ['전체','처리완료','접수','미접수'], 'status');
-    renderStaticChips('chips-risk', ['전체','고위험(75%↑)','중위험(50~75%)'], 'risk');
-}
-
-function renderStaticChips(id, labels, type) {
-    const box = document.getElementById(id);
-    labels.forEach(lbl => {
-        const val = lbl==='전체'?'ALL':(type==='risk'? (lbl.includes('고위험')?'HIGH':'MID') : lbl);
-        const btn = document.createElement('button');
-        btn.className = `chip ${val==='ALL'?'active':''}`;
-        btn.innerText = lbl;
-        btn.onclick = () => toggleFilter(type, val, btn);
-        box.appendChild(btn);
-    });
-}
-
-function toggleFilter(type, val, btn) {
-    if (val !== 'ALL' && App.filters[type] === val) App.filters[type] = 'ALL';
-    else App.filters[type] = val;
     
-    if(btn) {
-        Array.from(btn.parentElement.children).forEach(c => c.classList.remove('active'));
-        const target = Array.from(btn.parentElement.children).find(c => 
-            c.innerText === (val==='ALL'?'전체':btn.innerText)
-        );
-        if(target) target.classList.add('active');
-    }
-
-    if (type === 'hq') { App.filters.branch = 'ALL'; App.filters.agent = 'ALL'; }
-    if (type === 'branch') { App.filters.agent = 'ALL'; }
-    updateDashboard();
+    // Static chips
+    renderChips('chips-status', ['전체','처리완료','접수','미접수'], 'status');
+    renderChips('chips-risk', ['전체','고위험(75%↑)','중위험(50~75%)'], 'risk');
 }
 
-function resetFilter(type) {
-    App.filters[type] = 'ALL';
-    updateDashboard();
-}
-
-function getFilteredData() {
+function updateDashboard() {
+    // 1. Filter Data
     const isVoc = App.view === 'voc';
-    const source = isVoc ? App.rawData.voc : App.rawData.pipe;
-    return source.filter(d => {
+    const source = isVoc ? App.data.voc : App.data.pipe;
+    
+    App.filtered = source.filter(d => {
         if(App.filters.branch!=='ALL' && d._branch!==App.filters.branch) return false;
         if(App.filters.agent!=='ALL' && d._agent!==App.filters.agent) return false;
         if(isVoc) {
@@ -455,111 +425,118 @@ function getFilteredData() {
         }
         return true;
     });
+
+    // 2. Update Dynamic Filters
+    updateDynamicFilters(source);
+
+    // 3. Render View
+    if(isVoc) renderVocView(); else renderPipeView();
 }
 
-function updateDashboard() {
-    App.filteredData = getFilteredData();
-    renderDynamicFilters();
-    if (App.view === 'voc') renderVocView(); else renderPipeView();
-}
-
-function renderDynamicFilters() {
+function updateDynamicFilters(source) {
     const isVoc = App.view === 'voc';
-    const source = isVoc ? App.rawData.voc : App.rawData.pipe;
-
+    
+    // HQ
     if(!isVoc) {
         const hqs = [...new Set(source.map(d=>d._hq))].sort();
-        renderChips('chips-hq', hqs, 'hq');
+        renderChips('chips-hq', ['전체',...hqs], 'hq', true);
     }
 
-    let branchSrc = source;
-    if(!isVoc && App.filters.hq!=='ALL') branchSrc = source.filter(d=>d._hq===App.filters.hq);
-    let branches = [...new Set(branchSrc.map(d=>d._branch))];
+    // Branch (Cascading)
+    let bSrc = source;
+    if(!isVoc && App.filters.hq!=='ALL') bSrc = source.filter(d=>d._hq===App.filters.hq);
+    let branches = [...new Set(bSrc.map(d=>d._branch))];
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib;
         if(ia!==-1) return -1; if(ib!==-1) return 1;
         return a.localeCompare(b);
     });
-    renderChips('chips-branch', branches, 'branch');
+    renderChips('chips-branch', ['전체',...branches], 'branch', true);
 
-    let agentSrc = branchSrc;
-    if(App.filters.branch!=='ALL') agentSrc = branchSrc.filter(d=>d._branch===App.filters.branch);
-    const agents = [...new Set(agentSrc.map(d=>d._agent))].sort();
-    renderChips('chips-agent', agents, 'agent');
-
-    toggleReset('hq', App.filters.hq!=='ALL');
-    toggleReset('branch', App.filters.branch!=='ALL');
-    toggleReset('agent', App.filters.agent!=='ALL');
+    // Agent (Cascading)
+    let aSrc = bSrc;
+    if(App.filters.branch!=='ALL') aSrc = bSrc.filter(d=>d._branch===App.filters.branch);
+    const agents = [...new Set(aSrc.map(d=>d._agent))].sort();
+    renderChips('chips-agent', ['전체',...agents], 'agent', true);
 }
 
-function renderChips(id, list, type) {
-    const box = document.getElementById(id);
-    box.innerHTML = '';
-    const allBtn = document.createElement('button');
-    allBtn.className = `chip ${App.filters[type]==='ALL'?'active':''}`;
-    allBtn.innerText = '전체';
-    allBtn.onclick = () => toggleFilter(type, 'ALL', allBtn);
-    box.appendChild(allBtn);
-
-    list.forEach(v => {
-        if(!v) return;
-        const btn = document.createElement('button');
-        btn.className = `chip ${App.filters[type]===v?'active':''}`;
-        btn.innerText = v;
-        btn.onclick = () => toggleFilter(type, v, btn);
-        box.appendChild(btn);
+function renderChips(id, items, type, isDynamic=false) {
+    const container = document.getElementById(id);
+    if(isDynamic) container.innerHTML = ''; // Clear if dynamic
+    
+    items.forEach(val => {
+        // 이미 있으면 패스 (정적 필터용)
+        if(!isDynamic && Array.from(container.children).some(c=>c.innerText===val)) return;
+        
+        const btn = document.createElement('div');
+        const isAll = val==='전체' || val==='ALL';
+        const filterVal = isAll ? 'ALL' : (type==='risk' && val.includes('고위험')?'HIGH':(type==='risk'?'MID':val));
+        
+        btn.className = `chip ${App.filters[type]===filterVal ? 'active' : ''}`;
+        btn.innerText = val;
+        btn.onclick = () => {
+            if(!isAll && App.filters[type]===filterVal) App.filters[type] = 'ALL';
+            else App.filters[type] = filterVal;
+            
+            // Cascade Reset
+            if(type==='hq') { App.filters.branch='ALL'; App.filters.agent='ALL'; }
+            if(type==='branch') { App.filters.agent='ALL'; }
+            
+            updateDashboard();
+        };
+        container.appendChild(btn);
     });
 }
 
-function toggleReset(type, show) {
-    const el = document.querySelector(`#chips-${type}`).parentElement.querySelector('.reset-btn');
-    if(el) el.style.display = show ? 'inline' : 'none';
+function resetFilter(type) {
+    App.filters[type] = 'ALL';
+    updateDashboard();
 }
 
-/* ================= RENDERING ================= */
+/* --- RENDER VIEW: VOC --- */
 function renderVocView() {
-    const data = App.filteredData;
+    const data = App.filtered;
     const unique = new Set(data.map(d=>d["계약번호"])).size;
     const done = data.filter(d=>d._status==='처리완료').length;
-    const wait = data.filter(d=>d._status==='미접수').length;
-
-    setVal('voc-kpi-total', unique);
-    setVal('voc-kpi-done', done);
-    setVal('voc-kpi-wait', wait);
-    document.getElementById('voc-kpi-rate').innerText = unique ? ((done/data.length)*100).toFixed(1)+'%' : '0%';
+    
+    animateNum('voc-total', unique);
+    animateNum('voc-done', done);
+    animateNum('voc-wait', data.filter(d=>d._status==='미접수').length);
+    document.getElementById('voc-rate').innerText = unique ? ((done/data.length)*100).toFixed(1)+'%' : '0%';
 
     updateMap(data);
-    drawBar('voc-chart-branch', data, '_branch', '지사별', 'rgba(79, 70, 229, 0.8)', 'branch');
-    drawBar('voc-chart-agent', data.filter(d=>d._status!=='처리완료'), '_agent', '미처리', 'rgba(239, 68, 68, 0.8)', 'agent');
-    renderTable('voc-table', data, ['_branch', '_agent', '계약번호', '상호', '_status', 'VOC유형소', '좌표']);
+    
+    drawBar('chart-voc-branch', data, '_branch', '건수', '#6366f1', 'branch');
+    drawBar('chart-voc-agent', data.filter(d=>d._status!=='처리완료'), '_agent', '미처리', '#ef4444', 'agent');
+    
+    renderTable('table-voc', data, ['_branch', '_agent', '계약번호', '상호', '_status', 'VOC유형소', '좌표']);
 }
 
+/* --- RENDER VIEW: PIPE --- */
 function renderPipeView() {
-    const data = App.filteredData;
-    const total = data.length;
-    const high = data.filter(d=>d._risk>=75).length;
-    const loss = data.filter(d=>d._risk>=75).reduce((a,b)=>a+b._fee,0);
+    const data = App.filtered;
+    const high = data.filter(d=>d._risk>=75);
     const suc = data.filter(d=>d._step==='방어성공').length;
+    const loss = high.reduce((a,b)=>a+b._fee, 0);
 
-    setVal('pipe-kpi-total', total);
-    setVal('pipe-kpi-high', high);
-    document.getElementById('pipe-kpi-loss').innerText = (loss/10000).toFixed(0)+'만';
-    document.getElementById('pipe-kpi-rate').innerText = total ? ((suc/total)*100).toFixed(1)+'%' : '0%';
+    animateNum('pipe-total', data.length);
+    animateNum('pipe-high', high.length);
+    document.getElementById('pipe-loss').innerText = (loss/10000).toFixed(0)+'만';
+    document.getElementById('pipe-rate').innerText = data.length ? ((suc/data.length)*100).toFixed(1)+'%' : '0%';
 
+    drawTrend(data);
     drawPie(data);
+    drawBubble(data);
     drawStep(data);
-    // 상호명이 정상적으로 매핑되었으므로 '상호'로 호출
-    renderTable('pipe-table', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
+    
+    renderTable('table-pipe', data, ['_hq', '_branch', '_agent', '계약번호', '상호', '_risk', '_step', '_regDate', '_fee']);
 }
 
-function setVal(id, n) { document.getElementById(id).innerText = n.toLocaleString(); }
-
-/* ================= MAP & CHARTS ================= */
+/* --- MAP & CHARTS --- */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
-        center: {lat: 37.5665, lng: 126.9780}, zoom: 9,
-        disableDefaultUI: true, zoomControl: true
+        center: {lat: 36.5, lng: 127.8}, zoom: 7, disableDefaultUI: true, zoomControl: true
     });
 }
 
@@ -567,49 +544,44 @@ function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
-
-    data.filter(d => d._lat).forEach(d => {
-        const marker = new google.maps.Marker({
-            position: {lat: d._lat, lng: d._lng},
-            icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${d._status==='처리완료'?'blue':'red'}-dot.png`,
-            animation: google.maps.Animation.DROP
-        });
-        const info = new google.maps.InfoWindow({
-            content: `<div style="padding:5px; font-size:12px;"><b>${d["상호"]}</b><br>${d._branch} / ${d._agent}<br>${d._status}</div>`
-        });
-        marker.addListener('click', () => info.open(App.map, marker));
-        App.markers.push(marker);
-    });
-    App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
     
-    if(App.markers.length > 0) {
-        const b = new google.maps.LatLngBounds();
-        App.markers.forEach(m => b.extend(m.getPosition()));
-        App.map.fitBounds(b);
-    }
-}
+    const valid = data.filter(d => d._lat);
+    const bounds = new google.maps.LatLngBounds();
 
-// 공통 차트 옵션 (애니메이션 등)
-const chartOptions = {
-    responsive: true, maintainAspectRatio: false,
-    animation: { duration: 1000, easing: 'easeOutQuart' },
-    plugins: { 
-        legend: {display:false},
-        datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} }
-    },
-    onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-};
+    valid.forEach(d => {
+        const m = new google.maps.Marker({
+            position: {lat: d._lat, lng: d._lng},
+            icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${d._status==='처리완료'?'blue':'red'}-dot.png`
+        });
+        const info = new google.maps.InfoWindow({ content: `<div style="padding:5px; font-size:12px;"><b>${d["상호"]}</b><br>${d._status}</div>` });
+        
+        m.addListener('click', () => {
+            info.open(App.map, m);
+            m.setAnimation(google.maps.Animation.BOUNCE);
+            setTimeout(()=>m.setAnimation(null), 1500);
+        });
+        
+        // Link for table click
+        d._marker = m;
+        bounds.extend(m.getPosition());
+        App.markers.push(m);
+    });
+
+    App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
+    if(valid.length) App.map.fitBounds(bounds);
+}
 
 function drawBar(id, data, key, label, color, fType) {
     const counts = {};
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
     
     let keys = Object.keys(counts);
+    // Sort logic
     if(key === '_branch') {
         keys.sort((a,b) => {
-            const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
+            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
             if(ia!==-1 && ib!==-1) return ia-ib;
-            return b - a; 
+            return b.localeCompare(a); 
         });
     } else {
         keys.sort((a,b) => counts[b] - counts[a]);
@@ -623,13 +595,48 @@ function drawBar(id, data, key, label, color, fType) {
         type: 'bar',
         data: {
             labels: keys,
-            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:6 }]
+            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:4, barPercentage:0.7 }]
         },
         options: {
-            ...chartOptions,
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend:{display:false}, datalabels:{anchor:'end', align:'top', color:'#64748b'} },
+            scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
             onClick: (e, els) => {
-                if(els.length > 0) toggleFilter(fType, keys[els[0].index], null);
-            }
+                if(els.length) {
+                    const val = keys[els[0].index];
+                    App.filters[fType] = val; // Direct set
+                    updateDashboard();
+                }
+            },
+            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+        }
+    });
+}
+
+function drawTrend(data) {
+    const trend = {};
+    data.forEach(d => {
+        let ym = d._regDate ? d._regDate.slice(0, 7) : 'Unknown';
+        trend[ym] = (trend[ym]||0) + 1;
+    });
+    const keys = Object.keys(trend).sort().filter(k=>k!=='Unknown');
+    
+    const ctx = document.getElementById('chart-pipe-trend').getContext('2d');
+    if(App.charts['trend']) App.charts['trend'].destroy();
+    
+    App.charts['trend'] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: keys,
+            datasets: [{
+                label: '등록 건수', data: keys.map(k=>trend[k]),
+                borderColor: '#8b5cf6', backgroundColor: '#8b5cf620', fill:true, tension:0.3
+            }]
+        },
+        options: { 
+            responsive: true, maintainAspectRatio: false,
+            plugins: { datalabels:{display:true, align:'top'} },
+            scales: { y: { beginAtZero: true, grace: '10%' } }
         }
     });
 }
@@ -638,25 +645,46 @@ function drawPie(data) {
     const counts = {};
     data.forEach(d => { const r = d['해지사유']||"미입력"; counts[r] = (counts[r]||0)+1; });
     const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-
-    const ctx = document.getElementById('pipe-chart-reason').getContext('2d');
-    const id = 'pipe-chart-reason';
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
+    
+    const ctx = document.getElementById('chart-pipe-reason').getContext('2d');
+    if(App.charts['pie']) App.charts['pie'].destroy();
+    
+    App.charts['pie'] = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: sorted.map(x=>x[0]),
-            datasets: [{ 
-                data: sorted.map(x=>x[1]), 
-                backgroundColor: ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6'],
-                hoverOffset: 10
-            }]
+            datasets: [{ data: sorted.map(x=>x[1]), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#6366f1'] }]
         },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} }
+    });
+}
+
+function drawBubble(data) {
+    const brData = {};
+    data.forEach(d => {
+        if(!brData[d._branch]) brData[d._branch] = { riskSum:0, feeSum:0, count:0 };
+        brData[d._branch].riskSum += d._risk;
+        brData[d._branch].feeSum += d._fee;
+        brData[d._branch].count++;
+    });
+    
+    const bubbles = Object.entries(brData).map(([br, v]) => ({
+        x: v.riskSum / v.count, y: v.feeSum / v.count, r: Math.min(v.count*1.5, 30), branch: br
+    }));
+
+    const ctx = document.getElementById('chart-pipe-risk').getContext('2d');
+    if(App.charts['bubble']) App.charts['bubble'].destroy();
+    
+    App.charts['bubble'] = new Chart(ctx, {
+        type: 'bubble',
+        data: { datasets: [{ label: '지사별', data: bubbles, backgroundColor: 'rgba(59, 130, 246, 0.6)', borderColor: '#2563eb' }] },
         options: {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 1500, animateScale: true },
-            plugins: { legend:{position:'right'}, datalabels:{color:'#fff', font:{weight:'bold'}} }
+            plugins: { 
+                legend:{display:false}, 
+                tooltip:{callbacks:{label:c=>`${c.raw.branch}: 위험${c.raw.x.toFixed(0)}% / 료${Math.round(c.raw.y/1000)}k`}}
+            },
+            scales: { x:{title:{display:true, text:'평균 위험도'}, min:0, max:100}, y:{title:{display:true, text:'평균 월정료'}} }
         }
     });
 }
@@ -664,106 +692,124 @@ function drawPie(data) {
 function drawStep(data) {
     const counts = {};
     data.forEach(d => { const s = d._step||"미정"; counts[s] = (counts[s]||0)+1; });
-    const keys = Object.keys(counts);
-
-    const ctx = document.getElementById('pipe-chart-step').getContext('2d');
-    const id = 'pipe-chart-step';
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
+    
+    const ctx = document.getElementById('chart-pipe-step').getContext('2d');
+    if(App.charts['step']) App.charts['step'].destroy();
+    
+    App.charts['step'] = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: keys,
-            datasets: [{ label: '건수', data: Object.values(counts), backgroundColor: '#10b981', borderRadius:6 }]
+            labels: Object.keys(counts),
+            datasets: [{ label: '건수', data: Object.values(counts), backgroundColor: '#10b981', borderRadius:4 }]
         },
-        options: { ...chartOptions }
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
     });
 }
 
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    
-    if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center; padding:30px; color:#94a3b8;">데이터가 없습니다.</td></tr>`;
-        return;
-    }
-
+    // Show top 100
     data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
         cols.forEach(k => {
             let val = d[k] || d[k.replace('_','')] || '-';
             if(k==='좌표') val = d._lat ? '<i class="ph ph-map-pin" style="color:var(--primary)"></i>' : '';
             if(k==='_fee') val = val.toLocaleString();
-            if(k==='_risk') val = `<span class="badge ${val>=75?'bg-red':'bg-green'}">${val}%</span>`;
-            if(k==='_status') val = `<span class="badge ${val==='처리완료'?'bg-blue':'bg-red'}">${val}</span>`;
+            if(k==='_risk') val = `<span class="badge bd-${val>=75?'red':'green'}">${val}%</span>`;
+            if(k==='_status') val = `<span class="badge bd-${val==='처리완료'?'blue':'red'}">${val}</span>`;
             const td = document.createElement('td');
             td.innerHTML = val;
             tr.appendChild(td);
         });
         
-        if(d._lat && App.view === 'voc') {
+        if(id === 'table-voc' && d._lat) {
             tr.onclick = () => {
                 App.map.panTo({lat:d._lat, lng:d._lng});
                 App.map.setZoom(14);
-                document.querySelectorAll('tr').forEach(r=>r.classList.remove('selected'));
-                tr.classList.add('selected');
+                // Highlight
+                document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
+                tr.classList.add('active-row');
+                // Trigger Marker
+                if(d._marker) google.maps.event.trigger(d._marker, 'click');
             };
         }
         tbody.appendChild(tr);
     });
 }
 
-function switchView(view) {
-    App.view = view;
+/* --- UTILS --- */
+function animateNum(id, target) {
+    const el = document.getElementById(id);
+    const start = parseInt(el.innerText.replace(/,/g,'')) || 0;
+    if(start === target) return;
+    
+    let current = start;
+    const step = Math.ceil((target - start) / 20);
+    const timer = setInterval(() => {
+        current += step;
+        if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
+            current = target;
+            clearInterval(timer);
+        }
+        el.innerText = current.toLocaleString();
+    }, 20);
+}
+
+function switchView(v) {
+    App.view = v;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
     
+    // Sync buttons
+    const btns = document.querySelectorAll(`button[onclick="switchView('${v}')"]`);
+    btns.forEach(b => b.classList.add('active'));
+
     document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById(`view-${view}`).classList.add('active');
+    document.getElementById(`view-${v}`).classList.add('active');
 
-    const isPipe = view === 'pipe';
-    document.getElementById('fg-hq').style.display = isPipe ? 'block' : 'none';
-    document.getElementById('fg-risk').style.display = isPipe ? 'block' : 'none';
-    document.getElementById('fg-status').style.display = isPipe ? 'none' : 'block';
-
-    resetFilter('hq'); resetFilter('branch'); resetFilter('agent');
+    // Filter Visibility
+    const isPipe = v === 'pipe';
+    document.getElementById('fb-hq').style.display = isPipe ? 'block' : 'none';
+    document.getElementById('fb-risk').style.display = isPipe ? 'block' : 'none';
+    document.getElementById('fb-status').style.display = isPipe ? 'none' : 'block';
     
+    // Resize
     setTimeout(() => {
-        if(view==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
-        Object.values(App.charts).forEach(c=>c.resize());
+        if(v==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
+        Object.values(App.charts).forEach(c => c.resize());
     }, 200);
 
     updateDashboard();
 }
 
-function triggerFileUpload() {
-    const pwd = prompt("관리자 비밀번호를 입력하세요:");
-    if(pwd === "3867") document.getElementById('fileInput').click();
-    else if(pwd !== null) alert("비밀번호 오류");
+function triggerUpload() {
+    const p = prompt("관리자 비밀번호 입력:");
+    if(p==="3867") document.getElementById('fileInput').click();
+    else if(p!==null) alert("비밀번호 오류");
 }
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = (evt) => {
         const res = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
-        const headers = res.meta.fields || [];
-        if(headers.some(h=>h.includes('위치좌표'))) {
-            App.rawData.voc = parseVoc(res.data);
-            alert("VOC 데이터 업데이트");
-            if(App.view !== 'voc') switchView('voc'); else updateDashboard();
-        } else if(headers.some(h=>h.includes('위험도'))) {
-            App.rawData.pipe = parsePipe(res.data);
-            alert("파이프라인 데이터 업데이트");
-            if(App.view !== 'pipe') switchView('pipe'); else updateDashboard();
+        const h = res.meta.fields || [];
+        if(h.some(x=>x.includes('위치좌표'))) {
+            App.data.voc = parseVoc(res.data);
+            alert("VOC 데이터 갱신 완료");
+            switchView('voc');
+        } else if(h.some(x=>x.includes('위험도'))) {
+            App.data.pipe = parsePipe(res.data);
+            alert("파이프라인 데이터 갱신 완료");
+            switchView('pipe');
+        } else {
+            alert("알 수 없는 파일 형식입니다.");
         }
     };
-    reader.readAsText(file, 'UTF-8');
+    r.readAsText(f, 'UTF-8');
 });
-
-function initUI() { switchView('voc'); }
 </script>
 </body>
 </html>
