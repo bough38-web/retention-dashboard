@@ -109,10 +109,10 @@
 
 <div id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="font-weight: 600; color: #1e293b; font-size: 14px;">데이터 분석 및 지도 로드 중...</div>
+    <div style="font-weight: 600; color: #1e293b; font-size: 14px;">데이터 로드 중...</div>
 </div>
 
-<div id="toast" class="toast">지도를 움직이면 화면 내 데이터로 차트가 갱신됩니다.</div>
+<div id="toast" class="toast">전체 데이터 조회 완료 (좌표 미보유 건 포함)</div>
 
 <div class="sidebar">
     <div class="sidebar-header">
@@ -142,7 +142,7 @@
             <label>관리 지사</label><div id="vocBranchButtons" class="filter-buttons"></div>
             <label>담당자</label><select id="vocAgentFilter"><option value="ALL">전체 담당자</option></select>
             <div style="margin-top:20px; font-size:12px; color:var(--text-sub); background:#f8fafc; padding:10px; border-radius:6px;">
-                <i class="ph ph-info"></i> <b>알림:</b> 지도 이동 시 <br/>해당 지역 데이터만 필터링됩니다.
+                <i class="ph ph-info"></i> <b>알림:</b> 전체 데이터를 기반으로<br/>현황을 집계합니다.<br/>(지도는 좌표 보유 건만 표시)
             </div>
         </div>
 
@@ -178,12 +178,12 @@
         <div class="view-header">
             <div>
                 <h2>관리고객(VOC) 활동 현황</h2>
-                <p>지도 기반 실시간 모니터링</p>
+                <p>전체 데이터 통합 조회 (지도 위치 연동)</p>
             </div>
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="border-left-color: #3b82f6;"><h3>화면 내 VOC</h3><div id="kpi-voc-total" class="value">0</div><i class="ph ph-map-pin icon"></i></div>
+            <div class="kpi-card" style="border-left-color: #3b82f6;"><h3>총 계약 건수</h3><div id="kpi-voc-total" class="value">0</div><i class="ph ph-file-text icon"></i></div>
             <div class="kpi-card" style="border-left-color: #10b981;"><h3>처리 완료</h3><div id="kpi-voc-complete" class="value">0</div><i class="ph ph-check-circle icon"></i></div>
             <div class="kpi-card" style="border-left-color: #f59e0b;"><h3>처리율</h3><div id="kpi-voc-complete-rate" class="value">0%</div><i class="ph ph-chart-pie-slice icon"></i></div>
             <div class="kpi-card" style="border-left-color: #ef4444;"><h3>미접수 건</h3><div id="kpi-voc-unassigned" class="value">0</div><i class="ph ph-warning-circle icon"></i></div>
@@ -192,8 +192,8 @@
         <div class="map-section">
             <div class="chart-card" style="height:auto;">
                 <div class="card-header">
-                    <h3><i class="ph ph-map-trifold"></i> VOC 지리적 분포</h3>
-                    <span>드래그/줌 시 하단 데이터 자동 연동</span>
+                    <h3><i class="ph ph-map-trifold"></i> VOC 위치 현황</h3>
+                    <span>좌표가 있는 데이터만 표시됩니다</span>
                 </div>
                 <div id="vocMap"></div>
             </div>
@@ -201,18 +201,18 @@
 
         <div class="chart-grid">
             <div class="chart-card">
-                <div class="card-header"><h3>📉 조치 필요 담당자 (화면 내)</h3><span>미접수/접수 상위</span></div>
+                <div class="card-header"><h3>📉 조치 필요 담당자</h3><span>미접수/접수 상위</span></div>
                 <div class="chart-wrapper"><canvas id="vocActivityChart"></canvas></div>
             </div>
             <div class="chart-card">
-                <div class="card-header"><h3>지사별 처리 현황 (화면 내)</h3><span>건수 기준</span></div>
+                <div class="card-header"><h3>지사별 처리 현황</h3><span>건수 기준</span></div>
                 <div class="chart-wrapper"><canvas id="vocBranchChart"></canvas></div>
             </div>
         </div>
 
         <div class="list-card">
             <div class="card-header">
-                <h3>상세 데이터 리스트 (지도 영역)</h3>
+                <h3>상세 데이터 리스트 (전체)</h3>
                 <button class="btn-action" onclick="exportToCSV('voc')"><i class="ph ph-download-simple"></i> 엑셀 다운로드</button>
             </div>
             <div class="table-container">
@@ -346,7 +346,6 @@
     async function loadDefaultData() {
         const [v, p] = await Promise.all([loadCsv(VOC_CSV_URL), loadCsv(PIPELINE_CSV_URL)]);
         
-        // ★ 핵심 수정: 전처리 로직 강화
         state.voc.data = preprocessVocData(v); 
         state.pipeline.data = preprocessPipelineData(p);
         
@@ -359,38 +358,28 @@
         return new Promise(r => Papa.parse(text, { header: true, skipEmptyLines: true, complete: res => r(res.data) }));
     }
 
-    // ★ [수정됨] 좌표 데이터 파싱 강화
     function preprocessVocData(data) {
         if (!data || data.length === 0) return [];
-        
-        // 데이터의 첫 행을 검사하여 "위치좌표"가 포함된 실제 키 찾기
         const firstRow = data[0];
-        let targetKey = null;
-        
-        // 1. 정확한 매칭 시도
-        if ("위치좌표(위도,경도)" in firstRow) targetKey = "위치좌표(위도,경도)";
-        // 2. 유연한 매칭 (BOM 제거 및 포함 여부 확인)
-        else {
+        let targetKey = Object.keys(firstRow).find(k => k.replace(/[\ufeff\s"]/g, '').includes("위치좌표"));
+        if (!targetKey) {
             const keys = Object.keys(firstRow);
-            targetKey = keys.find(k => k.replace(/[\ufeff\s"]/g, '').includes("위치좌표"));
+            for (let k of keys) {
+                const val = firstRow[k];
+                if (typeof val === 'string' && /^[0-9.]+\s*,\s*[0-9.]+$/.test(val)) {
+                    targetKey = k; break;
+                }
+            }
         }
-
-        console.log("좌표 컬럼 감지:", targetKey); // 디버깅용
-
         return data.map(row => {
             if (targetKey && row[targetKey]) {
                 const rawVal = row[targetKey];
-                // 값이 문자열이고 콤마가 있다면 분리
                 if (typeof rawVal === 'string' && rawVal.includes(',')) {
                     const parts = rawVal.split(',');
                     if (parts.length >= 2) {
-                        const lat = parseFloat(parts[0].trim());
-                        const lng = parseFloat(parts[1].trim());
-                        // 유효한 숫자인 경우에만 할당
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            row["위도"] = lat;
-                            row["경도"] = lng;
-                        }
+                        const lat = parseFloat(parts[0].trim().replace(/"/g,''));
+                        const lng = parseFloat(parts[1].trim().replace(/"/g,''));
+                        if (!isNaN(lat) && !isNaN(lng)) { row["위도"] = lat; row["경도"] = lng; }
                     }
                 }
             }
@@ -431,7 +420,8 @@
             mapTypeControl: false, fullscreenControl: false
         });
         vocInfo = new google.maps.InfoWindow();
-        vocMap.addListener("idle", () => { applyMapBoundsFilter(); });
+        // ★ 중요: 지도가 움직여도 데이터 필터링을 하지 않도록 리스너 제거 또는 수정
+        // vocMap.addListener("idle", () => { applyMapBoundsFilter(); });
     }
 
     function getVocIcon(row){
@@ -448,7 +438,7 @@
         state.voc.filtered.forEach((r) => {
             const lat = parseFloat(r["위도"]);
             const lng = parseFloat(r["경도"]);
-            if(isNaN(lat) || isNaN(lng)) return;
+            if(isNaN(lat) || isNaN(lng)) return; // ★ 좌표 없는 건은 마커만 패스
 
             const marker = new google.maps.Marker({
                 position: {lat, lng},
@@ -486,18 +476,9 @@
         });
     }
 
+    // ★ 수정됨: 이제 지도가 뷰를 제한하지 않음. 전체 데이터를 뷰에 할당.
     function applyMapBoundsFilter() {
-        if(!vocMap) return;
-        const bounds = vocMap.getBounds();
-        if (!bounds) { state.voc.viewData = state.voc.filtered; } 
-        else {
-            state.voc.viewData = state.voc.filtered.filter(r => {
-                const lat = parseFloat(r["위도"]);
-                const lng = parseFloat(r["경도"]);
-                if(isNaN(lat)||isNaN(lng)) return false;
-                return bounds.contains({lat, lng});
-            });
-        }
+        state.voc.viewData = state.voc.filtered; 
         updateVocDashboardComponents();
     }
 
@@ -530,7 +511,11 @@
     function updateDashboard(v) {
         filterData(v);
         if(v === 'pipeline') { updatePipelineKPIs(); drawPipelineCharts(); renderTable('pipeline'); } 
-        else { renderVocMarkers(); setTimeout(applyMapBoundsFilter, 100); }
+        else { 
+            // VOC 업데이트: 마커 새로 찍고, 전체 데이터로 차트/테이블 갱신
+            renderVocMarkers(); 
+            applyMapBoundsFilter(); 
+        }
     }
 
     function filterData(v) {
@@ -566,8 +551,12 @@
 
     function updateVocKPIs() {
         const d = state.voc.viewData; 
+        // ★ 계약번호 기준으로 중복 제거 (전체 계약 건수)
+        const uniqueContracts = new Set(d.map(r => r["계약번호"])).size;
+        
         const comp = d.filter(r=>(r["상태"]||"").trim()==='처리완료').length;
-        document.getElementById("kpi-voc-total").innerText = util.formatNum(d.length);
+        
+        document.getElementById("kpi-voc-total").innerText = util.formatNum(uniqueContracts); // 계약번호 기준
         document.getElementById("kpi-voc-complete").innerText = util.formatNum(comp);
         document.getElementById("kpi-voc-complete-rate").innerText = d.length>0 ? (comp/d.length*100).toFixed(1)+'%' : '0%';
         document.getElementById("kpi-voc-unassigned").innerText = util.formatNum(d.filter(r=>(r["상태"]||"").trim()==='미접수').length);
@@ -712,7 +701,18 @@
     function renderAgentOptions(view) { const s = state[view]; let filteredAgents = s.data; if(s.branch !== 'ALL') filteredAgents = filteredAgents.filter(r => util.normalizeBranch(r["관리지사"]) === s.branch); if(view === 'pipeline' && s.hq !== 'ALL') filteredAgents = filteredAgents.filter(r => (r["관리본부"]||"").trim() === s.hq); const agents = [...new Set(filteredAgents.map(r=>(r["담당자"]||"").trim()).filter(Boolean))].sort(); const selectEl = document.getElementById(view === 'voc' ? 'vocAgentFilter' : 'pipelineAgentFilter'); selectEl.innerHTML = `<option value="ALL">전체 담당자 (${agents.length})</option>` + agents.map(a => `<option value="${a}">${a}</option>`).join(''); selectEl.value = agents.includes(s.agent) ? s.agent : 'ALL'; if(selectEl.value === 'ALL') s.agent = 'ALL'; }
     function showToast() { const t = document.getElementById("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 3000); }
 
-    document.getElementById('localFileInput').addEventListener('change', function(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(evt) { Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) { state.pipeline.data = preprocessPipelineData(results.data); initializeApp(); switchView('pipeline'); alert("데이터 갱신 완료"); }}); }; reader.readAsText(file, 'UTF-8'); });
+    document.getElementById('localFileInput').addEventListener('change', function(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(evt) { Papa.parse(evt.target.result, { header: true, skipEmptyLines: true, complete: function(results) { 
+        const keys = Object.keys(results.data[0] || {});
+        const isVoc = keys.some(k => k.includes("위치좌표") || k.includes("지도링크"));
+        if (isVoc) {
+            state.voc.data = preprocessVocData(results.data);
+            renderVocFilters('branch'); renderAgentOptions('voc'); switchView('voc'); renderVocMarkers(); applyMapBoundsFilter();
+            alert("VOC 데이터 갱신 완료");
+        } else {
+            state.pipeline.data = preprocessPipelineData(results.data); initializeApp(); switchView('pipeline'); 
+            alert("파이프라인 데이터 갱신 완료");
+        }
+    }}); }; reader.readAsText(file, 'UTF-8'); });
 </script>
 </body>
 </html>
