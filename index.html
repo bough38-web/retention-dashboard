@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v21.0)</title>
+<title>KTT Premium Retention Dashboard (v21.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -19,28 +19,28 @@
         --text: #1e293b; --text-sub: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
-        --fail-bg: #fef2f2;
+        --fail-bg: #fef2f2; --fail-text: #b91c1c;
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     
-    /* Layout */
+    /* Sidebar */
     .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
-    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; gap:24px; }
-    
-    /* Sidebar Components */
-    .logo { padding:24px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
+    .logo { padding:20px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
     .scroll-area { flex:1; overflow-y:auto; padding:20px; }
+    
+    /* Upload */
     .upload-box { 
         background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; 
-        text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; 
+        text-align:center; margin-bottom:20px; cursor:pointer; transition:0.2s; 
     }
     .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
     .upload-box span { font-size:13px; font-weight:600; color:var(--text); display:block; }
     #fileInput { display:none; }
 
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
-    .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
+    /* Tabs */
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
+    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
 
     /* Filters */
@@ -48,15 +48,16 @@
     .filter-head { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-sub); margin-bottom:8px; }
     .reset-btn { cursor:pointer; color:var(--primary); display:none; font-size:11px; }
     .reset-btn.show { display:inline; }
-    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; align-content:flex-start; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:180px; overflow-y:auto; align-content:flex-start; }
     .chip { 
-        padding:6px 12px; border:1px solid var(--border); background:var(--surface); 
-        border-radius:20px; font-size:12px; color:var(--text); cursor:pointer; transition:0.15s; 
+        padding:5px 10px; border:1px solid var(--border); background:var(--surface); 
+        border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; transition:0.15s; 
     }
     .chip:hover { border-color:var(--text-sub); }
     .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(79, 70, 229, 0.3); }
 
     /* View Panel */
+    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; }
     .view-panel { display:none; flex-direction:column; gap:20px; animation:fadeIn 0.4s ease-out; flex:1; }
     .view-panel.active { display:flex; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
@@ -66,20 +67,22 @@
     .header h2 { margin:0; font-size:24px; font-weight:800; }
     .action-btn { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
     
-    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; flex:none; }
-    .kpi-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; border-left:5px solid var(--c); }
+    .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; flex:none; }
+    .kpi-card { background:var(--surface); padding:20px; border-radius:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; border-left:5px solid var(--c); }
     .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.5px; }
-    .kpi-val { font-size:36px; font-weight:800; margin-top:10px; color:var(--text); letter-spacing:-1px; }
+    .kpi-val { font-size:32px; font-weight:800; margin-top:8px; color:var(--text); letter-spacing:-1px; }
+    .kpi-icon { position:absolute; right:20px; top:20px; font-size:40px; opacity:0.1; color:var(--c); }
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
     /* Grids */
-    .voc-layout { display:flex; gap:20px; height:450px; flex:none; }
+    .voc-layout { display:flex; gap:20px; flex:none; height:450px; }
     .voc-left { flex:1; display:flex; flex-direction:column; gap:20px; }
     .voc-right { flex:1.2; display:flex; flex-direction:column; }
     
+    /* Pipeline Chart Area Fixed Height */
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; flex:none; height:320px; }
 
-    .card { background:var(--surface); border-radius:12px; padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
+    .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
     .card.full { flex:1; min-height:0; }
     .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
     .card-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--text); }
@@ -88,7 +91,7 @@
     .chart-wrapper { flex:1; position:relative; min-height:0; }
 
     /* Table */
-    .table-section { flex:1; min-height:350px; display:flex; flex-direction:column; }
+    .table-section { flex:1; min-height:300px; display:flex; flex-direction:column; }
     .table-wrapper { flex:1; overflow:auto; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
     th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
@@ -97,7 +100,8 @@
     tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
     
     /* Fail Row Highlight */
-    tr.row-fail td { background:var(--fail-bg); color:#dc2626; font-weight:600; }
+    tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
+    tr.row-fail:hover td { background:#fee2e2; }
 
     /* Utils */
     .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
@@ -119,7 +123,7 @@
     <div class="logo"><i class="ph ph-chart-polar"></i> KTT Dashboard</div>
     <div class="scroll-area">
         <div class="upload-box" onclick="triggerUpload()">
-            <i class="ph ph-file-csv"></i> <span>파일 교체 (보안)</span>
+            <i class="ph ph-lock-key"></i> <span>파일 교체 (보안)</span>
             <input type="file" id="fileInput" accept=".csv" />
         </div>
         <div class="nav-tabs">
@@ -162,13 +166,15 @@
 
         <div class="voc-layout">
             <div class="voc-left">
-                <div class="card full">
-                    <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
-                    <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
-                </div>
-                <div class="card full">
-                    <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
-                    <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; height:100%;">
+                    <div class="card">
+                        <div class="card-head"><h3 class="card-title">지사별 현황 (Click)</h3></div>
+                        <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
+                        <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
+                    </div>
                 </div>
             </div>
             <div class="voc-right">
@@ -187,7 +193,8 @@
             <div class="table-wrapper">
                 <table id="table-voc">
                     <thead><tr>
-                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>서비스</th><th>합산월정료</th><th>등록내용</th><th>주소</th><th>위치</th>
+                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th>
+                        <th>서비스</th><th>합산월정료</th><th>등록내용</th><th>주소</th><th>위치</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
@@ -206,8 +213,8 @@
 
         <div class="kpi-grid">
             <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (<span id="pipe-channel-label">SP</span>)</div><div class="kpi-val counter" id="pipe-total">0</div></div>
-            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val counter" id="pipe-high">0</div></div>
-            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">예상 손실액(월)</div><div class="kpi-val" id="pipe-loss">0</div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val counter" id="pipe-high">0</div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">방어실패 (100%)</div><div class="kpi-val counter" id="pipe-fail">0</div></div>
             <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div class="kpi-val counter" id="pipe-success">0</div></div>
         </div>
 
@@ -217,23 +224,25 @@
                 <div class="chart-wrapper"><canvas id="chart-pipe-step"></canvas></div>
             </div>
             <div class="card full">
-                <div class="card-head"><h3 class="card-title">주요 해지 사유</h3></div>
+                <div class="card-head"><h3 class="card-title">주요 해지 사유 (Top 5)</h3></div>
                 <div class="chart-wrapper"><canvas id="chart-pipe-reason"></canvas></div>
             </div>
         </div>
 
-        <div class="card table-section">
+        <div class="card table-section" style="min-height:350px;">
             <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
             <div class="table-wrapper">
                 <table id="table-pipe">
                     <thead><tr>
-                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th>
+                        <th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
         </div>
     </div>
+
 </div>
 
 <script>
@@ -302,9 +311,12 @@ function parseVoc(data) {
 
 function parsePipe(data) {
     if(!data.length) return [];
-    const kRisk = findKey(data[0], "위험도"); const kDate = findKey(data[0], "해지예정일");
-    const kFee = findKey(data[0], "월정료"); const kHQ = findKey(data[0], "관리본부");
-    const kName = findKey(data[0], "상호") || "상호명";
+    const kRisk = findKey(data[0], "위험도") || "해지위험도";
+    const kDate = findKey(data[0], "해지예정일") || "해지예정일";
+    const kFee = findKey(data[0], "월정료") || "KTT월정료(조정)";
+    const kHQ = findKey(data[0], "관리본부") || "관리본부";
+    const kName = findKey(data[0], "상호명") || findKey(data[0], "상호") || "상호명";
+    const kCont = findKey(data[0], "계약번호") || "계약번호";
     const kChan = findKey(data[0], "담당영업채널") || "담당영업채널";
 
     return data.map(r => {
@@ -316,7 +328,8 @@ function parsePipe(data) {
         }
         return {
             ...r,
-            "상호": r[kName] || "-",
+            "계약번호": String(r[kCont]||"").replace(/\.0$/,''),
+            "상호": r[kName]||"-",
             _hq: (r[kHQ]||"기타").trim(), _branch: normStr(r["관리지사"]),
             _agent: (r["담당자"]||"미지정").trim(), _risk: Math.round(risk),
             _step: (r["방어진행단계"]||"").trim(), _fee: parseMoney(r[kFee]), _date: dStr,
@@ -369,8 +382,7 @@ function updateDynamicFilters(src) {
         const hqs = [...new Set(src.map(d=>d._hq))].sort();
         renderChips('chips-hq', ['전체',...hqs], 'hq', true);
     }
-    let bSrc = src;
-    if(!isVoc && App.filters.hq!=='ALL') bSrc = src.filter(d=>d._hq===App.filters.hq);
+    let bSrc = isVoc ? src : (App.filters.hq!=='ALL' ? src.filter(d=>d._hq===App.filters.hq) : src);
     let branches = [...new Set(bSrc.map(d=>d._branch))];
     branches.sort((a,b) => {
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
@@ -442,7 +454,8 @@ function renderVocView() {
 
 function renderPipeView() {
     const data = App.filtered;
-    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100);
+    // KPI Update Logic
+    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); 
     const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
     const success = data.filter(d => d._step === '방어성공');
     const loss = fail.reduce((a,b)=>a+b._fee, 0);
@@ -474,7 +487,7 @@ function updateMap(data) {
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
     const bounds = new google.maps.LatLngBounds();
-    const isFiltered = App.filters.branch !== 'ALL' || App.filters.agent !== 'ALL' || App.filters.status !== 'ALL';
+    const isFiltered = App.filters.branch!=='ALL' || App.filters.agent!=='ALL' || App.filters.status!=='ALL';
     const valid = data.filter(d=>d._lat);
     
     valid.forEach(d => {
@@ -489,31 +502,18 @@ function updateMap(data) {
         bounds.extend(m.getPosition());
         App.markers.push(m);
     });
-    
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
-    
-    if(isFiltered && valid.length > 0) App.map.fitBounds(bounds);
+    if(valid.length > 0 && isFiltered) App.map.fitBounds(bounds);
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
+/* CHARTS & TABLE */
 function drawBar(id, data, key, label, color, fType) {
     const counts = {};
-    data.forEach(d => {
-        let k = d[key] || "미입력";
-        if(key === '해지사유' && (!k || k.trim() === '')) k = '미입력';
-        counts[k] = (counts[k]||0)+1;
-    });
-    
+    data.forEach(d => { let k=d[key]||"미입력"; if(key==='해지사유'&&(!k||k.trim()==='')) k='미입력'; counts[k]=(counts[k]||0)+1; });
     let keys = Object.keys(counts);
-    if(key === '_branch') {
-        keys.sort((a,b) => {
-            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
-            if(ia!==-1 && ib!==-1) return ia-ib;
-            return b.localeCompare(a); 
-        });
-    } else {
-        keys.sort((a,b) => counts[b] - counts[a]);
-    }
+    if(key==='_branch') keys.sort((a,b)=>BRANCH_ORDER.indexOf(a)-BRANCH_ORDER.indexOf(b));
+    else keys.sort((a,b)=>counts[b]-counts[a]);
     keys = keys.slice(0, 15);
 
     const ctx = document.getElementById(id).getContext('2d');
@@ -521,18 +521,11 @@ function drawBar(id, data, key, label, color, fType) {
 
     App.charts[id] = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: keys,
-            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:6 }]
-        },
+        data: { labels: keys, datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:4 }] },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: {display:false}, datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} } },
-            scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
-            onClick: (e, els) => {
-                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-            },
-            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+            maintainAspectRatio: false,
+            plugins: { legend:{display:false}, datalabels:{anchor:'end', align:'top', color:'#555'} },
+            onClick: (e, el) => { if(el.length && fType) { App.filters[fType]=keys[el[0].index]; updateDashboard(); } }
         }
     });
 }
@@ -570,10 +563,7 @@ function animateNum(id, target) {
     const step = Math.ceil((target - start) / 20);
     const timer = setInterval(() => {
         current += step;
-        if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
-            current = target;
-            clearInterval(timer);
-        }
+        if ((step > 0 && current >= target) || (step < 0 && current <= target)) { current = target; clearInterval(timer); }
         el.innerText = current.toLocaleString();
     }, 20);
 }
@@ -592,7 +582,7 @@ function switchView(v) {
     document.getElementById('fb-channel').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isPipe ? 'none' : 'block';
     
-    setTimeout(() => {
+    setTimeout(() => { 
         if(v==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
         Object.values(App.charts).forEach(c => c.resize());
     }, 200);
@@ -600,9 +590,7 @@ function switchView(v) {
 }
 
 function triggerUpload() {
-    const p = prompt("관리자 비밀번호 입력:");
-    if(p==="3867") document.getElementById('fileInput').click();
-    else if(p!==null) alert("비밀번호 오류");
+    if(prompt("비밀번호:")==="3867") document.getElementById('fileInput').click();
 }
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
