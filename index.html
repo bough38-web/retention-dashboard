@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v19.0 Final)</title>
+<title>KTT Premium Retention Dashboard (v19.1 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -20,6 +20,7 @@
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
         --fail-bg: #fef2f2; /* 방어실패 배경색 */
+        --fail-text: #b91c1c;
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
@@ -29,18 +30,17 @@
     .logo { padding:20px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
     .scroll-area { flex:1; overflow-y:auto; padding:20px; }
     
-    /* Upload */
+    /* Upload & Tabs */
     .upload-box { 
-        background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; 
-        text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; 
+        background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:14px; 
+        text-align:center; margin-bottom:20px; cursor:pointer; transition:0.2s; 
     }
     .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
-    .upload-box span { font-size:13px; font-weight:600; color:var(--text); }
+    .upload-box span { font-size:12px; font-weight:600; color:var(--text); display:block; }
     #fileInput { display:none; }
 
-    /* Tabs */
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
-    .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
+    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
 
     /* Filters */
@@ -72,44 +72,44 @@
     .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.5px; }
     .kpi-val { font-size:36px; font-weight:800; margin-top:10px; color:var(--text); letter-spacing:-1px; }
     .kpi-icon { position:absolute; right:20px; top:20px; font-size:48px; opacity:0.1; color:var(--c); }
+    .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
     /* Grids */
-    .voc-layout { display:flex; gap:20px; flex:1; min-height:0; }
+    .voc-layout { display:flex; gap:20px; height:380px; flex:none; }
     .voc-left { flex:1; display:flex; flex-direction:column; gap:20px; }
     .voc-right { flex:1.5; display:flex; flex-direction:column; }
     .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; flex:1; min-height:0; }
 
-    .card { background:var(--surface); border-radius:12px; padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
+    .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
     .card.full { flex:1; min-height:0; }
-    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex:none; }
+    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
     .card-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--text); }
 
-    /* Map & Chart */
-    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; min-height:350px; }
-    .chart-wrapper { flex:1; position:relative; min-height:200px; }
+    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; }
+    .chart-wrapper { flex:1; position:relative; min-height:0; }
 
     /* Table */
     .table-section { flex:1; min-height:300px; display:flex; flex-direction:column; }
     .table-wrapper { flex:1; overflow:auto; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
-    th { background:#f8fafc; padding:12px 16px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
-    td { padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
+    th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
+    td { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
     tr:hover td { background:#f1f5f9; }
     tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
     
-    /* Fail Row Style */
-    tr.row-fail td { background:var(--fail-bg); color:#991b1b; }
+    /* Fail Row Highlight */
+    tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
     tr.row-fail:hover td { background:#fee2e2; }
 
     /* Utils */
-    .badge { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
+    .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
     .bd-done { background:#dcfce7; color:#166534; }
     .bd-ing { background:#fef3c7; color:#92400e; }
     .bd-wait { background:#fee2e2; color:#991b1b; }
     .btn-map { padding:4px 8px; background:#e0e7ff; color:var(--primary); border-radius:6px; font-weight:700; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
 
     #loading { position:fixed; inset:0; background:rgba(255,255,255,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; }
-    .spinner { width:50px; height:50px; border:5px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+    .spinner { width:40px; height:40px; border:4px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
     @keyframes spin { 100%{transform:rotate(360deg);} }
 </style>
 </head>
@@ -145,26 +145,26 @@
 
         <div class="kpi-grid">
             <div class="kpi-card" style="--c:var(--primary)">
-                <div class="kpi-label">총 계약 (대상) <i class="ph ph-users"></i></div>
-                <div class="kpi-val" id="voc-total">0</div>
+                <div class="kpi-label">총 계약 (Unique)</div>
+                <div class="kpi-val counter" id="voc-total">0</div>
             </div>
             <div class="kpi-card" style="--c:var(--success)">
-                <div class="kpi-label">처리 완료 <i class="ph ph-check-circle"></i></div>
+                <div class="kpi-label">처리 완료</div>
                 <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--warning)">
-                <div class="kpi-label">접수(진행) <i class="ph ph-clock"></i></div>
+                <div class="kpi-label">접수(진행)</div>
                 <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--danger)">
-                <div class="kpi-label">미접수 <i class="ph ph-warning-circle"></i></div>
+                <div class="kpi-label">미접수</div>
                 <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
             </div>
         </div>
 
         <div class="voc-layout">
             <div class="voc-left">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; height:280px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; height:100%;">
                     <div class="card">
                         <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
                         <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
@@ -174,29 +174,27 @@
                         <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
                     </div>
                 </div>
-                <div class="card full">
-                    <div class="card-head"><h3 class="card-title">상세 리스트</h3></div>
-                    <div class="table-wrapper">
-                        <table id="table-voc">
-                            <thead><tr>
-                                <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th>
-                                <th>상태</th><th>서비스</th><th>합산월정료</th>
-                                <th>등록내용</th><th>주소</th><th>위치</th>
-                            </tr></thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
-            
             <div class="voc-right">
                 <div class="card full" style="padding:0; overflow:hidden;">
-                    <div style="padding:16px; border-bottom:1px solid var(--border); background:#fff; display:flex; justify-content:space-between;">
+                    <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:#fff; display:flex; justify-content:space-between; align-items:center;">
                         <h3 class="card-title"><i class="ph ph-map-trifold"></i> 고객 위치 현황</h3>
-                        <span style="font-size:12px; color:#64748b;">*선택 시 자동 줌인</span>
+                        <span style="font-size:12px; color:var(--text-sub);">* 클릭 시 자동 줌인</span>
                     </div>
                     <div id="voc-map" class="map-wrapper"></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card table-section">
+            <div class="card-head"><h3 class="card-title">상세 리스트</h3></div>
+            <div class="table-wrapper">
+                <table id="table-voc">
+                    <thead><tr>
+                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>서비스</th><th>합산월정료</th><th>등록내용</th><th>주소</th><th>위치</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -205,13 +203,13 @@
         <div class="header">
             <div>
                 <h2>해지 파이프라인 분석</h2>
-                <p>고위험군(60%↑) 및 방어 실패(100%) 집중 관리</p>
+                <p>고위험군 및 방어 성과 집중 관리</p>
             </div>
             <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (SP)</div><div class="kpi-val" id="pipe-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (<span id="pipe-channel-label">SP</span>)</div><div class="kpi-val" id="pipe-total">0</div></div>
             <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val" id="pipe-high">0</div></div>
             <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">방어실패 (100%)</div><div class="kpi-val" id="pipe-fail">0</div></div>
             <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div class="kpi-val" id="pipe-success">0</div></div>
@@ -228,13 +226,12 @@
             </div>
         </div>
 
-        <div class="card table-section">
+        <div class="card table-section" style="height:450px;">
             <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
             <div class="table-wrapper">
                 <table id="table-pipe">
                     <thead><tr>
-                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th>
-                        <th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
@@ -347,7 +344,7 @@ function initFiltersHTML() {
         <div class="filter-box" id="fb-status"><div class="filter-head">처리 상태</div><div id="chips-status" class="chips"></div></div>
     `;
     renderChips('chips-status', ['전체','처리완료','접수','미접수'], 'status');
-    renderChips('chips-channel', ['전체','SP','SC','AM'], 'channel'); // Channel Filter Added
+    renderChips('chips-channel', ['전체','SP','SC','AM'], 'channel'); 
 }
 
 function updateDashboard() {
@@ -402,7 +399,7 @@ function renderChips(id, items, type, isDynamic=false) {
         if(!isDynamic && Array.from(box.children).some(c=>c.innerText===val)) return;
         const btn = document.createElement('div');
         const isAll = val==='전체' || val==='ALL';
-        // Set default active for Pipeline
+        // Set default active
         let isActive = App.filters[type] === (isAll?'ALL':val);
         
         btn.className = `chip ${isActive ? 'active' : ''}`;
@@ -453,20 +450,17 @@ function renderVocView() {
 function renderPipeView() {
     const data = App.filtered;
     // KPI Logic Update
-    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); // 60~90% (Under 100)
-    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
+    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); // 60~90%
+    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패'); // 100% or Failed
     const success = data.filter(d => d._step === '방어성공');
-    const loss = fail.reduce((a,b)=>a+b._fee, 0);
-
+    
+    // Total is based on current filter (Channel SP default)
     animateNum('pipe-total', data.length);
+    document.getElementById('pipe-channel-label').innerText = App.filters.channel==='ALL'?'전체':App.filters.channel;
+
     animateNum('pipe-high', highRisk.length);
-    document.getElementById('pipe-loss').innerText = (loss/10000).toFixed(0)+'만';
-    document.getElementById('pipe-rate').innerText = fail.length; // Reuse ID as 'Fail Count' for display, but logic is fail count.
-    // Wait, UI says '방어 성공률'. Let's fix UI text later or put count.
-    // Re-mapping KPI:
-    // 1. Total (Target) 2. High Risk 3. Loss Amount 4. Success Count (Change label in HTML)
-    document.querySelector('#pipe-rate').parentElement.previousElementSibling.innerText = "방어 성공 (건)";
-    animateNum('pipe-rate', success.length);
+    animateNum('pipe-fail', fail.length);
+    animateNum('pipe-success', success.length);
 
     drawBar('chart-pipe-step', data, '_step', '방어단계', '#10b981', null);
     drawBar('chart-pipe-reason', data, '해지사유', '해지사유', '#f59e0b', null);
@@ -495,7 +489,7 @@ function updateMap(data) {
     
     const valid = data.filter(d => d._lat);
     const bounds = new google.maps.LatLngBounds();
-    const isFiltered = App.filters.branch!=='ALL' || App.filters.agent!=='ALL' || App.filters.status!=='ALL';
+    const isFiltered = App.filters.branch !== 'ALL' || App.filters.agent !== 'ALL' || App.filters.status !== 'ALL';
 
     valid.forEach(d => {
         const color = d._status === '처리완료' ? 'blue' : 'red';
@@ -506,7 +500,13 @@ function updateMap(data) {
         });
         
         const info = new google.maps.InfoWindow({
-            content: `<div style="padding:5px; font-size:12px;"><b>${d["상호"]}</b><br>${d._branch} | ${d._agent}</div>`
+            content: `
+            <div class="info-window">
+                <div class="info-title">${d["상호"]}</div>
+                <div class="info-row"><span>지사</span> <span class="info-val">${d._branch}</span></div>
+                <div class="info-row"><span>담당자</span> <span class="info-val">${d._agent}</span></div>
+                <span class="info-status" style="background:${d._status==='처리완료'?'#dbeafe':'#fee2e2'}; color:${d._status==='처리완료'?'#1e40af':'#991b1b'}">${d._status}</span>
+            </div>`
         });
         
         m.addListener('click', () => {
@@ -574,32 +574,19 @@ function renderTable(id, data, cols) {
 
     data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
-        if(d._step === '방어실패' || d._risk === 100) tr.classList.add('row-fail');
-        
+        if(d._risk===100 || d._step==='방어실패') tr.classList.add('row-fail');
         cols.forEach(def => {
             let val = d[def.k] || '';
             if(def.fmt) val = def.fmt(val);
             if(def.suffix) val += def.suffix;
-            if(def.badge) {
-                const cls = val==='처리완료'?'bd-done':(val==='접수'?'bd-ing':'bd-wait');
-                val = `<span class="badge ${cls}">${val}</span>`;
-            }
-            if(def.btn && val) {
-                val = `<a href="${val}" target="_blank" class="btn-map"><i class="ph ph-map-pin"></i> 지도확인</a>`;
-            }
+            if(def.badge) val = `<span class="badge ${val==='처리완료'?'bd-done':'bd-wait'}">${val}</span>`;
+            if(def.btn && val) val = `<a href="${val}" target="_blank" class="btn-map">지도확인</a>`;
             const td = document.createElement('td');
             td.innerHTML = val || '-';
             tr.appendChild(td);
         });
-        
-        if(id === 'table-voc' && d._lat) {
-            tr.onclick = () => {
-                App.map.panTo({lat:d._lat, lng:d._lng});
-                App.map.setZoom(15);
-                if(d._marker) google.maps.event.trigger(d._marker, 'click');
-                document.querySelectorAll('tr').forEach(r=>r.classList.remove('active-row'));
-                tr.classList.add('active-row');
-            };
+        if(id==='table-voc' && d._lat) {
+            tr.onclick = () => { App.map.panTo({lat:d._lat, lng:d._lng}); App.map.setZoom(15); google.maps.event.trigger(d._marker, 'click'); };
         }
         tbody.appendChild(tr);
     });
