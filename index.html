@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v18.1 Final)</title>
+<title>KTT Premium Retention Dashboard (v19.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -19,73 +19,87 @@
         --text: #1e293b; --text-sub: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+        --fail-bg: #fef2f2; /* 방어실패 배경색 */
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     
-    /* Layout */
+    /* Sidebar */
     .sidebar { width:300px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
-    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; }
-    
-    /* Sidebar Components */
     .logo { padding:20px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
     .scroll-area { flex:1; overflow-y:auto; padding:20px; }
-    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:14px; text-align:center; margin-bottom:20px; cursor:pointer; }
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
-    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
+    
+    /* Upload */
+    .upload-box { 
+        background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:16px; 
+        text-align:center; margin-bottom:24px; cursor:pointer; transition:0.2s; 
+    }
+    .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
+    .upload-box span { font-size:13px; font-weight:600; color:var(--text); }
+    #fileInput { display:none; }
+
+    /* Tabs */
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:24px; }
+    .nav-tab { flex:1; padding:10px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
 
     /* Filters */
     .filter-box { margin-bottom:20px; }
     .filter-head { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-sub); margin-bottom:8px; }
-    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; align-content:flex-start; }
-    .chip { padding:5px 10px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:11px; cursor:pointer; }
-    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; }
     .reset-btn { cursor:pointer; color:var(--primary); display:none; font-size:11px; }
     .reset-btn.show { display:inline; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:180px; overflow-y:auto; align-content:flex-start; }
+    .chip { 
+        padding:5px 10px; border:1px solid var(--border); background:var(--surface); 
+        border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; transition:0.15s; 
+    }
+    .chip:hover { border-color:var(--text-sub); }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(79, 70, 229, 0.3); }
 
-    /* View Panel */
+    /* Main Content */
+    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; }
     .view-panel { display:none; flex-direction:column; gap:20px; animation:fadeIn 0.4s ease-out; flex:1; }
     .view-panel.active { display:flex; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 
-    /* Header & KPI (Large Font) */
+    /* Header & KPI */
     .header { display:flex; justify-content:space-between; align-items:center; flex:none; }
     .header h2 { margin:0; font-size:24px; font-weight:800; }
     .action-btn { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
-
-    .kpi-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; flex:none; }
-    .kpi-card { background:var(--surface); padding:20px; border-radius:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; border-left:5px solid var(--c); }
-    .kpi-label { font-size:16px; font-weight:700; color:var(--text-sub); margin-bottom:8px; display:flex; justify-content:space-between; }
-    .kpi-val { font-size:32px; font-weight:800; color:var(--text); letter-spacing:-1px; }
-    .kpi-sub { font-size:16px; font-weight:600; color:var(--text-sub); margin-left:8px; }
-
-    /* Review Box */
-    .review-box { background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; padding:16px; display:flex; align-items:start; gap:12px; color:#9f1239; font-size:14px; line-height:1.5; }
-    .review-icon { font-size:20px; margin-top:2px; }
+    
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; flex:none; }
+    .kpi-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; border-left:5px solid var(--c); }
+    .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; letter-spacing:0.5px; }
+    .kpi-val { font-size:36px; font-weight:800; margin-top:10px; color:var(--text); letter-spacing:-1px; }
+    .kpi-icon { position:absolute; right:20px; top:20px; font-size:48px; opacity:0.1; color:var(--c); }
 
     /* Grids */
-    .voc-layout { display:flex; gap:20px; height:380px; flex:none; } /* 지도/차트 높이 고정 */
+    .voc-layout { display:flex; gap:20px; flex:1; min-height:0; }
     .voc-left { flex:1; display:flex; flex-direction:column; gap:20px; }
-    .voc-right { flex:1; display:flex; flex-direction:column; } /* Map Area */
-    
-    .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
+    .voc-right { flex:1.5; display:flex; flex-direction:column; }
+    .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; flex:1; min-height:0; }
+
+    .card { background:var(--surface); border-radius:12px; padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
     .card.full { flex:1; min-height:0; }
-    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
+    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex:none; }
     .card-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--text); }
 
     /* Map & Chart */
-    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; }
-    .chart-wrapper { flex:1; position:relative; min-height:0; }
+    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; min-height:350px; }
+    .chart-wrapper { flex:1; position:relative; min-height:200px; }
 
     /* Table */
     .table-section { flex:1; min-height:300px; display:flex; flex-direction:column; }
     .table-wrapper { flex:1; overflow:auto; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
-    th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
-    td { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
+    th { background:#f8fafc; padding:12px 16px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
+    td { padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
     tr:hover td { background:#f1f5f9; }
     tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
+    
+    /* Fail Row Style */
+    tr.row-fail td { background:var(--fail-bg); color:#991b1b; }
+    tr.row-fail:hover td { background:#fee2e2; }
 
     /* Utils */
     .badge { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
@@ -93,11 +107,9 @@
     .bd-ing { background:#fef3c7; color:#92400e; }
     .bd-wait { background:#fee2e2; color:#991b1b; }
     .btn-map { padding:4px 8px; background:#e0e7ff; color:var(--primary); border-radius:6px; font-weight:700; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
-    .btn-map:hover { background:var(--primary); color:#fff; }
 
-    #fileInput { display:none; }
     #loading { position:fixed; inset:0; background:rgba(255,255,255,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; }
-    .spinner { width:40px; height:40px; border:4px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+    .spinner { width:50px; height:50px; border:5px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
     @keyframes spin { 100%{transform:rotate(360deg);} }
 </style>
 </head>
@@ -131,64 +143,60 @@
             <button class="action-btn" onclick="exportData('voc')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
         </div>
 
-        <div class="kpi-row">
+        <div class="kpi-grid">
             <div class="kpi-card" style="--c:var(--primary)">
-                <div class="kpi-label">총 계약 (Unique)</div>
+                <div class="kpi-label">총 계약 (대상) <i class="ph ph-users"></i></div>
                 <div class="kpi-val" id="voc-total">0</div>
             </div>
             <div class="kpi-card" style="--c:var(--success)">
-                <div class="kpi-label">처리 완료</div>
+                <div class="kpi-label">처리 완료 <i class="ph ph-check-circle"></i></div>
                 <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--warning)">
-                <div class="kpi-label">접수 (진행)</div>
+                <div class="kpi-label">접수(진행) <i class="ph ph-clock"></i></div>
                 <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--danger)">
-                <div class="kpi-label">미접수</div>
+                <div class="kpi-label">미접수 <i class="ph ph-warning-circle"></i></div>
                 <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
-            </div>
-        </div>
-
-        <div class="review-box" id="voc-review" style="display:none;">
-            <i class="ph ph-warning-circle review-icon"></i>
-            <div>
-                <strong>[긴급] 미처리 현황 분석 리포트</strong><br/>
-                <span id="voc-review-text">데이터 분석 중...</span>
             </div>
         </div>
 
         <div class="voc-layout">
             <div class="voc-left">
-                <div class="card full">
-                    <div class="card-head"><h3 class="card-title">지사별 처리 현황 (클릭 필터)</h3></div>
-                    <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; height:280px;">
+                    <div class="card">
+                        <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
+                        <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
+                        <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
+                    </div>
                 </div>
                 <div class="card full">
-                    <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
-                    <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
+                    <div class="card-head"><h3 class="card-title">상세 리스트</h3></div>
+                    <div class="table-wrapper">
+                        <table id="table-voc">
+                            <thead><tr>
+                                <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th>
+                                <th>상태</th><th>서비스</th><th>합산월정료</th>
+                                <th>등록내용</th><th>주소</th><th>위치</th>
+                            </tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            
             <div class="voc-right">
                 <div class="card full" style="padding:0; overflow:hidden;">
-                    <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:#fff; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="padding:16px; border-bottom:1px solid var(--border); background:#fff; display:flex; justify-content:space-between;">
                         <h3 class="card-title"><i class="ph ph-map-trifold"></i> 고객 위치 현황</h3>
-                        <span style="font-size:12px; color:var(--text-sub);"><span style="color:#ef4444">●</span> 미처리 <span style="color:#2563eb">●</span> 완료</span>
+                        <span style="font-size:12px; color:#64748b;">*선택 시 자동 줌인</span>
                     </div>
                     <div id="voc-map" class="map-wrapper"></div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card table-section">
-            <div class="card-head"><h3 class="card-title">상세 데이터 리스트 (전체)</h3></div>
-            <div class="table-wrapper">
-                <table id="table-voc">
-                    <thead><tr>
-                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>서비스</th><th>합산월정료</th><th>등록내용</th><th>주소(시/구/동)</th><th>위치</th>
-                    </tr></thead>
-                    <tbody></tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -197,19 +205,19 @@
         <div class="header">
             <div>
                 <h2>해지 파이프라인 분석</h2>
-                <p>고위험 고객 방어 성과 분석</p>
+                <p>고위험군(60%↑) 및 방어 실패(100%) 집중 관리</p>
             </div>
             <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
         </div>
 
-        <div class="kpi-row">
-            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 총 건수</div><div class="kpi-val" id="pipe-total">0</div></div>
-            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">고위험군 (75%↑)</div><div class="kpi-val" id="pipe-high">0</div></div>
-            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">예상 손실액</div><div class="kpi-val" id="pipe-loss">0</div></div>
-            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어 성공률</div><div class="kpi-val" id="pipe-rate">0%</div></div>
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (SP)</div><div class="kpi-val" id="pipe-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val" id="pipe-high">0</div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">방어실패 (100%)</div><div class="kpi-val" id="pipe-fail">0</div></div>
+            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div class="kpi-val" id="pipe-success">0</div></div>
         </div>
 
-        <div class="voc-layout">
+        <div class="pipeline-grid">
             <div class="card full">
                 <div class="card-head"><h3 class="card-title">방어 단계별 현황</h3></div>
                 <div class="chart-wrapper"><canvas id="chart-pipe-step"></canvas></div>
@@ -225,7 +233,8 @@
             <div class="table-wrapper">
                 <table id="table-pipe">
                     <thead><tr>
-                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th>
+                        <th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(천원)</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
@@ -246,7 +255,7 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', risk:'ALL' },
+    filters: { hq:'강북/강원', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, // Default Filters
     map: null, clusterer: null, markers: [], charts: {}
 };
 
@@ -261,8 +270,11 @@ window.onload = async () => {
         const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
         App.data.voc = parseVoc(v.data);
         App.data.pipe = parsePipe(p.data);
-        initMap(); initFiltersHTML(); updateDashboard();
-    } catch(e) { console.error(e); alert("로드 실패"); }
+        
+        initMap();
+        initFiltersHTML();
+        updateDashboard();
+    } catch(e) { console.error(e); alert("데이터 로드 실패"); }
     document.getElementById('loading').style.display = 'none';
 };
 
@@ -299,6 +311,7 @@ function parsePipe(data) {
     const kRisk = findKey(data[0], "위험도"); const kDate = findKey(data[0], "해지예정일");
     const kFee = findKey(data[0], "월정료"); const kHQ = findKey(data[0], "관리본부");
     const kName = findKey(data[0], "상호"); const kCont = findKey(data[0], "계약번호");
+    const kChan = findKey(data[0], "담당영업채널") || "담당영업채널";
 
     return data.map(r => {
         let risk = parseFloat(r[kRisk]||0); if(risk>0 && risk<=1) risk*=100;
@@ -313,7 +326,8 @@ function parsePipe(data) {
             "상호": r[kName]||"-",
             _hq: (r[kHQ]||"기타").trim(), _branch: normStr(r["관리지사"]),
             _agent: (r["담당자"]||"미지정").trim(), _risk: Math.round(risk),
-            _step: (r["방어진행단계"]||"").trim(), _fee: parseMoney(r[kFee]), _date: dStr
+            _step: (r["방어진행단계"]||"").trim(), _fee: parseMoney(r[kFee]), _date: dStr,
+            _channel: (r[kChan]||"SP").trim()
         };
     });
 }
@@ -327,13 +341,13 @@ function initFiltersHTML() {
     const area = document.getElementById('filter-container');
     area.innerHTML = `
         <div class="filter-box" id="fb-hq" style="display:none;"><div class="filter-head">관리본부 <span class="reset-btn" onclick="resetFilter('hq')">초기화</span></div><div id="chips-hq" class="chips"></div></div>
+        <div class="filter-box" id="fb-channel" style="display:none;"><div class="filter-head">영업채널</div><div id="chips-channel" class="chips"></div></div>
         <div class="filter-box"><div class="filter-head">관리지사 <span class="reset-btn" onclick="resetFilter('branch')">초기화</span></div><div id="chips-branch" class="chips"></div></div>
         <div class="filter-box"><div class="filter-head">담당자 <span class="reset-btn" onclick="resetFilter('agent')">초기화</span></div><div id="chips-agent" class="chips"></div></div>
         <div class="filter-box" id="fb-status"><div class="filter-head">처리 상태</div><div id="chips-status" class="chips"></div></div>
-        <div class="filter-box" id="fb-risk" style="display:none;"><div class="filter-head">해지 위험도</div><div id="chips-risk" class="chips"></div></div>
     `;
     renderChips('chips-status', ['전체','처리완료','접수','미접수'], 'status');
-    renderChips('chips-risk', ['전체','고위험(75%↑)','중위험(50~75%)'], 'risk');
+    renderChips('chips-channel', ['전체','SP','SC','AM'], 'channel'); // Channel Filter Added
 }
 
 function updateDashboard() {
@@ -343,17 +357,17 @@ function updateDashboard() {
     App.filtered = src.filter(d => {
         if(App.filters.branch!=='ALL' && d._branch!==App.filters.branch) return false;
         if(App.filters.agent!=='ALL' && d._agent!==App.filters.agent) return false;
-        if(isVoc) { if(App.filters.status!=='ALL' && d._status!==App.filters.status) return false; }
-        else {
+        if(isVoc) { 
+            if(App.filters.status!=='ALL' && d._status!==App.filters.status) return false; 
+        } else {
             if(App.filters.hq!=='ALL' && d._hq!==App.filters.hq) return false;
-            if(App.filters.risk==='HIGH' && d._risk<75) return false;
-            if(App.filters.risk==='MID' && (d._risk<50 || d._risk>=75)) return false;
+            if(App.filters.channel!=='ALL' && d._channel!==App.filters.channel) return false;
         }
         return true;
     });
 
     updateDynamicFilters(src);
-    if(isVoc) { renderVocView(); generateReview(); } else renderPipeView();
+    if(isVoc) renderVocView(); else renderPipeView();
 }
 
 function updateDynamicFilters(src) {
@@ -388,11 +402,13 @@ function renderChips(id, items, type, isDynamic=false) {
         if(!isDynamic && Array.from(box.children).some(c=>c.innerText===val)) return;
         const btn = document.createElement('div');
         const isAll = val==='전체' || val==='ALL';
-        const fVal = isAll ? 'ALL' : (type==='risk' && val.includes('고위험')?'HIGH':(type==='risk'?'MID':val));
-        btn.className = `chip ${App.filters[type]===fVal ? 'active' : ''}`;
+        // Set default active for Pipeline
+        let isActive = App.filters[type] === (isAll?'ALL':val);
+        
+        btn.className = `chip ${isActive ? 'active' : ''}`;
         btn.innerText = val;
         btn.onclick = () => {
-            App.filters[type] = isAll ? 'ALL' : fVal;
+            App.filters[type] = isAll ? 'ALL' : val;
             if(type==='hq') { App.filters.branch='ALL'; App.filters.agent='ALL'; }
             if(type==='branch') { App.filters.agent='ALL'; }
             updateDashboard();
@@ -406,26 +422,6 @@ function toggleReset(type, show) {
     if(el) el.style.display = show ? 'inline' : 'none';
 }
 function resetFilter(type) { App.filters[type] = 'ALL'; updateDashboard(); }
-
-/* --- REVIEW GENERATION --- */
-function generateReview() {
-    const data = App.filtered.filter(d => d._status !== '처리완료');
-    const counts = {};
-    data.forEach(d => counts[d._agent] = (counts[d._agent]||0)+1);
-    
-    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-    const top = sorted.slice(0, 3).map(x => `${x[0]}(${x[1]}건)`).join(', ');
-    
-    const box = document.getElementById('voc-review');
-    const text = document.getElementById('voc-review-text');
-    
-    if(sorted.length > 0) {
-        box.style.display = 'flex';
-        text.innerHTML = `${top} 등 미처리 건이 많습니다. <br/>고객 방문 및 상담을 통해 조속히 처리하여 주시기 바랍니다.`;
-    } else {
-        box.style.display = 'none';
-    }
-}
 
 /* --- RENDER --- */
 function renderVocView() {
@@ -456,25 +452,32 @@ function renderVocView() {
 
 function renderPipeView() {
     const data = App.filtered;
-    const high = data.filter(d=>d._risk>=75);
-    const suc = data.filter(d=>d._step==='방어성공').length;
-    const loss = high.reduce((a,b)=>a+b._fee, 0);
+    // KPI Logic Update
+    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); // 60~90% (Under 100)
+    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
+    const success = data.filter(d => d._step === '방어성공');
+    const loss = fail.reduce((a,b)=>a+b._fee, 0);
 
     animateNum('pipe-total', data.length);
-    animateNum('pipe-high', high.length);
+    animateNum('pipe-high', highRisk.length);
     document.getElementById('pipe-loss').innerText = (loss/10000).toFixed(0)+'만';
-    document.getElementById('pipe-rate').innerText = data.length ? ((suc/data.length)*100).toFixed(1)+'%' : '0%';
+    document.getElementById('pipe-rate').innerText = fail.length; // Reuse ID as 'Fail Count' for display, but logic is fail count.
+    // Wait, UI says '방어 성공률'. Let's fix UI text later or put count.
+    // Re-mapping KPI:
+    // 1. Total (Target) 2. High Risk 3. Loss Amount 4. Success Count (Change label in HTML)
+    document.querySelector('#pipe-rate').parentElement.previousElementSibling.innerText = "방어 성공 (건)";
+    animateNum('pipe-rate', success.length);
 
     drawBar('chart-pipe-step', data, '_step', '방어단계', '#10b981', null);
     drawBar('chart-pipe-reason', data, '해지사유', '해지사유', '#f59e0b', null);
     
     renderTable('table-pipe', data, [
         {k:'_hq'}, {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
-        {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
+        {k:'_channel'}, {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
     ]);
 }
 
-/* --- MAP --- */
+/* --- MAP & CHARTS --- */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
         center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true, zoomControl: true
@@ -503,13 +506,7 @@ function updateMap(data) {
         });
         
         const info = new google.maps.InfoWindow({
-            content: `
-            <div class="info-window">
-                <div class="info-title">${d["상호"]}</div>
-                <div class="info-row"><span>지사</span> <span class="info-val">${d._branch}</span></div>
-                <div class="info-row"><span>담당자</span> <span class="info-val">${d._agent}</span></div>
-                <span class="info-status" style="background:${d._status==='처리완료'?'#dbeafe':'#fee2e2'}; color:${d._status==='처리완료'?'#1e40af':'#991b1b'}">${d._status}</span>
-            </div>`
+            content: `<div style="padding:5px; font-size:12px;"><b>${d["상호"]}</b><br>${d._branch} | ${d._agent}</div>`
         });
         
         m.addListener('click', () => {
@@ -529,7 +526,6 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-/* --- CHART --- */
 function drawBar(id, data, key, label, color, fType) {
     const counts = {};
     data.forEach(d => {
@@ -561,7 +557,6 @@ function drawBar(id, data, key, label, color, fType) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 1000, easing: 'easeOutQuart' },
             plugins: { legend: {display:false}, datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} } },
             scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
             onClick: (e, els) => {
@@ -572,18 +567,15 @@ function drawBar(id, data, key, label, color, fType) {
     });
 }
 
-/* --- TABLE --- */
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    
-    if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center; padding:30px; color:#94a3b8;">데이터가 없습니다.</td></tr>`;
-        return;
-    }
+    if(!data.length) { tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;">데이터 없음</td></tr>`; return; }
 
     data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
+        if(d._step === '방어실패' || d._risk === 100) tr.classList.add('row-fail');
+        
         cols.forEach(def => {
             let val = d[def.k] || '';
             if(def.fmt) val = def.fmt(val);
@@ -640,7 +632,7 @@ function switchView(v) {
 
     const isPipe = v === 'pipe';
     document.getElementById('fb-hq').style.display = isPipe ? 'block' : 'none';
-    document.getElementById('fb-risk').style.display = isPipe ? 'block' : 'none';
+    document.getElementById('fb-channel').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isPipe ? 'none' : 'block';
     
     setTimeout(() => {
