@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v19.1 Final)</title>
+<title>KTT Premium Dashboard (v20.0 Size Fixed)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -19,8 +19,7 @@
         --text: #1e293b; --text-sub: #64748b; --border: #e2e8f0;
         --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
-        --fail-bg: #fef2f2; /* 방어실패 배경색 */
-        --fail-text: #b91c1c;
+        --fail-bg: #fef2f2;
     }
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
@@ -48,7 +47,7 @@
     .filter-head { display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:var(--text-sub); margin-bottom:8px; }
     .reset-btn { cursor:pointer; color:var(--primary); display:none; font-size:11px; }
     .reset-btn.show { display:inline; }
-    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:180px; overflow-y:auto; align-content:flex-start; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; align-content:flex-start; }
     .chip { 
         padding:5px 10px; border:1px solid var(--border); background:var(--surface); 
         border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; transition:0.15s; 
@@ -74,19 +73,26 @@
     .kpi-icon { position:absolute; right:20px; top:20px; font-size:48px; opacity:0.1; color:var(--c); }
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
-    /* Grids */
-    .voc-layout { display:flex; gap:20px; height:380px; flex:none; }
+    /* Grids & Cards */
+    /* VOC Layout: Chart Left / Map Right */
+    .voc-layout { display:flex; gap:20px; height:400px; flex:none; } 
     .voc-left { flex:1; display:flex; flex-direction:column; gap:20px; }
     .voc-right { flex:1.5; display:flex; flex-direction:column; }
-    .pipeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; flex:1; min-height:0; }
+    
+    /* Pipeline Layout: Grid for Charts (FIXED HEIGHT) */
+    .pipeline-grid { 
+        display:grid; grid-template-columns:1fr 1fr; gap:20px; 
+        flex:none; height:320px; /* ★ 높이 고정으로 늘어짐 방지 */
+    }
 
     .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
     .card.full { flex:1; min-height:0; }
     .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
     .card-title { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; color:var(--text); }
 
+    /* Wrappers */
     .map-wrapper { flex:1; border-radius:8px; overflow:hidden; position:relative; background:#e2e8f0; }
-    .chart-wrapper { flex:1; position:relative; min-height:0; }
+    .chart-wrapper { flex:1; position:relative; min-height:0; width:100%; }
 
     /* Table */
     .table-section { flex:1; min-height:300px; display:flex; flex-direction:column; }
@@ -97,11 +103,8 @@
     tr:hover td { background:#f1f5f9; }
     tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
     
-    /* Fail Row Highlight */
-    tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
-    tr.row-fail:hover td { background:#fee2e2; }
-
-    /* Utils */
+    /* Styles */
+    tr.row-fail td { background:var(--fail-bg); color:#b91c1c; font-weight:600; }
     .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; min-width:60px; text-align:center; }
     .bd-done { background:#dcfce7; color:#166534; }
     .bd-ing { background:#fef3c7; color:#92400e; }
@@ -150,36 +153,34 @@
             </div>
             <div class="kpi-card" style="--c:var(--success)">
                 <div class="kpi-label">처리 완료</div>
-                <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
+                <div><span class="kpi-val counter" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--warning)">
                 <div class="kpi-label">접수(진행)</div>
-                <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
+                <div><span class="kpi-val counter" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
             </div>
             <div class="kpi-card" style="--c:var(--danger)">
                 <div class="kpi-label">미접수</div>
-                <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
+                <div><span class="kpi-val counter" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
             </div>
         </div>
 
         <div class="voc-layout">
             <div class="voc-left">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; height:100%;">
-                    <div class="card">
-                        <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
-                        <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
-                        <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
-                    </div>
+                <div class="card full">
+                    <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
+                </div>
+                <div class="card full">
+                    <div class="card-head"><h3 class="card-title">미처리 담당자 Top 10</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
                 </div>
             </div>
             <div class="voc-right">
                 <div class="card full" style="padding:0; overflow:hidden;">
                     <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:#fff; display:flex; justify-content:space-between; align-items:center;">
                         <h3 class="card-title"><i class="ph ph-map-trifold"></i> 고객 위치 현황</h3>
-                        <span style="font-size:12px; color:var(--text-sub);">* 클릭 시 자동 줌인</span>
+                        <span style="font-size:12px; color:var(--text-sub);">* 선택 시 자동 줌인</span>
                     </div>
                     <div id="voc-map" class="map-wrapper"></div>
                 </div>
@@ -209,10 +210,10 @@
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (<span id="pipe-channel-label">SP</span>)</div><div class="kpi-val" id="pipe-total">0</div></div>
-            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val" id="pipe-high">0</div></div>
-            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">방어실패 (100%)</div><div class="kpi-val" id="pipe-fail">0</div></div>
-            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div class="kpi-val" id="pipe-success">0</div></div>
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">대상 건수 (<span id="pipe-channel-label">SP</span>)</div><div class="kpi-val counter" id="pipe-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">고위험군 (60~90%)</div><div class="kpi-val counter" id="pipe-high">0</div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">예상 손실액</div><div class="kpi-val" id="pipe-loss">0</div></div>
+            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div class="kpi-val counter" id="pipe-success">0</div></div>
         </div>
 
         <div class="pipeline-grid">
@@ -226,7 +227,7 @@
             </div>
         </div>
 
-        <div class="card table-section" style="height:450px;">
+        <div class="card table-section" style="min-height:350px;">
             <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
             <div class="table-wrapper">
                 <table id="table-pipe">
@@ -252,7 +253,7 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    filters: { hq:'강북/강원', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, // Default Filters
+    filters: { hq:'강북/강원', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, 
     map: null, clusterer: null, markers: [], charts: {}
 };
 
@@ -373,17 +374,14 @@ function updateDynamicFilters(src) {
         const hqs = [...new Set(src.map(d=>d._hq))].sort();
         renderChips('chips-hq', ['전체',...hqs], 'hq', true);
     }
-    let bSrc = src;
-    if(!isVoc && App.filters.hq!=='ALL') bSrc = src.filter(d=>d._hq===App.filters.hq);
-    let branches = [...new Set(bSrc.map(d=>d._branch))];
-    branches.sort((a,b) => {
+    let bSrc = isVoc ? src : (App.filters.hq!=='ALL' ? src.filter(d=>d._hq===App.filters.hq) : src);
+    let branches = [...new Set(bSrc.map(d=>d._branch))].sort((a,b)=>{
         const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
         if(ia!==-1 && ib!==-1) return ia-ib; return a.localeCompare(b);
     });
     renderChips('chips-branch', ['전체',...branches], 'branch', true);
 
-    let aSrc = bSrc;
-    if(App.filters.branch!=='ALL') aSrc = bSrc.filter(d=>d._branch===App.filters.branch);
+    let aSrc = App.filters.branch!=='ALL' ? bSrc.filter(d=>d._branch===App.filters.branch) : bSrc;
     const agents = [...new Set(aSrc.map(d=>d._agent))].sort();
     renderChips('chips-agent', ['전체',...agents], 'agent', true);
 
@@ -399,9 +397,7 @@ function renderChips(id, items, type, isDynamic=false) {
         if(!isDynamic && Array.from(box.children).some(c=>c.innerText===val)) return;
         const btn = document.createElement('div');
         const isAll = val==='전체' || val==='ALL';
-        // Set default active
         let isActive = App.filters[type] === (isAll?'ALL':val);
-        
         btn.className = `chip ${isActive ? 'active' : ''}`;
         btn.innerText = val;
         btn.onclick = () => {
@@ -439,7 +435,6 @@ function renderVocView() {
     updateMap(data);
     drawBar('chart-voc-branch', data, '_branch', '건수', '#6366f1', 'branch');
     drawBar('chart-voc-agent', data.filter(d=>d._status!=='처리완료'), '_agent', '미처리', '#ef4444', 'agent');
-    
     renderTable('table-voc', data, [
         {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
         {k:'_status', badge:true}, {k:'VOC유형소'}, {k:'_fee', fmt:fmtMoney}, 
@@ -449,101 +444,62 @@ function renderVocView() {
 
 function renderPipeView() {
     const data = App.filtered;
-    // KPI Logic Update
-    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); // 60~90%
-    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패'); // 100% or Failed
+    const high = data.filter(d => d._risk >= 60 && d._risk < 100); 
+    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
     const success = data.filter(d => d._step === '방어성공');
-    
-    // Total is based on current filter (Channel SP default)
+    const loss = fail.reduce((a,b)=>a+b._fee, 0);
+
     animateNum('pipe-total', data.length);
     document.getElementById('pipe-channel-label').innerText = App.filters.channel==='ALL'?'전체':App.filters.channel;
-
-    animateNum('pipe-high', highRisk.length);
+    animateNum('pipe-high', high.length);
     animateNum('pipe-fail', fail.length);
     animateNum('pipe-success', success.length);
+    document.getElementById('pipe-loss').innerText = (loss/10000).toFixed(0)+'만';
 
     drawBar('chart-pipe-step', data, '_step', '방어단계', '#10b981', null);
     drawBar('chart-pipe-reason', data, '해지사유', '해지사유', '#f59e0b', null);
-    
     renderTable('table-pipe', data, [
         {k:'_hq'}, {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
         {k:'_channel'}, {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
     ]);
 }
 
-/* --- MAP & CHARTS --- */
+/* --- MAP --- */
 function initMap() {
     App.map = new google.maps.Map(document.getElementById('voc-map'), {
         center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true, zoomControl: true
     });
-    App.map.addListener('zoom_changed', () => {
-        const z = App.map.getZoom();
-        App.markers.forEach(m => m.setLabel(z>=12 ? { text: m.getTitle(), color: "#222", fontWeight: "bold", fontSize: "11px" } : null));
-    });
 }
-
 function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
-    
-    const valid = data.filter(d => d._lat);
     const bounds = new google.maps.LatLngBounds();
-    const isFiltered = App.filters.branch !== 'ALL' || App.filters.agent !== 'ALL' || App.filters.status !== 'ALL';
-
+    const valid = data.filter(d=>d._lat);
     valid.forEach(d => {
         const color = d._status === '처리완료' ? 'blue' : 'red';
         const m = new google.maps.Marker({
             position: {lat: d._lat, lng: d._lng},
-            title: `${d["상호"]}(${d._agent})`,
             icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${color}-dot.png`
         });
-        
-        const info = new google.maps.InfoWindow({
-            content: `
-            <div class="info-window">
-                <div class="info-title">${d["상호"]}</div>
-                <div class="info-row"><span>지사</span> <span class="info-val">${d._branch}</span></div>
-                <div class="info-row"><span>담당자</span> <span class="info-val">${d._agent}</span></div>
-                <span class="info-status" style="background:${d._status==='처리완료'?'#dbeafe':'#fee2e2'}; color:${d._status==='처리완료'?'#1e40af':'#991b1b'}">${d._status}</span>
-            </div>`
-        });
-        
-        m.addListener('click', () => {
-            info.open(App.map, m);
-            m.setAnimation(google.maps.Animation.BOUNCE);
-            setTimeout(()=>m.setAnimation(null), 1500);
-        });
-        
+        const info = new google.maps.InfoWindow({ content: `<div style="padding:5px"><b>${d["상호"]}</b><br>${d._status}</div>` });
+        m.addListener('click', () => { info.open(App.map, m); m.setAnimation(google.maps.Animation.BOUNCE); setTimeout(()=>m.setAnimation(null), 1500); });
         d._marker = m;
         bounds.extend(m.getPosition());
         App.markers.push(m);
     });
-
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
-    
-    if(isFiltered && valid.length > 0) App.map.fitBounds(bounds);
+    if(valid.length > 0) App.map.fitBounds(bounds);
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
+/* CHARTS & TABLE */
 function drawBar(id, data, key, label, color, fType) {
     const counts = {};
-    data.forEach(d => {
-        let k = d[key] || "미입력";
-        if(key === '해지사유' && (!k || k.trim() === '')) k = '미입력';
-        counts[k] = (counts[k]||0)+1;
-    });
-    
+    data.forEach(d => { let k=d[key]||"미입력"; if(key==='해지사유'&&(!k||k.trim()==='')) k='미입력'; counts[k]=(counts[k]||0)+1; });
     let keys = Object.keys(counts);
-    if(key === '_branch') {
-        keys.sort((a,b) => {
-            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
-            if(ia!==-1 && ib!==-1) return ia-ib;
-            return b.localeCompare(a); 
-        });
-    } else {
-        keys.sort((a,b) => counts[b] - counts[a]);
-    }
+    if(key==='_branch') keys.sort((a,b)=>BRANCH_ORDER.indexOf(a)-BRANCH_ORDER.indexOf(b));
+    else keys.sort((a,b)=>counts[b]-counts[a]);
     keys = keys.slice(0, 15);
 
     const ctx = document.getElementById(id).getContext('2d');
@@ -551,18 +507,11 @@ function drawBar(id, data, key, label, color, fType) {
 
     App.charts[id] = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: keys,
-            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:6 }]
-        },
+        data: { labels: keys, datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:4 }] },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: {display:false}, datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} } },
-            scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
-            onClick: (e, els) => {
-                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-            },
-            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+            maintainAspectRatio: false,
+            plugins: { legend:{display:false}, datalabels:{anchor:'end', align:'top', color:'#555'} },
+            onClick: (e, el) => { if(el.length && fType) { App.filters[fType]=keys[el[0].index]; updateDashboard(); } }
         }
     });
 }
@@ -570,8 +519,6 @@ function drawBar(id, data, key, label, color, fType) {
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
-    if(!data.length) { tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;">데이터 없음</td></tr>`; return; }
-
     data.slice(0, 100).forEach(d => {
         const tr = document.createElement('tr');
         if(d._risk===100 || d._step==='방어실패') tr.classList.add('row-fail');
@@ -600,10 +547,7 @@ function animateNum(id, target) {
     const step = Math.ceil((target - start) / 20);
     const timer = setInterval(() => {
         current += step;
-        if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
-            current = target;
-            clearInterval(timer);
-        }
+        if ((step > 0 && current >= target) || (step < 0 && current <= target)) { current = target; clearInterval(timer); }
         el.innerText = current.toLocaleString();
     }, 20);
 }
@@ -611,28 +555,21 @@ function animateNum(id, target) {
 function switchView(v) {
     App.view = v;
     document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-    const btns = document.querySelectorAll(`button[onclick="switchView('${v}')"]`);
-    btns.forEach(b => b.classList.add('active'));
-
+    document.querySelector(`button[onclick="switchView('${v}')"]`).classList.add('active');
     document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
     document.getElementById(`view-${v}`).classList.add('active');
-
+    
     const isPipe = v === 'pipe';
     document.getElementById('fb-hq').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-channel').style.display = isPipe ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isPipe ? 'none' : 'block';
     
-    setTimeout(() => {
-        if(v==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
-        Object.values(App.charts).forEach(c => c.resize());
-    }, 200);
+    setTimeout(() => { if(v==='voc') google.maps.event.trigger(App.map, 'resize'); }, 200);
     updateDashboard();
 }
 
 function triggerUpload() {
-    const p = prompt("관리자 비밀번호 입력:");
-    if(p==="3867") document.getElementById('fileInput').click();
-    else if(p!==null) alert("비밀번호 오류");
+    if(prompt("비밀번호:")==="3867") document.getElementById('fileInput').click();
 }
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
@@ -641,18 +578,9 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
     const r = new FileReader();
     r.onload = (evt) => {
         const res = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
-        const h = res.meta.fields || [];
-        if(h.some(x=>x.includes('위치좌표'))) {
-            App.data.voc = parseVoc(res.data);
-            alert("VOC 데이터 갱신 완료");
-            switchView('voc');
-        } else if(h.some(x=>x.includes('위험도'))) {
-            App.data.pipe = parsePipe(res.data);
-            alert("파이프라인 데이터 갱신 완료");
-            switchView('pipe');
-        } else {
-            alert("알 수 없는 파일 형식입니다.");
-        }
+        if(res.meta.fields.some(x=>x.includes('위치좌표'))) { App.data.voc = parseVoc(res.data); switchView('voc'); }
+        else { App.data.pipe = parsePipe(res.data); switchView('pipe'); }
+        alert("데이터 갱신 완료");
     };
     r.readAsText(f, 'UTF-8');
 });
