@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
-/* --- [최종 수정] 상단 여백 최소화 (막대 꽉 채움) --- */
+/* --- [최종 수정] 높이 50% 고정 (가장 높은 막대가 중간에 위치) --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -616,8 +616,9 @@ function drawBar(id, data, key, label, color, fType) {
                     display: !isPipeChart, 
                     grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // [핵심 수정] 최대 높이를 데이터의 1.2배로 설정 -> 상단 여백을 최소화하여 꽉 차게 보임
-                    max: isPipeChart ? Math.ceil(maxPlotValue * 1.2) : undefined,
+                    // [핵심 수정] 최대 높이를 데이터의 2배로 설정 
+                    // -> 가장 높은 막대가 차트 높이의 정확히 50% 지점에 위치함
+                    max: isPipeChart ? Math.ceil(maxPlotValue * 2) : undefined,
                     grace: isPipeChart ? 0 : '10%' 
                 } 
             },
