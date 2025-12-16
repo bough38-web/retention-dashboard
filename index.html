@@ -449,22 +449,27 @@ function renderVocView() {
 
 function renderPipeView() {
     const data = App.filtered;
-    // KPI Logic Update
-    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100); // 60~90%
-    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패'); // 100% or Failed
+    
+    // KPI 계산
+    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100);
+    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
     const success = data.filter(d => d._step === '방어성공');
     
-    // Total is based on current filter (Channel SP default)
+    // KPI 업데이트
     animateNum('pipe-total', data.length);
     document.getElementById('pipe-channel-label').innerText = App.filters.channel==='ALL'?'전체':App.filters.channel;
-
     animateNum('pipe-high', highRisk.length);
     animateNum('pipe-fail', fail.length);
     animateNum('pipe-success', success.length);
 
-    drawBar('chart-pipe-step', data, '_step', '방어단계', '#10b981', null);
-    drawBar('chart-pipe-reason', data, '해지사유', '해지사유', '#f59e0b', null);
+    // [변경] 단순 막대(drawBar) 대신 적층 그래프(drawStackedBar) 호출
+    // 1. 관리본부별 방어 단계 현황
+    drawStackedBar('chart-pipe-step', data, '_hq', '_step', '방어단계');
     
+    // 2. 관리본부별 해지 사유 현황
+    drawStackedBar('chart-pipe-reason', data, '_hq', '해지사유', '해지사유');
+    
+    // 테이블 렌더링
     renderTable('table-pipe', data, [
         {k:'_hq'}, {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
         {k:'_channel'}, {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
@@ -690,7 +695,37 @@ function drawBar(id, data, key, label, color, fType) {
         }
     });
 }
+
+function renderPipeView() {
+    const data = App.filtered;
     
+    // KPI 계산
+    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100);
+    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
+    const success = data.filter(d => d._step === '방어성공');
+    
+    // KPI 업데이트
+    animateNum('pipe-total', data.length);
+    document.getElementById('pipe-channel-label').innerText = App.filters.channel==='ALL'?'전체':App.filters.channel;
+    animateNum('pipe-high', highRisk.length);
+    animateNum('pipe-fail', fail.length);
+    animateNum('pipe-success', success.length);
+
+    // [변경] 단순 막대(drawBar) 대신 적층 그래프(drawStackedBar) 호출
+    // 1. 관리본부별 방어 단계 현황
+    drawStackedBar('chart-pipe-step', data, '_hq', '_step', '방어단계');
+    
+    // 2. 관리본부별 해지 사유 현황
+    drawStackedBar('chart-pipe-reason', data, '_hq', '해지사유', '해지사유');
+    
+    // 테이블 렌더링
+    renderTable('table-pipe', data, [
+        {k:'_hq'}, {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
+        {k:'_channel'}, {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
+    ]);
+}
+
+
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
