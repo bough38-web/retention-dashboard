@@ -526,7 +526,7 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-/* --- [최종 기능] 강력한 압축(50% UP) + 원본/압축 토글(접었다 폈다) 기능 추가 --- */
+/* --- [최종 기능] 반응형(Responsive) 강화 + 토글 + 50% 압축 유지 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -551,68 +551,68 @@ function drawBar(id, data, key, label, color, fType) {
     }
     
     keys = keys.slice(0, 15);
-    
-    // 원본 데이터
     const rawValues = keys.map(k => counts[k]);
     
     // 파이프라인 차트 여부 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
     
+    // [반응형] 현재 화면 너비 확인 (768px 미만이면 모바일 모드)
+    const isMobile = window.innerWidth < 768;
+    
     const canvas = document.getElementById(id);
     const ctx = canvas.getContext('2d');
 
-    // === [기능 추가] 토글 버튼 생성 및 상태 관리 ===
-    // 현재 차트의 보기 모드 확인 (기본값: 'compressed')
+    // === [버튼 UI] 반응형 스타일 적용 ===
     let currentMode = canvas.dataset.viewMode || 'compressed';
 
     if (isPipeChart) {
         const card = canvas.closest('.card');
         const header = card ? card.querySelector('.card-head') : null;
         
-        // 버튼이 없으면 생성 (중복 방지)
-        if (header && !header.querySelector('.scale-toggle-btn')) {
-            const btn = document.createElement('button');
-            btn.className = 'scale-toggle-btn';
-            btn.style.cssText = `
-                margin-left: auto; padding: 4px 8px; font-size: 11px; 
-                border: 1px solid #e2e8f0; background: #fff; cursor: pointer; 
-                border-radius: 6px; color: #64748b; font-weight: 700;
-            `;
-            btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${currentMode==='compressed'?'압축됨':'원본'}`;
+        if (header) {
+            // 헤더가 좁을 때 줄바꿈 허용하여 레이아웃 깨짐 방지
+            header.style.flexWrap = 'wrap'; 
+            header.style.gap = '8px';
             
-            btn.onclick = () => {
-                // 모드 전환 (접었다 폈다)
-                const newMode = canvas.dataset.viewMode === 'linear' ? 'compressed' : 'linear';
-                canvas.dataset.viewMode = newMode;
-                // 버튼 텍스트 업데이트는 다시 그려질 때 처리됨, 여기서는 재실행만 호출
-                // drawBar 함수 재호출 (재귀적 호출 대신 필터 갱신과 유사하게 처리)
-                // 간단히 현재 함수 다시 실행
-                drawBar(id, data, key, label, color, fType);
-            };
-            header.appendChild(btn);
-        } else if (header) {
-            // 버튼 텍스트 상태 업데이트
-            const btn = header.querySelector('.scale-toggle-btn');
-            if(btn) {
-                btn.innerHTML = currentMode === 'compressed' 
-                    ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정` 
-                    : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
-                btn.style.background = currentMode === 'compressed' ? '#e0e7ff' : '#fff';
-                btn.style.color = currentMode === 'compressed' ? '#4f46e5' : '#64748b';
+            if (!header.querySelector('.scale-toggle-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'scale-toggle-btn';
+                // 버튼 스타일: 화면이 작아도 터치하기 편하게 조정
+                btn.style.cssText = `
+                    margin-left: auto; padding: 4px 8px; font-size: 11px; 
+                    border: 1px solid #e2e8f0; background: #fff; cursor: pointer; 
+                    border-radius: 6px; color: #64748b; font-weight: 700;
+                    white-space: nowrap; transition: all 0.2s;
+                `;
+                btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${currentMode==='compressed'?'압축됨':'원본'}`;
+                
+                btn.onclick = () => {
+                    const newMode = canvas.dataset.viewMode === 'linear' ? 'compressed' : 'linear';
+                    canvas.dataset.viewMode = newMode;
+                    drawBar(id, data, key, label, color, fType); // 재렌더링
+                };
+                header.appendChild(btn);
+            } else {
+                // 버튼 상태 업데이트
+                const btn = header.querySelector('.scale-toggle-btn');
+                if(btn) {
+                    btn.innerHTML = currentMode === 'compressed' 
+                        ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정` 
+                        : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
+                    btn.style.background = currentMode === 'compressed' ? '#e0e7ff' : '#fff';
+                    btn.style.color = currentMode === 'compressed' ? '#4f46e5' : '#64748b';
+                    btn.style.borderColor = currentMode === 'compressed' ? '#c7d2fe' : '#e2e8f0';
+                }
             }
         }
     }
 
-    // === [데이터 변환 로직] ===
+    // === [데이터 변환] 압축 로직 ===
     let chartValues = rawValues;
-    
-    // 압축 모드일 때만 데이터 변환 수행
     if (isPipeChart && currentMode === 'compressed') {
-        // [강력 압축] 네제곱근(pow 0.25) 적용 -> 기존 제곱근(0.5)보다 50% 더 압축됨
-        // 예: 100 -> 3.16, 4 -> 1.41 (격차가 25배에서 2.2배로 줄어듬)
+        // 네제곱근(pow 0.25) 압축: 큰 수와 작은 수의 시각적 차이를 줄임
         chartValues = rawValues.map(v => Math.pow(v, 0.25));
     }
-    
     const maxPlotValue = Math.max(...chartValues);
 
     // 3. 차트 그리기
@@ -627,18 +627,19 @@ function drawBar(id, data, key, label, color, fType) {
                 data: chartValues, 
                 backgroundColor: color, 
                 borderRadius: 4,
-                // 막대 너비 설정
-                maxBarThickness: isPipeChart ? 120 : 35,
+                // [반응형] 모바일에서는 막대를 덜 뚱뚱하게, PC에서는 넓게
+                maxBarThickness: isPipeChart ? (isMobile ? 60 : 120) : 35,
                 barPercentage: isPipeChart ? 0.95 : 0.8,
                 categoryPercentage: isPipeChart ? 0.95 : 0.8
             }]
         },
         options: {
             indexAxis: 'x',
-            responsive: true, 
-            maintainAspectRatio: false,
+            responsive: true, // 반응형 활성화
+            maintainAspectRatio: false, // 부모 컨테이너 크기에 맞춰 늘어남
+            resizeDelay: 100, // 창 크기 조절 시 버벅임 방지
             layout: { padding: 0 },
-            animation: { duration: 500 }, // 부드러운 전환 애니메이션
+            animation: { duration: 600, easing: 'easeOutQuart' },
             plugins: { 
                 legend: { display: false }, 
                 tooltip: {
@@ -652,22 +653,32 @@ function drawBar(id, data, key, label, color, fType) {
                     color: '#4b5563', 
                     anchor: 'end', 
                     align: 'top', 
-                    font: { weight: 'bold', size: 12 },
+                    // [반응형] 모바일에서는 폰트 사이즈를 줄임
+                    font: { weight: 'bold', size: isMobile ? 10 : 12 },
                     offset: 4,
-                    formatter: (val, ctx) => rawValues[ctx.dataIndex] // 항상 원본 값 표시
+                    // 막대가 너무 좁으면 라벨 숨김 (겹침 방지)
+                    display: function(context) {
+                        return context.chart.width / keys.length > 20; 
+                    },
+                    formatter: (val, ctx) => rawValues[ctx.dataIndex]
                 } 
             },
             scales: { 
                 x: { 
                     grid: { display: false, drawBorder: false },
-                    ticks: { font: { size: 11, weight: 'bold' } }
+                    // [반응형] 모바일에서 X축 글자 크기 조정
+                    ticks: { 
+                        font: { size: isMobile ? 10 : 11, weight: 'bold' },
+                        autoSkip: true, // 공간 부족하면 라벨 건너뜀
+                        maxRotation: 0, // 라벨 회전 방지 (깔끔하게)
+                        minRotation: 0
+                    }
                 }, 
                 y: { 
-                    // Y축 눈금 숨김 (압축된 수치는 사용자에게 의미 없음)
                     display: !isPipeChart, 
                     grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // [핵심] 상단 공백 제거 (데이터에 딱 맞게)
+                    // 상단 공백 제거 (타이트하게)
                     max: isPipeChart ? maxPlotValue * 1.1 : undefined,
                     grace: isPipeChart ? 0 : '10%' 
                 } 
