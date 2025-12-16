@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [FIXED] DrawBar Function --- */
-/* --- [수정됨] 막대 간격 조정 및 세로형 유지 --- */
+/* --- [최종 수정] 높이 50% 시각적 축소 및 간격 최적화 적용 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -552,6 +552,10 @@ function drawBar(id, data, key, label, color, fType) {
     }
     keys = keys.slice(0, 15);
 
+    // [추가 로직] 데이터 중 최대값 계산 (높이 조절용)
+    const values = keys.map(k => counts[k]);
+    const maxValue = Math.max(...values);
+
     // 3. 차트 그리기
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
@@ -565,19 +569,18 @@ function drawBar(id, data, key, label, color, fType) {
             labels: keys,
             datasets: [{ 
                 label: label, 
-                data: keys.map(k => counts[k]), 
+                data: values, 
                 backgroundColor: color, 
                 borderRadius: 4,
-                // [수정] 파이프라인 차트일 경우 막대를 더 굵게 허용 (간격 축소 효과)
+                // 파이프라인 차트일 경우 막대 최대 두께 80px 허용 (간격 줄임)
                 maxBarThickness: isPipeChart ? 80 : 35,
-                // [수정] 막대가 카테고리 영역을 차지하는 비율을 높임 (0.9 = 90%)
+                // 막대가 영역의 90%를 채우도록 설정 (간격 최소화)
                 barPercentage: isPipeChart ? 0.9 : 0.8,
                 categoryPercentage: isPipeChart ? 0.9 : 0.8
             }]
         },
         options: {
-            // [설정] 세로 막대 유지 ('x')
-            indexAxis: 'x', 
+            indexAxis: 'x', // 세로형 막대
             responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
@@ -592,14 +595,15 @@ function drawBar(id, data, key, label, color, fType) {
             },
             scales: { 
                 x: { 
-                    // 세로형이므로 X축 그리드 숨김
                     grid: { display: false, drawBorder: false },
                 }, 
                 y: { 
-                    // Y축 그리드 표시
                     grid: { display: true, drawBorder: false },
                     beginAtZero: true, 
-                    grace: '10%' 
+                    // [핵심 수정] 파이프라인 차트는 Y축 최대값을 실제값의 2배로 설정
+                    // 이렇게 하면 가장 긴 막대가 차트의 50% 높이까지만 그려짐
+                    max: isPipeChart ? Math.ceil(maxValue * 2) : undefined,
+                    grace: isPipeChart ? 0 : '10%' 
                 } 
             },
             onClick: (e, els) => {
