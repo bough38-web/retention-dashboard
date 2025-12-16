@@ -248,13 +248,7 @@ const URLS = {
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
-let App = {
-    view: 'voc',
-    data: { voc:[], pipe:[] },
-    filtered: [],
-    filters: { hq:'강북/강원', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, // Default Filters
-    map: null, clusterer: null, markers: [], charts: {}
-};
+let App
 
 Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
