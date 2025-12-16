@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v23.0 Final)</title>
+<title>KTT Premium Retention Dashboard (v24.0 Final Integrated)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -64,7 +64,7 @@
     .voc-right { flex:1; }
     
     .pipe-section { display:flex; flex-direction:column; gap:16px; flex:1; min-height: 0; }
-    .pipe-row { display:flex; gap:16px; flex:1; min-height: 300px; }
+    .pipe-row { display:flex; gap:16px; flex:1; min-height: 320px; } /* 높이 확보 */
     .pipe-left { flex: 0 0 320px; display:flex; flex-direction:column; }
     .pipe-right { flex: 1; display:flex; flex-direction:column; min-width: 0; }
 
@@ -299,7 +299,6 @@ function initFiltersHTML() {
         </div>
     `;
     
-    // Channel Filter
     const channels = ['전체', 'SP', 'SC', 'AM'];
     const box = document.getElementById('chips-channel');
     channels.forEach(c => {
@@ -315,7 +314,6 @@ function initFiltersHTML() {
         box.appendChild(btn);
     });
 
-    // VOC Branch Filter
     const vBox = document.getElementById('chips-voc-branch');
     ['전체', ...BRANCH_ORDER].forEach(b => {
         const btn = document.createElement('div');
@@ -383,6 +381,7 @@ function renderVocView() {
 function renderPipeView() {
     const data = App.filtered;
 
+    // KPI 집계
     const total = data.length;
     const success = data.filter(d=>d._step==='방어성공').length;
     const fail = data.filter(d=>d._step==='방어실패').length;
@@ -461,8 +460,7 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     const ctx = document.getElementById(id).getContext('2d');
     const canvas = document.getElementById(id);
     
-    // Toggle Button Logic (Linear/Compressed)
-    // [수정] 기본 모드를 'linear'(실제비율)로 변경
+    // [수정] 기본 모드를 'linear'(실제비율)로 설정
     let currentMode = canvas.dataset.viewMode || 'linear'; 
     const isCompressed = currentMode === 'compressed';
     const card = canvas.closest('.card');
@@ -586,9 +584,9 @@ function switchView(v) {
 
 function triggerUpload() { document.getElementById('fileInput').click(); }
 function initMap() {
-    // [수정] 서울/수도권 중심 좌표 및 줌 레벨 조정
+    // [수정] 서울/수도권 중심 좌표
     App.map = new google.maps.Map(document.getElementById('voc-map'), { 
-        center: {lat: 37.5665, lng: 126.9780}, // 서울 시청 좌표
+        center: {lat: 37.5665, lng: 126.9780}, 
         zoom: 10, 
         disableDefaultUI: true 
     });
@@ -604,7 +602,6 @@ function updateMap(data) {
         App.markers.push(m);
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
-    // 마커가 있으면 바운드 핏, 없으면 서울 중심 유지
     if(App.markers.length) App.map.fitBounds(bounds);
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
