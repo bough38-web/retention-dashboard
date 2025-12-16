@@ -462,7 +462,7 @@ function renderPipeView() {
     animateNum('pipe-fail', fail.length);
     animateNum('pipe-success', success.length);
 
-    // [변경] 단순 막대(drawBar) 대신 적층 그래프(drawStackedBar) 호출
+    // [이 부분이 중요합니다]
     // 1. 관리본부별 방어 단계 현황
     drawStackedBar('chart-pipe-step', data, '_hq', '_step', '방어단계');
     
@@ -788,6 +788,112 @@ function switchView(v) {
     updateDashboard();
 }
 
+/* --- [신규 추가] 관리본부별 적층(Stacked) 시각화 함수 --- */
+function drawStackedBar(id, data, groupKey, stackKey, label) {
+    // 1. 데이터 가공: { 본부A: { 사유1: 5, 사유2: 3 }, 본부B: ... }
+    const grouped = {};
+    const allStacks = new Set();
+    
+    data.forEach(d => {
+        // 그룹 키 (예: 관리본부)
+        const group = d[groupKey] || "기타";
+        // 적층 키 (예: 해지사유) - 값이 없으면 '미입력' 처리
+        let stack = d[stackKey];
+        if (!stack || (typeof stack === 'string' && stack.trim() === '')) stack = '미입력';
+        
+        if (!grouped[group]) grouped[group] = {};
+        grouped[group][stack] = (grouped[group][stack] || 0) + 1;
+        allStacks.add(stack);
+    });
+
+    // X축 라벨 (관리본부) 정렬
+    const xLabels = Object.keys(grouped).sort();
+    
+    // 스택 항목 (범례) 리스트화 및 정렬
+    const stackLabels = Array.from(allStacks).sort();
+
+    // 색상 팔레트
+    const colors = [
+        '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+        '#ec4899', '#06b6d4', '#84cc16', '#64748b', '#f97316',
+        '#94a3b8', '#334155'
+    ];
+
+    // 2. Chart.js Dataset 생성
+    const datasets = stackLabels.map((stackName, i) => {
+        return {
+            label: stackName,
+            data: xLabels.map(hq => grouped[hq][stackName] || 0), // 해당 본부에 값이 없으면 0
+            backgroundColor: colors[i % colors.length], // 색상 순환
+            borderRadius: 2,
+            barPercentage: 0.6,
+            maxBarThickness: 50
+        };
+    });
+
+    // 3. 차트 그리기
+    const ctx = document.getElementById(id).getContext('2d');
+    if(App.charts[id]) App.charts[id].destroy();
+
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: xLabels, // X축: 관리본부
+            datasets: datasets
+        },
+        options: {
+            indexAxis: 'x', // 세로 막대
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
+            plugins: {
+                legend: { 
+                    display: true, 
+                    position: 'top',
+                    align: 'end',
+                    labels: { boxWidth: 10, font: { size: 11, family: "'Pretendard', sans-serif" } }
+                },
+                tooltip: {
+                    mode: 'index', // 호버 시 해당 막대의 모든 적층 내용 표시
+                    intersect: false,
+                    callbacks: {
+                        footer: (tooltipItems) => {
+                            let sum = 0;
+                            tooltipItems.forEach(function(tooltipItem) {
+                                sum += tooltipItem.raw;
+                            });
+                            return '계: ' + sum + '건';
+                        }
+                    }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 10 },
+                    // 값이 0이거나 너무 작으면 라벨 숨김
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    formatter: (val) => val
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true, // [핵심] X축 적층
+                    grid: { display: false },
+                    ticks: { font: { weight: 'bold' } }
+                },
+                y: {
+                    stacked: true, // [핵심] Y축 적층
+                    beginAtZero: true,
+                    grid: { borderDash: [2, 4] },
+                    grace: '5%'
+                }
+            }
+        }
+    });
+}
+
+    
 function triggerUpload() {
     const p = prompt("관리자 비밀번호 입력:");
     if(p==="3867") document.getElementById('fileInput').click();
