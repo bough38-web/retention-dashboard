@@ -608,7 +608,9 @@ function drawBar(id, data, key, label, color, fType) {
 }
 
 /* --- 파이프라인용 적층(Stacked) 차트 --- */
+/* --- [최종 기능] 적층형(Stacked)에도 '보기보정' 토글 및 높이 최적화 적용 --- */
 function drawStackedBar(id, data, groupKey, stackKey, label) {
+    // 1. 데이터 가공
     const grouped = {};
     const allStacks = new Set();
     
@@ -624,16 +626,83 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
 
     const xLabels = Object.keys(grouped).sort();
     const stackLabels = Array.from(allStacks).sort();
+    
+    // 색상 팔레트
     const colors = [
         '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
         '#ec4899', '#06b6d4', '#84cc16', '#64748b', '#f97316',
         '#94a3b8', '#334155'
     ];
 
+    const canvas = document.getElementById(id);
+    const ctx = canvas.getContext('2d');
+
+    // === [버튼 UI] 토글 버튼 생성 및 상태 관리 ===
+    // 현재 차트의 보기 모드 확인 (기본값: 'compressed' - 보기 좋게 압축됨)
+    let currentMode = canvas.dataset.viewMode || 'compressed';
+    const isCompressed = currentMode === 'compressed';
+
+    // 카드 헤더에 버튼 추가 로직
+    const card = canvas.closest('.card');
+    const header = card ? card.querySelector('.card-head') : null;
+    
+    if (header) {
+        header.style.flexWrap = 'wrap'; 
+        header.style.gap = '8px';
+        
+        // 버튼이 없으면 생성
+        if (!header.querySelector('.scale-toggle-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'scale-toggle-btn';
+            btn.style.cssText = `
+                margin-left: auto; padding: 4px 8px; font-size: 11px; 
+                border: 1px solid #e2e8f0; background: #fff; cursor: pointer; 
+                border-radius: 6px; color: #64748b; font-weight: 700;
+                white-space: nowrap; transition: all 0.2s;
+            `;
+            // 초기 텍스트 설정
+            btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${isCompressed ? '압축됨' : '원본'}`;
+            
+            btn.onclick = () => {
+                // 모드 전환
+                const newMode = canvas.dataset.viewMode === 'linear' ? 'compressed' : 'linear';
+                canvas.dataset.viewMode = newMode;
+                drawStackedBar(id, data, groupKey, stackKey, label); // 재렌더링
+            };
+            header.appendChild(btn);
+        } else {
+            // 버튼 상태/스타일 업데이트
+            const btn = header.querySelector('.scale-toggle-btn');
+            if(btn) {
+                btn.innerHTML = isCompressed 
+                    ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정` 
+                    : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
+                btn.style.background = isCompressed ? '#e0e7ff' : '#fff';
+                btn.style.color = isCompressed ? '#4f46e5' : '#64748b';
+                btn.style.borderColor = isCompressed ? '#c7d2fe' : '#e2e8f0';
+            }
+        }
+    }
+
+    // 2. Chart.js Dataset 생성 (압축 로직 적용)
+    // 각 X축 항목(본부)별 총 높이를 계산하기 위한 배열 (Y축 Max 설정용)
+    const stackHeights = new Array(xLabels.length).fill(0);
+
     const datasets = stackLabels.map((stackName, i) => {
+        // 원본 데이터 배열
+        const rawData = xLabels.map(hq => grouped[hq][stackName] || 0);
+        
+        // 시각화용 데이터 (압축 모드면 네제곱근 적용)
+        const chartData = rawData.map((val, idx) => {
+            const transformed = isCompressed ? Math.pow(val, 0.25) : val;
+            stackHeights[idx] += transformed; // 누적 높이 계산
+            return transformed;
+        });
+
         return {
             label: stackName,
-            data: xLabels.map(hq => grouped[hq][stackName] || 0),
+            data: chartData,
+            rawData: rawData, // 툴팁용 원본 데이터 저장
             backgroundColor: colors[i % colors.length],
             borderRadius: 2,
             barPercentage: 0.6,
@@ -641,7 +710,10 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
         };
     });
 
-    const ctx = document.getElementById(id).getContext('2d');
+    // 최대 적층 높이 계산 (여기에 1.1배 하여 상단 공백 최소화)
+    const maxStackHeight = Math.max(...stackHeights);
+
+    // 3. 차트 그리기
     if(App.charts[id]) App.charts[id].destroy();
 
     App.charts[id] = new Chart(ctx, {
@@ -655,6 +727,7 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
             responsive: true,
             maintainAspectRatio: false,
             layout: { padding: { top: 20 } },
+            animation: { duration: 500 },
             plugins: {
                 legend: { 
                     display: true, 
@@ -663,12 +736,20 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
                     labels: { boxWidth: 10, font: { size: 11, family: "'Pretendard', sans-serif" } }
                 },
                 tooltip: {
-                    mode: 'index', 
+                    mode: 'index',
                     intersect: false,
                     callbacks: {
+                        // 툴팁에는 항상 '원본 값(rawData)'을 표시
+                        label: function(context) {
+                            const raw = context.dataset.rawData[context.dataIndex];
+                            return context.dataset.label + ': ' + raw + '건';
+                        },
                         footer: (tooltipItems) => {
                             let sum = 0;
-                            tooltipItems.forEach(function(tooltipItem) { sum += tooltipItem.raw; });
+                            tooltipItems.forEach(function(item) {
+                                // item.dataset.rawData에 접근
+                                sum += item.dataset.rawData[item.dataIndex];
+                            });
                             return '계: ' + sum + '건';
                         }
                     }
@@ -676,8 +757,12 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
                 datalabels: {
                     color: '#fff',
                     font: { weight: 'bold', size: 10 },
-                    display: function(context) { return context.dataset.data[context.dataIndex] > 0; },
-                    formatter: (val) => val
+                    // 값이 있을 때만 표시, 너무 작으면 숨김
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > (isCompressed ? 0.5 : 0);
+                    },
+                    // 라벨도 원본 값 표시
+                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex]
                 }
             },
             scales: {
@@ -688,9 +773,15 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
                 },
                 y: {
                     stacked: true,
+                    display: !isCompressed, // 압축 모드일 때는 Y축 눈금 숨김 (수치가 왜곡되므로)
+                    grid: { 
+                        display: !isCompressed, 
+                        borderDash: [2, 4] 
+                    },
                     beginAtZero: true,
-                    grid: { borderDash: [2, 4] },
-                    grace: '5%'
+                    // [핵심] 상단 공백 제거 (데이터 높이에 딱 맞게)
+                    max: isCompressed ? maxStackHeight * 1.1 : undefined,
+                    grace: isCompressed ? 0 : '5%'
                 }
             }
         }
