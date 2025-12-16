@@ -526,8 +526,7 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-/* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
-/* --- [최종 수정] 높이 50% 고정 (가장 높은 막대가 중간에 위치) --- */
+/* --- [최종 수정] 상단 공백 제거 (막대가 차트 영역을 가득 채움) --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -559,7 +558,7 @@ function drawBar(id, data, key, label, color, fType) {
     // 파이프라인 차트 여부 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
     
-    // [제곱근 적용] 값 격차 완화 (작은 값도 잘 보이게)
+    // [제곱근 적용] 값 격차 완화
     const chartValues = isPipeChart ? rawValues.map(v => Math.sqrt(v)) : rawValues;
     
     // 최대값 계산
@@ -616,9 +615,8 @@ function drawBar(id, data, key, label, color, fType) {
                     display: !isPipeChart, 
                     grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // [핵심 수정] 최대 높이를 데이터의 2배로 설정 
-                    // -> 가장 높은 막대가 차트 높이의 정확히 50% 지점에 위치함
-                    max: isPipeChart ? Math.ceil(maxPlotValue * 2) : undefined,
+                    // [핵심 수정] 최대 높이를 데이터의 1.1배로 타이트하게 설정 -> 상단 공백 제거
+                    max: isPipeChart ? Math.ceil(maxPlotValue * 1.1) : undefined,
                     grace: isPipeChart ? 0 : '10%' 
                 } 
             },
