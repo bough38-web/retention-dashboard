@@ -526,8 +526,7 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-/* --- [FIXED] DrawBar Function --- */
-/* --- [최종 수정] 파이 차트 좌우 여백 및 레이아웃 균형 조정 --- */
+/* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -579,42 +578,44 @@ function drawBar(id, data, key, label, color, fType) {
                     backgroundColor: pieColors,
                     borderWidth: 2,
                     borderColor: '#ffffff',
-                    // 파이 차트가 너무 커지지 않도록 오프셋 설정 (선택사항)
                     hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                // [핵심 수정] 차트 내부 여백(Padding) 추가로 좌우 간격 확보
+                // [핵심 수정 1] 가로세로 비율을 1:1(정사각형)로 고정하여 모양 유지
+                aspectRatio: 1, 
+                maintainAspectRatio: false, 
+                
                 layout: {
                     padding: {
-                        left: 30,  // 왼쪽 여백
-                        right: 30, // 오른쪽 여백
-                        top: 20,
-                        bottom: 20
+                        top: 10,
+                        bottom: 20,
+                        left: 10,
+                        right: 10
                     }
                 },
                 plugins: {
+                    // [핵심 수정 2] 범례를 상단으로 이동
                     legend: { 
                         display: true, 
-                        position: 'right', // 범례를 오른쪽에 배치
+                        position: 'top', 
+                        align: 'center',
                         labels: { 
                             font: { family: "'Pretendard', sans-serif", size: 11 },
-                            boxWidth: 12,
-                            padding: 20 // 범례 항목 간 간격도 넓힘
+                            boxWidth: 12, // 범례 아이콘 크기
+                            padding: 15
                         }
                     },
                     datalabels: {
                         color: '#fff',
-                        font: { weight: 'bold', size: 12 },
+                        font: { weight: 'bold', size: 11 }, // 글씨 크기 약간 조정
                         formatter: (val, ctx) => {
                             let sum = 0;
                             let dataArr = ctx.chart.data.datasets[0].data;
                             dataArr.map(data => { sum += data; });
-                            let percentage = (val*100 / sum).toFixed(1)+"%";
-                            // 5% 미만은 공간 부족으로 텍스트 숨김 (가독성 확보)
-                            return (val*100 / sum) > 5 ? percentage : '';
+                            // 5% 미만은 숨김
+                            return (val*100 / sum) > 5 ? (val*100 / sum).toFixed(1)+"%" : '';
                         }
                     }
                 },
@@ -626,7 +627,7 @@ function drawBar(id, data, key, label, color, fType) {
         });
 
     } else {
-        // === [VOC] 기존 막대 차트 설정 ===
+        // === [VOC] 기존 막대 차트 (세로형) ===
         App.charts[id] = new Chart(ctx, {
             type: 'bar',
             data: {
