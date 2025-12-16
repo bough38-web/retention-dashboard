@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [FIXED] DrawBar Function --- */
-/* --- [최종 수정] 높이 50% 시각적 축소 및 간격 최적화 적용 --- */
+/* --- [최종 수정] 파이프라인(Pie) / VOC(Bar) 분기 처리 적용 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -542,78 +542,123 @@ function drawBar(id, data, key, label, color, fType) {
     // 2. 정렬 로직
     let keys = Object.keys(counts);
     if(key === '_branch') {
+        // 지사 순서 정렬
         keys.sort((a,b) => {
             const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
             if(ia!==-1 && ib!==-1) return ia-ib;
             return b.localeCompare(a); 
         });
     } else {
+        // 값 크기순 정렬
         keys.sort((a,b) => counts[b] - counts[a]);
     }
-    keys = keys.slice(0, 15);
-
-    // [추가 로직] 데이터 중 최대값 계산 (높이 조절용)
+    
+    // 상위 10개만 표시 (파이차트는 조각이 너무 많으면 안 보임)
+    keys = keys.slice(0, 10);
     const values = keys.map(k => counts[k]);
-    const maxValue = Math.max(...values);
 
-    // 3. 차트 그리기
+    // 3. 차트 그리기 준비
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
 
-    // 파이프라인 차트인지 확인
+    // 파이프라인 차트 여부 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
 
-    App.charts[id] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: keys,
-            datasets: [{ 
-                label: label, 
-                data: values, 
-                backgroundColor: color, 
-                borderRadius: 4,
-                // 파이프라인 차트일 경우 막대 최대 두께 80px 허용 (간격 줄임)
-                maxBarThickness: isPipeChart ? 80 : 35,
-                // 막대가 영역의 90%를 채우도록 설정 (간격 최소화)
-                barPercentage: isPipeChart ? 0.9 : 0.8,
-                categoryPercentage: isPipeChart ? 0.9 : 0.8
-            }]
-        },
-        options: {
-            indexAxis: 'x', // 세로형 막대
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { 
-                legend: { display: false }, 
-                datalabels: { 
-                    color: '#4b5563', 
-                    anchor: 'end', 
-                    align: 'top', 
-                    font: { weight: 'bold', size: 11 },
-                    formatter: (val) => val > 0 ? val : ''
-                } 
-            },
-            scales: { 
-                x: { 
-                    grid: { display: false, drawBorder: false },
-                }, 
-                y: { 
-                    grid: { display: true, drawBorder: false },
-                    beginAtZero: true, 
-                    // [핵심 수정] 파이프라인 차트는 Y축 최대값을 실제값의 2배로 설정
-                    // 이렇게 하면 가장 긴 막대가 차트의 50% 높이까지만 그려짐
-                    max: isPipeChart ? Math.ceil(maxValue * 2) : undefined,
-                    grace: isPipeChart ? 0 : '10%' 
-                } 
-            },
-            onClick: (e, els) => {
-                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-            },
-            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-        }
-    });
-}
+    if (isPipeChart) {
+        // === [파이프라인] 파이 차트 설정 ===
+        // 다채로운 색상 팔레트 생성
+        const pieColors = [
+            '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
+            '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', 
+            '#64748b', '#f97316'
+        ];
 
+        App.charts[id] = new Chart(ctx, {
+            type: 'pie', // 도넛형을 원하면 'doughnut'으로 변경 가능
+            data: {
+                labels: keys,
+                datasets: [{
+                    data: values,
+                    backgroundColor: pieColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    // 범례 표시 (오른쪽)
+                    legend: { 
+                        display: true, 
+                        position: 'right',
+                        labels: { 
+                            font: { family: "'Pretendard', sans-serif", size: 11 },
+                            boxWidth: 12,
+                            padding: 10
+                        }
+                    },
+                    // 데이터 라벨 (비율 표시)
+                    datalabels: {
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (val, ctx) => {
+                            let sum = 0;
+                            let dataArr = ctx.chart.data.datasets[0].data;
+                            dataArr.map(data => { sum += data; });
+                            let percentage = (val*100 / sum).toFixed(1)+"%";
+                            return percentage; // 조각 안에 % 표시
+                        }
+                    }
+                },
+                // 클릭 시 필터링
+                onClick: (e, els) => {
+                    if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
+                },
+                onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+            }
+        });
+
+    } else {
+        // === [VOC] 기존 막대 차트 설정 (세로형) ===
+        App.charts[id] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: keys,
+                datasets: [{ 
+                    label: label, 
+                    data: values, 
+                    backgroundColor: color, 
+                    borderRadius: 4,
+                    maxBarThickness: 35
+                }]
+            },
+            options: {
+                indexAxis: 'x',
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false }, 
+                    datalabels: { 
+                        color: '#4b5563', 
+                        anchor: 'end', 
+                        align: 'top', 
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (val) => val > 0 ? val : ''
+                    } 
+                },
+                scales: { 
+                    x: { grid: { display: false } }, 
+                    y: { beginAtZero: true, grace: '10%' } 
+                },
+                onClick: (e, els) => {
+                    if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
+                },
+                onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+            }
+        });
+    }
+}
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
