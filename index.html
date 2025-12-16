@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [FIXED] DrawBar Function --- */
-/* --- [최종 수정] 파이프라인(Pie) / VOC(Bar) 분기 처리 적용 --- */
+/* --- [최종 수정] 파이 차트 좌우 여백 및 레이아웃 균형 조정 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -542,22 +542,20 @@ function drawBar(id, data, key, label, color, fType) {
     // 2. 정렬 로직
     let keys = Object.keys(counts);
     if(key === '_branch') {
-        // 지사 순서 정렬
         keys.sort((a,b) => {
             const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
             if(ia!==-1 && ib!==-1) return ia-ib;
             return b.localeCompare(a); 
         });
     } else {
-        // 값 크기순 정렬
         keys.sort((a,b) => counts[b] - counts[a]);
     }
     
-    // 상위 10개만 표시 (파이차트는 조각이 너무 많으면 안 보임)
+    // 상위 10개만 표시
     keys = keys.slice(0, 10);
     const values = keys.map(k => counts[k]);
 
-    // 3. 차트 그리기 준비
+    // 3. 차트 그리기
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
 
@@ -566,7 +564,6 @@ function drawBar(id, data, key, label, color, fType) {
 
     if (isPipeChart) {
         // === [파이프라인] 파이 차트 설정 ===
-        // 다채로운 색상 팔레트 생성
         const pieColors = [
             '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
             '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', 
@@ -574,31 +571,40 @@ function drawBar(id, data, key, label, color, fType) {
         ];
 
         App.charts[id] = new Chart(ctx, {
-            type: 'pie', // 도넛형을 원하면 'doughnut'으로 변경 가능
+            type: 'pie',
             data: {
                 labels: keys,
                 datasets: [{
                     data: values,
                     backgroundColor: pieColors,
                     borderWidth: 2,
-                    borderColor: '#ffffff'
+                    borderColor: '#ffffff',
+                    // 파이 차트가 너무 커지지 않도록 오프셋 설정 (선택사항)
+                    hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                // [핵심 수정] 차트 내부 여백(Padding) 추가로 좌우 간격 확보
+                layout: {
+                    padding: {
+                        left: 30,  // 왼쪽 여백
+                        right: 30, // 오른쪽 여백
+                        top: 20,
+                        bottom: 20
+                    }
+                },
                 plugins: {
-                    // 범례 표시 (오른쪽)
                     legend: { 
                         display: true, 
-                        position: 'right',
+                        position: 'right', // 범례를 오른쪽에 배치
                         labels: { 
                             font: { family: "'Pretendard', sans-serif", size: 11 },
                             boxWidth: 12,
-                            padding: 10
+                            padding: 20 // 범례 항목 간 간격도 넓힘
                         }
                     },
-                    // 데이터 라벨 (비율 표시)
                     datalabels: {
                         color: '#fff',
                         font: { weight: 'bold', size: 12 },
@@ -607,11 +613,11 @@ function drawBar(id, data, key, label, color, fType) {
                             let dataArr = ctx.chart.data.datasets[0].data;
                             dataArr.map(data => { sum += data; });
                             let percentage = (val*100 / sum).toFixed(1)+"%";
-                            return percentage; // 조각 안에 % 표시
+                            // 5% 미만은 공간 부족으로 텍스트 숨김 (가독성 확보)
+                            return (val*100 / sum) > 5 ? percentage : '';
                         }
                     }
                 },
-                // 클릭 시 필터링
                 onClick: (e, els) => {
                     if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
                 },
@@ -620,7 +626,7 @@ function drawBar(id, data, key, label, color, fType) {
         });
 
     } else {
-        // === [VOC] 기존 막대 차트 설정 (세로형) ===
+        // === [VOC] 기존 막대 차트 설정 ===
         App.charts[id] = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -659,6 +665,7 @@ function drawBar(id, data, key, label, color, fType) {
         });
     }
 }
+    
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
