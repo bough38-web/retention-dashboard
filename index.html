@@ -252,9 +252,28 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    // [수정] hq: '강북/강원' -> 'ALL'로 변경하여 전체 본부가 기본으로 나오도록 설정
+    // [설정 확인] hq: 'ALL' (전체 관리본부 기본 조회)
     filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, 
     map: null, clusterer: null, markers: [], charts: {}
+};
+
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family = "'Pretendard', sans-serif";
+Chart.defaults.color = '#64748b';
+Chart.defaults.scale.grid.color = '#f1f5f9';
+
+/* INIT */
+window.onload = async () => {
+    try {
+        const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
+        App.data.voc = parseVoc(v.data);
+        App.data.pipe = parsePipe(p.data);
+        
+        initMap();
+        initFiltersHTML();
+        updateDashboard();
+    } catch(e) { console.error(e); alert("데이터 로드 실패"); }
+    document.getElementById('loading').style.display = 'none';
 };
 
 async function fetchCsv(url) {
@@ -444,11 +463,8 @@ function renderPipeView() {
     animateNum('pipe-fail', fail.length);
     animateNum('pipe-success', success.length);
 
-    // [이 부분이 중요합니다]
-    // 1. 관리본부별 방어 단계 현황
+    // [중요] 적층형(Stacked) 차트 호출
     drawStackedBar('chart-pipe-step', data, '_hq', '_step', '방어단계');
-    
-    // 2. 관리본부별 해지 사유 현황
     drawStackedBar('chart-pipe-reason', data, '_hq', '해지사유', '해지사유');
     
     // 테이블 렌더링
@@ -513,19 +529,15 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-/* --- [최종 기능] 반응형(Responsive) 강화 + 토글 + 50% 압축 유지 --- */
+/* --- VOC용 일반 차트 (반응형 등 포함) --- */
 function drawBar(id, data, key, label, color, fType) {
-    // 1. 데이터 집계
     const counts = {};
     data.forEach(d => {
         let k = d[key];
-        if (!k || (typeof k === 'string' && k.trim() === '')) {
-            k = '미입력';
-        }
+        if (!k || (typeof k === 'string' && k.trim() === '')) k = '미입력';
         counts[k] = (counts[k] || 0) + 1;
     });
     
-    // 2. 정렬 로직
     let keys = Object.keys(counts);
     if(key === '_branch') {
         keys.sort((a,b) => {
@@ -539,70 +551,10 @@ function drawBar(id, data, key, label, color, fType) {
     
     keys = keys.slice(0, 15);
     const rawValues = keys.map(k => counts[k]);
-    
-    // 파이프라인 차트 여부 확인
-    const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
-    
-    // [반응형] 현재 화면 너비 확인 (768px 미만이면 모바일 모드)
     const isMobile = window.innerWidth < 768;
-    
     const canvas = document.getElementById(id);
     const ctx = canvas.getContext('2d');
 
-    // === [버튼 UI] 반응형 스타일 적용 ===
-    let currentMode = canvas.dataset.viewMode || 'compressed';
-
-    if (isPipeChart) {
-        const card = canvas.closest('.card');
-        const header = card ? card.querySelector('.card-head') : null;
-        
-        if (header) {
-            // 헤더가 좁을 때 줄바꿈 허용하여 레이아웃 깨짐 방지
-            header.style.flexWrap = 'wrap'; 
-            header.style.gap = '8px';
-            
-            if (!header.querySelector('.scale-toggle-btn')) {
-                const btn = document.createElement('button');
-                btn.className = 'scale-toggle-btn';
-                // 버튼 스타일: 화면이 작아도 터치하기 편하게 조정
-                btn.style.cssText = `
-                    margin-left: auto; padding: 4px 8px; font-size: 11px; 
-                    border: 1px solid #e2e8f0; background: #fff; cursor: pointer; 
-                    border-radius: 6px; color: #64748b; font-weight: 700;
-                    white-space: nowrap; transition: all 0.2s;
-                `;
-                btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${currentMode==='compressed'?'압축됨':'원본'}`;
-                
-                btn.onclick = () => {
-                    const newMode = canvas.dataset.viewMode === 'linear' ? 'compressed' : 'linear';
-                    canvas.dataset.viewMode = newMode;
-                    drawBar(id, data, key, label, color, fType); // 재렌더링
-                };
-                header.appendChild(btn);
-            } else {
-                // 버튼 상태 업데이트
-                const btn = header.querySelector('.scale-toggle-btn');
-                if(btn) {
-                    btn.innerHTML = currentMode === 'compressed' 
-                        ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정` 
-                        : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
-                    btn.style.background = currentMode === 'compressed' ? '#e0e7ff' : '#fff';
-                    btn.style.color = currentMode === 'compressed' ? '#4f46e5' : '#64748b';
-                    btn.style.borderColor = currentMode === 'compressed' ? '#c7d2fe' : '#e2e8f0';
-                }
-            }
-        }
-    }
-
-    // === [데이터 변환] 압축 로직 ===
-    let chartValues = rawValues;
-    if (isPipeChart && currentMode === 'compressed') {
-        // 네제곱근(pow 0.25) 압축: 큰 수와 작은 수의 시각적 차이를 줄임
-        chartValues = rawValues.map(v => Math.pow(v, 0.25));
-    }
-    const maxPlotValue = Math.max(...chartValues);
-
-    // 3. 차트 그리기
     if(App.charts[id]) App.charts[id].destroy();
 
     App.charts[id] = new Chart(ctx, {
@@ -611,63 +563,40 @@ function drawBar(id, data, key, label, color, fType) {
             labels: keys,
             datasets: [{ 
                 label: label, 
-                data: chartValues, 
+                data: rawValues, 
                 backgroundColor: color, 
                 borderRadius: 4,
-                // [반응형] 모바일에서는 막대를 덜 뚱뚱하게, PC에서는 넓게
-                maxBarThickness: isPipeChart ? (isMobile ? 60 : 120) : 35,
-                barPercentage: isPipeChart ? 0.95 : 0.8,
-                categoryPercentage: isPipeChart ? 0.95 : 0.8
+                maxBarThickness: isMobile ? 60 : 35,
+                barPercentage: 0.8,
             }]
         },
         options: {
             indexAxis: 'x',
-            responsive: true, // 반응형 활성화
-            maintainAspectRatio: false, // 부모 컨테이너 크기에 맞춰 늘어남
-            resizeDelay: 100, // 창 크기 조절 시 버벅임 방지
+            responsive: true, 
+            maintainAspectRatio: false, 
+            resizeDelay: 100,
             layout: { padding: 0 },
-            animation: { duration: 600, easing: 'easeOutQuart' },
+            animation: { duration: 600 },
             plugins: { 
                 legend: { display: false }, 
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return label + ': ' + rawValues[context.dataIndex] + '건';
-                        }
-                    }
-                },
                 datalabels: { 
                     color: '#4b5563', 
                     anchor: 'end', 
                     align: 'top', 
-                    // [반응형] 모바일에서는 폰트 사이즈를 줄임
                     font: { weight: 'bold', size: isMobile ? 10 : 12 },
                     offset: 4,
-                    // 막대가 너무 좁으면 라벨 숨김 (겹침 방지)
-                    display: function(context) {
-                        return context.chart.width / keys.length > 20; 
-                    },
-                    formatter: (val, ctx) => rawValues[ctx.dataIndex]
+                    display: function(context) { return context.chart.width / keys.length > 20; },
+                    formatter: (val) => val
                 } 
             },
             scales: { 
                 x: { 
                     grid: { display: false, drawBorder: false },
-                    // [반응형] 모바일에서 X축 글자 크기 조정
-                    ticks: { 
-                        font: { size: isMobile ? 10 : 11, weight: 'bold' },
-                        autoSkip: true, // 공간 부족하면 라벨 건너뜀
-                        maxRotation: 0, // 라벨 회전 방지 (깔끔하게)
-                        minRotation: 0
-                    }
+                    ticks: { font: { size: isMobile ? 10 : 11, weight: 'bold' } }
                 }, 
                 y: { 
-                    display: !isPipeChart, 
-                    grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // 상단 공백 제거 (타이트하게)
-                    max: isPipeChart ? maxPlotValue * 1.1 : undefined,
-                    grace: isPipeChart ? 0 : '10%' 
+                    grace: '10%' 
                 } 
             },
             onClick: (e, els) => {
@@ -678,35 +607,95 @@ function drawBar(id, data, key, label, color, fType) {
     });
 }
 
-function renderPipeView() {
-    const data = App.filtered;
+/* --- 파이프라인용 적층(Stacked) 차트 --- */
+function drawStackedBar(id, data, groupKey, stackKey, label) {
+    const grouped = {};
+    const allStacks = new Set();
     
-    // KPI 계산
-    const highRisk = data.filter(d => d._risk >= 60 && d._risk < 100);
-    const fail = data.filter(d => d._risk === 100 || d._step === '방어실패');
-    const success = data.filter(d => d._step === '방어성공');
-    
-    // KPI 업데이트
-    animateNum('pipe-total', data.length);
-    document.getElementById('pipe-channel-label').innerText = App.filters.channel==='ALL'?'전체':App.filters.channel;
-    animateNum('pipe-high', highRisk.length);
-    animateNum('pipe-fail', fail.length);
-    animateNum('pipe-success', success.length);
+    data.forEach(d => {
+        const group = d[groupKey] || "기타";
+        let stack = d[stackKey];
+        if (!stack || (typeof stack === 'string' && stack.trim() === '')) stack = '미입력';
+        
+        if (!grouped[group]) grouped[group] = {};
+        grouped[group][stack] = (grouped[group][stack] || 0) + 1;
+        allStacks.add(stack);
+    });
 
-    // [변경] 단순 막대(drawBar) 대신 적층 그래프(drawStackedBar) 호출
-    // 1. 관리본부별 방어 단계 현황
-    drawStackedBar('chart-pipe-step', data, '_hq', '_step', '방어단계');
-    
-    // 2. 관리본부별 해지 사유 현황
-    drawStackedBar('chart-pipe-reason', data, '_hq', '해지사유', '해지사유');
-    
-    // 테이블 렌더링
-    renderTable('table-pipe', data, [
-        {k:'_hq'}, {k:'_branch'}, {k:'_agent'}, {k:'계약번호'}, {k:'상호'}, 
-        {k:'_channel'}, {k:'_risk', suffix:'%'}, {k:'_step'}, {k:'_date'}, {k:'_fee', fmt:fmtMoney}
-    ]);
+    const xLabels = Object.keys(grouped).sort();
+    const stackLabels = Array.from(allStacks).sort();
+    const colors = [
+        '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+        '#ec4899', '#06b6d4', '#84cc16', '#64748b', '#f97316',
+        '#94a3b8', '#334155'
+    ];
+
+    const datasets = stackLabels.map((stackName, i) => {
+        return {
+            label: stackName,
+            data: xLabels.map(hq => grouped[hq][stackName] || 0),
+            backgroundColor: colors[i % colors.length],
+            borderRadius: 2,
+            barPercentage: 0.6,
+            maxBarThickness: 50
+        };
+    });
+
+    const ctx = document.getElementById(id).getContext('2d');
+    if(App.charts[id]) App.charts[id].destroy();
+
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: xLabels,
+            datasets: datasets
+        },
+        options: {
+            indexAxis: 'x',
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
+            plugins: {
+                legend: { 
+                    display: true, 
+                    position: 'top',
+                    align: 'end',
+                    labels: { boxWidth: 10, font: { size: 11, family: "'Pretendard', sans-serif" } }
+                },
+                tooltip: {
+                    mode: 'index', 
+                    intersect: false,
+                    callbacks: {
+                        footer: (tooltipItems) => {
+                            let sum = 0;
+                            tooltipItems.forEach(function(tooltipItem) { sum += tooltipItem.raw; });
+                            return '계: ' + sum + '건';
+                        }
+                    }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 10 },
+                    display: function(context) { return context.dataset.data[context.dataIndex] > 0; },
+                    formatter: (val) => val
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { font: { weight: 'bold' } }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: { borderDash: [2, 4] },
+                    grace: '5%'
+                }
+            }
+        }
+    });
 }
-
 
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
@@ -770,112 +759,6 @@ function switchView(v) {
     updateDashboard();
 }
 
-/* --- [신규 추가] 관리본부별 적층(Stacked) 시각화 함수 --- */
-function drawStackedBar(id, data, groupKey, stackKey, label) {
-    // 1. 데이터 가공: { 본부A: { 사유1: 5, 사유2: 3 }, 본부B: ... }
-    const grouped = {};
-    const allStacks = new Set();
-    
-    data.forEach(d => {
-        // 그룹 키 (예: 관리본부)
-        const group = d[groupKey] || "기타";
-        // 적층 키 (예: 해지사유) - 값이 없으면 '미입력' 처리
-        let stack = d[stackKey];
-        if (!stack || (typeof stack === 'string' && stack.trim() === '')) stack = '미입력';
-        
-        if (!grouped[group]) grouped[group] = {};
-        grouped[group][stack] = (grouped[group][stack] || 0) + 1;
-        allStacks.add(stack);
-    });
-
-    // X축 라벨 (관리본부) 정렬
-    const xLabels = Object.keys(grouped).sort();
-    
-    // 스택 항목 (범례) 리스트화 및 정렬
-    const stackLabels = Array.from(allStacks).sort();
-
-    // 색상 팔레트
-    const colors = [
-        '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
-        '#ec4899', '#06b6d4', '#84cc16', '#64748b', '#f97316',
-        '#94a3b8', '#334155'
-    ];
-
-    // 2. Chart.js Dataset 생성
-    const datasets = stackLabels.map((stackName, i) => {
-        return {
-            label: stackName,
-            data: xLabels.map(hq => grouped[hq][stackName] || 0), // 해당 본부에 값이 없으면 0
-            backgroundColor: colors[i % colors.length], // 색상 순환
-            borderRadius: 2,
-            barPercentage: 0.6,
-            maxBarThickness: 50
-        };
-    });
-
-    // 3. 차트 그리기
-    const ctx = document.getElementById(id).getContext('2d');
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: xLabels, // X축: 관리본부
-            datasets: datasets
-        },
-        options: {
-            indexAxis: 'x', // 세로 막대
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { top: 20 } },
-            plugins: {
-                legend: { 
-                    display: true, 
-                    position: 'top',
-                    align: 'end',
-                    labels: { boxWidth: 10, font: { size: 11, family: "'Pretendard', sans-serif" } }
-                },
-                tooltip: {
-                    mode: 'index', // 호버 시 해당 막대의 모든 적층 내용 표시
-                    intersect: false,
-                    callbacks: {
-                        footer: (tooltipItems) => {
-                            let sum = 0;
-                            tooltipItems.forEach(function(tooltipItem) {
-                                sum += tooltipItem.raw;
-                            });
-                            return '계: ' + sum + '건';
-                        }
-                    }
-                },
-                datalabels: {
-                    color: '#fff',
-                    font: { weight: 'bold', size: 10 },
-                    // 값이 0이거나 너무 작으면 라벨 숨김
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    },
-                    formatter: (val) => val
-                }
-            },
-            scales: {
-                x: {
-                    stacked: true, // [핵심] X축 적층
-                    grid: { display: false },
-                    ticks: { font: { weight: 'bold' } }
-                },
-                y: {
-                    stacked: true, // [핵심] Y축 적층
-                    beginAtZero: true,
-                    grid: { borderDash: [2, 4] },
-                    grace: '5%'
-                }
-            }
-        }
-    });
-}
-
-    
 function triggerUpload() {
     const p = prompt("관리자 비밀번호 입력:");
     if(p==="3867") document.getElementById('fileInput').click();
