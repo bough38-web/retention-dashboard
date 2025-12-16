@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v22.0 Final)</title>
+<title>KTT Premium Retention Dashboard (v23.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -140,7 +140,7 @@
             </div>
             <div class="voc-right">
                 <div class="card full" style="padding:0;">
-                    <div style="padding:12px; border-bottom:1px solid var(--border);"><h3 class="card-title">고객 위치</h3></div>
+                    <div style="padding:12px; border-bottom:1px solid var(--border);"><h3 class="card-title">고객 위치 (수도권)</h3></div>
                     <div id="voc-map" class="map-wrapper"></div>
                 </div>
             </div>
@@ -230,6 +230,7 @@ Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
 
+/* INIT */
 window.onload = async () => {
     try {
         const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
@@ -250,14 +251,22 @@ async function fetchCsv(url) {
 
 function parseVoc(data) {
     if(!data.length) return [];
-    return data.map(r => ({
-        ...r,
-        _branch: (r["관리지사"]||"기타").replace("지사","").trim(),
-        _agent: (r["담당자"]||"미지정").trim(),
-        _status: (r["상태"]||"").trim(),
-        _lat: parseFloat(r["위도"])||null, _lng: parseFloat(r["경도"])||null,
-        _fee: parseInt((r["합산월정료"]||"0").replace(/,/g,''))||0
-    }));
+    const kCoord = Object.keys(data[0]).find(k=>k.includes("위치")) || "위도";
+    return data.map(r => {
+        let lat=null, lng=null;
+        if(r["위도"]) { lat=parseFloat(r["위도"]); lng=parseFloat(r["경도"]); }
+        else if(r[kCoord] && r[kCoord].includes(',')) {
+            const p=r[kCoord].split(','); lat=parseFloat(p[0]); lng=parseFloat(p[1]);
+        }
+        return {
+            ...r,
+            _branch: (r["관리지사"]||"기타").replace("지사","").trim(),
+            _agent: (r["담당자"]||"미지정").trim(),
+            _status: (r["상태"]||"").trim(),
+            _lat: lat, _lng: lng,
+            _fee: parseInt((r["합산월정료"]||"0").replace(/,/g,''))||0
+        };
+    });
 }
 
 function parsePipe(data) {
@@ -283,15 +292,14 @@ function initFiltersHTML() {
     const area = document.getElementById('filter-container');
     area.innerHTML = `
         <div class="filter-box" id="fb-channel" style="display:none;">
-            <div class="filter-head">영업채널</div>
-            <div id="chips-channel" class="chips"></div>
+            <div class="filter-head">영업채널</div><div id="chips-channel" class="chips"></div>
         </div>
         <div class="filter-box" id="fb-voc-filters">
-            <div class="filter-head">지사 필터</div>
-            <div id="chips-voc-branch" class="chips"></div>
+            <div class="filter-head">지사 필터</div><div id="chips-voc-branch" class="chips"></div>
         </div>
     `;
     
+    // Channel Filter
     const channels = ['전체', 'SP', 'SC', 'AM'];
     const box = document.getElementById('chips-channel');
     channels.forEach(c => {
@@ -307,6 +315,7 @@ function initFiltersHTML() {
         box.appendChild(btn);
     });
 
+    // VOC Branch Filter
     const vBox = document.getElementById('chips-voc-branch');
     ['전체', ...BRANCH_ORDER].forEach(b => {
         const btn = document.createElement('div');
@@ -342,6 +351,7 @@ function updateDashboard() {
     else renderPipeView();
 }
 
+/* RENDER VOC */
 function renderVocView() {
     const data = App.filtered;
     const unique = new Set(data.map(d=>d["계약번호"])).size;
@@ -369,10 +379,10 @@ function renderVocView() {
     `).join('');
 }
 
+/* RENDER PIPELINE */
 function renderPipeView() {
     const data = App.filtered;
 
-    // [신규] KPI 집계
     const total = data.length;
     const success = data.filter(d=>d._step==='방어성공').length;
     const fail = data.filter(d=>d._step==='방어실패').length;
@@ -386,7 +396,6 @@ function renderPipeView() {
     animateNum('pipe-ing', ing);
     document.getElementById('pipe-rate-ing').innerText = total ? `(${((ing/total)*100).toFixed(1)}%)` : '(0%)';
 
-    // Aggregation Logic
     const agg = { hq: {}, branch: {} };
     HQ_ORDER.forEach(hq => agg.hq[hq] = { _total:0 });
 
@@ -425,7 +434,7 @@ function renderPipeView() {
     drawStackedBar('chart-branch-amt', 'branch', 'amt', agg.branch, sortedBranches);
 }
 
-/* DRAWING FUNCTIONS */
+/* CHART FUNCTIONS */
 function drawVocBar(id, data, key) {
     const counts = {};
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
@@ -452,8 +461,9 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     const ctx = document.getElementById(id).getContext('2d');
     const canvas = document.getElementById(id);
     
-    // === [UI] 보기보정 토글 ===
-    let currentMode = canvas.dataset.viewMode || 'compressed';
+    // Toggle Button Logic (Linear/Compressed)
+    // [수정] 기본 모드를 'linear'(실제비율)로 변경
+    let currentMode = canvas.dataset.viewMode || 'linear'; 
     const isCompressed = currentMode === 'compressed';
     const card = canvas.closest('.card');
     const header = card ? card.querySelector('.card-head') : null;
@@ -466,8 +476,8 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             btn.style.cssText = `margin-left:auto; padding:3px 8px; font-size:11px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; border-radius:6px; color:#475569; font-weight:700; white-space:nowrap;`;
             btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${isCompressed ? '압축됨' : '원본'}`;
             btn.onclick = () => {
-                canvas.dataset.viewMode = canvas.dataset.viewMode==='linear'?'compressed':'linear';
-                renderPipeView(); // 전체 리렌더링
+                canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed';
+                renderPipeView(); 
             };
             header.appendChild(btn);
         } else {
@@ -481,7 +491,6 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     if(App.charts[id]) App.charts[id].destroy();
 
     const statuses = ['방어성공', '방어실패', '진행중'];
-    // 데이터 집계 및 압축
     const stackHeights = new Array(labels.length).fill(0);
     const datasets = statuses.map(status => {
         const rawData = labels.map(label => {
@@ -489,7 +498,8 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             return (item && item[status]) ? Math.round(item[status][metric]) : 0;
         });
         const chartData = rawData.map((val, idx) => {
-            const t = isCompressed ? Math.pow(val, 0.25) : val; // 네제곱근 압축
+            // 압축 모드일 때만 네제곱근 적용
+            const t = isCompressed ? Math.pow(val, 0.25) : val;
             stackHeights[idx] += t;
             return t;
         });
@@ -515,7 +525,6 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             responsive: true,
             maintainAspectRatio: false,
             layout: { padding: { top: 10, right: 15 } },
-            // Wave Animation
             animation: {
                 duration: 800,
                 delay: (c) => c.type === 'data' && c.mode === 'default' ? c.dataIndex * 50 + c.datasetIndex * 30 : 0
@@ -530,11 +539,12 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                     }
                 },
                 datalabels: {
-                    color: '#000', // 검정색 글씨
+                    color: '#fff',
                     font: { size: 10, weight: 'bold' },
                     display: (ctx) => {
                         const val = ctx.dataset.data[ctx.dataIndex];
-                        const thres = isCompressed ? 0.3 : (maxStackHeight * 0.05); // 너무 작으면 숨김
+                        // 압축 여부에 따라 라벨 표시 임계값 조정
+                        const thres = isCompressed ? 0.3 : (maxStackHeight * 0.05); 
                         return val > thres;
                     },
                     formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString(),
@@ -549,11 +559,10 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                 },
                 y: { 
                     stacked: true, 
-                    display: !isCompressed, // 압축 모드면 Y축 숨김
-                    grid: { borderDash: [2, 4] },
+                    display: !isCompressed, 
+                    grid: { display: !isCompressed, borderDash: [2, 4] },
                     ticks: { font: { size: 11 } },
                     beginAtZero: true,
-                    // 상단 공백 제거 (1.1배)
                     max: isCompressed ? maxStackHeight * 1.1 : undefined,
                     grace: 0
                 }
@@ -577,7 +586,12 @@ function switchView(v) {
 
 function triggerUpload() { document.getElementById('fileInput').click(); }
 function initMap() {
-    App.map = new google.maps.Map(document.getElementById('voc-map'), { center: {lat: 36.5, lng: 127.5}, zoom: 7, disableDefaultUI: true });
+    // [수정] 서울/수도권 중심 좌표 및 줌 레벨 조정
+    App.map = new google.maps.Map(document.getElementById('voc-map'), { 
+        center: {lat: 37.5665, lng: 126.9780}, // 서울 시청 좌표
+        zoom: 10, 
+        disableDefaultUI: true 
+    });
 }
 function updateMap(data) {
     if(!App.map) return;
@@ -590,13 +604,12 @@ function updateMap(data) {
         App.markers.push(m);
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
+    // 마커가 있으면 바운드 핏, 없으면 서울 중심 유지
     if(App.markers.length) App.map.fitBounds(bounds);
+    else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 function animateNum(id, target) {
-    const el = document.getElementById(id);
-    const start = parseInt(el.innerText.replace(/,/g,'')) || 0;
-    if(start === target) return;
-    el.innerText = target.toLocaleString();
+    document.getElementById(id).innerText = target.toLocaleString();
 }
 </script>
 </body>
