@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
-/* --- [최종 수정] 상단 하얀색 공백 제거 (막대 꽉 채움) --- */
+/* --- [최종 수정] 값 격차 완화(제곱근 시각화) 및 디자인 보정 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -552,13 +552,21 @@ function drawBar(id, data, key, label, color, fType) {
     }
     
     keys = keys.slice(0, 15);
-    const values = keys.map(k => counts[k]);
+    
+    // [핵심] 원본 데이터와 시각화용 데이터 분리
+    const rawValues = keys.map(k => counts[k]); // 실제 값 (라벨 표시용)
+    const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
+    
+    // 파이프라인 차트인 경우 제곱근(sqrt)을 씌워 값의 격차를 시각적으로 줄임 (예: 25->5, 4->2)
+    // 일반 차트는 그대로 사용
+    const chartValues = isPipeChart ? rawValues.map(v => Math.sqrt(v)) : rawValues;
+    
+    // 높이 여백 계산 (최대값의 1.3배 정도로 설정하여 상단 여백 확보)
+    const maxValue = Math.max(...chartValues);
 
     // 3. 차트 그리기
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
-
-    const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
 
     App.charts[id] = new Chart(ctx, {
         type: 'bar',
@@ -566,37 +574,38 @@ function drawBar(id, data, key, label, color, fType) {
             labels: keys,
             datasets: [{ 
                 label: label, 
-                data: values, 
+                data: chartValues, // 시각화는 압축된 값 사용
                 backgroundColor: color, 
                 borderRadius: 4,
-                maxBarThickness: isPipeChart ? 100 : 35,
-                barPercentage: isPipeChart ? 0.95 : 0.8,
-                categoryPercentage: isPipeChart ? 0.95 : 0.8
+                // 막대를 넓게 표시
+                maxBarThickness: isPipeChart ? 80 : 35,
+                barPercentage: isPipeChart ? 0.9 : 0.8,
+                categoryPercentage: isPipeChart ? 0.9 : 0.8
             }]
         },
         options: {
             indexAxis: 'x',
             responsive: true, 
             maintainAspectRatio: false,
-            // [수정 1] 차트 내부 여백을 0으로 설정하여 캔버스에 꽉 차게 그림
-            layout: {
-                padding: {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0
-                }
-            },
+            layout: { padding: 0 },
             plugins: { 
                 legend: { display: false }, 
+                tooltip: {
+                    callbacks: {
+                        // [핵심] 툴팁에는 압축된 값이 아닌 '원본 값' 표시
+                        label: function(context) {
+                            return label + ': ' + rawValues[context.dataIndex];
+                        }
+                    }
+                },
                 datalabels: { 
                     color: '#4b5563', 
                     anchor: 'end', 
                     align: 'top', 
                     font: { weight: 'bold', size: 11 },
-                    // 라벨이 잘리지 않도록 약간의 오프셋 추가
                     offset: 2,
-                    formatter: (val) => val > 0 ? val : ''
+                    // [핵심] 라벨도 '원본 값'을 표시
+                    formatter: (val, ctx) => rawValues[ctx.dataIndex]
                 } 
             },
             scales: { 
@@ -604,11 +613,13 @@ function drawBar(id, data, key, label, color, fType) {
                     grid: { display: false, drawBorder: false },
                 }, 
                 y: { 
-                    grid: { display: true, drawBorder: false },
+                    // Y축 눈금은 제곱근 값이므로 사용자에게 혼동을 줄 수 있어 숨김
+                    display: !isPipeChart, 
+                    grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // [수정 2] 상단 공백 제거를 위해 인위적인 max 설정 및 grace 제거
-                    // max: undefined, // (기본값 사용)
-                    grace: 0 // 데이터 최대값 위에 여유 공간을 두지 않음
+                    // 상단에 적절한 여백을 주어 답답하지 않게 함
+                    max: isPipeChart ? maxValue * 1.3 : undefined,
+                    grace: isPipeChart ? 0 : '10%' 
                 } 
             },
             onClick: (e, els) => {
