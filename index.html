@@ -248,25 +248,13 @@ const URLS = {
     pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
 };
 
-let App
-
-Chart.register(ChartDataLabels);
-Chart.defaults.font.family = "'Pretendard', sans-serif";
-Chart.defaults.color = '#64748b';
-Chart.defaults.scale.grid.color = '#f1f5f9';
-
-/* INIT */
-window.onload = async () => {
-    try {
-        const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
-        App.data.voc = parseVoc(v.data);
-        App.data.pipe = parsePipe(p.data);
-        
-        initMap();
-        initFiltersHTML();
-        updateDashboard();
-    } catch(e) { console.error(e); alert("데이터 로드 실패"); }
-    document.getElementById('loading').style.display = 'none';
+let App = {
+    view: 'voc',
+    data: { voc:[], pipe:[] },
+    filtered: [],
+    // [수정] hq: '강북/강원' -> 'ALL'로 변경하여 전체 본부가 기본으로 나오도록 설정
+    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, 
+    map: null, clusterer: null, markers: [], charts: {}
 };
 
 async function fetchCsv(url) {
