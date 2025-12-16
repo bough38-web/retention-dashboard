@@ -527,7 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
-/* --- [최종 수정] 값 격차 완화(제곱근 시각화) 및 디자인 보정 --- */
+/* --- [최종 완성] 높이 대폭 축소(1/3 지점) 및 작은 값 보정 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -554,15 +554,17 @@ function drawBar(id, data, key, label, color, fType) {
     keys = keys.slice(0, 15);
     
     // [핵심] 원본 데이터와 시각화용 데이터 분리
-    const rawValues = keys.map(k => counts[k]); // 실제 값 (라벨 표시용)
+    const rawValues = keys.map(k => counts[k]);
+    
+    // 파이프라인 차트 여부 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
     
-    // 파이프라인 차트인 경우 제곱근(sqrt)을 씌워 값의 격차를 시각적으로 줄임 (예: 25->5, 4->2)
-    // 일반 차트는 그대로 사용
+    // [보정 로직] 파이프라인 차트는 제곱근(sqrt)을 적용해 격차를 완화
+    // 예: 25 -> 5, 4 -> 2 (작은 값도 바닥에 붙지 않고 잘 보임)
     const chartValues = isPipeChart ? rawValues.map(v => Math.sqrt(v)) : rawValues;
     
-    // 높이 여백 계산 (최대값의 1.3배 정도로 설정하여 상단 여백 확보)
-    const maxValue = Math.max(...chartValues);
+    // 시각화용 최대값 계산
+    const maxPlotValue = Math.max(...chartValues);
 
     // 3. 차트 그리기
     const ctx = document.getElementById(id).getContext('2d');
@@ -574,13 +576,13 @@ function drawBar(id, data, key, label, color, fType) {
             labels: keys,
             datasets: [{ 
                 label: label, 
-                data: chartValues, // 시각화는 압축된 값 사용
+                data: chartValues, // 시각화는 보정된 값 사용
                 backgroundColor: color, 
                 borderRadius: 4,
-                // 막대를 넓게 표시
-                maxBarThickness: isPipeChart ? 80 : 35,
-                barPercentage: isPipeChart ? 0.9 : 0.8,
-                categoryPercentage: isPipeChart ? 0.9 : 0.8
+                // 막대 너비 설정 (가로는 넓게)
+                maxBarThickness: isPipeChart ? 120 : 35,
+                barPercentage: isPipeChart ? 0.95 : 0.8,
+                categoryPercentage: isPipeChart ? 0.95 : 0.8
             }]
         },
         options: {
@@ -592,9 +594,9 @@ function drawBar(id, data, key, label, color, fType) {
                 legend: { display: false }, 
                 tooltip: {
                     callbacks: {
-                        // [핵심] 툴팁에는 압축된 값이 아닌 '원본 값' 표시
+                        // 툴팁에는 사용자가 헷갈리지 않게 '원본 값' 표시
                         label: function(context) {
-                            return label + ': ' + rawValues[context.dataIndex];
+                            return label + ': ' + rawValues[context.dataIndex] + '건';
                         }
                     }
                 },
@@ -602,23 +604,24 @@ function drawBar(id, data, key, label, color, fType) {
                     color: '#4b5563', 
                     anchor: 'end', 
                     align: 'top', 
-                    font: { weight: 'bold', size: 11 },
-                    offset: 2,
-                    // [핵심] 라벨도 '원본 값'을 표시
+                    font: { weight: 'bold', size: 12 },
+                    offset: 4,
+                    // 라벨도 '원본 값' 표시
                     formatter: (val, ctx) => rawValues[ctx.dataIndex]
                 } 
             },
             scales: { 
                 x: { 
                     grid: { display: false, drawBorder: false },
+                    ticks: { font: { size: 11, weight: 'bold' } }
                 }, 
                 y: { 
-                    // Y축 눈금은 제곱근 값이므로 사용자에게 혼동을 줄 수 있어 숨김
+                    // [핵심] Y축 눈금 숨김 (높이가 왜곡되어 있으므로 숫자는 안 보여줌)
                     display: !isPipeChart, 
                     grid: { display: !isPipeChart, drawBorder: false },
                     beginAtZero: true, 
-                    // 상단에 적절한 여백을 주어 답답하지 않게 함
-                    max: isPipeChart ? maxValue * 1.3 : undefined,
+                    // [핵심] Y축 최대값을 데이터의 3배로 설정 -> 막대가 아래쪽 1/3 영역에만 그려짐
+                    max: isPipeChart ? Math.ceil(maxPlotValue * 3) : undefined,
                     grace: isPipeChart ? 0 : '10%' 
                 } 
             },
