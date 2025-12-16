@@ -526,46 +526,7 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
-function drawBar(id, data, key, label, color, fType) {
-    const counts = {};
-    data.forEach(d => {
-        let k = d[key] || "미입력";
-        if(key === '해지사유' && (!k || k.trim() === '')) k = '미입력';
-        counts[k] = (counts[k]||0)+1;
-    });
-    
-    let keys = Object.keys(counts);
-    if(key === '_branch') {
-        keys.sort((a,b) => {
-            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
-            if(ia!==-1 && ib!==-1) return ia-ib;
-            return b.localeCompare(a); 
-        });
-    } else {
-        keys.sort((a,b) => counts[b] - counts[a]);
-    }
-    keys = keys.slice(0, 15);
-
-    const ctx = document.getElementById(id).getContext('2d');
-    if(App.charts[id]) App.charts[id].destroy();
-
-    App.charts[id] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: keys,
-            datasets: [{ label: label, data: keys.map(k=>counts[k]), backgroundColor: color, borderRadius:6 }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: {display:false}, datalabels: { color:'#4b5563', anchor:'end', align:'top', font:{weight:'bold'} } },
-            scales: { y: { beginAtZero: true, grace: '10%' }, x: { grid: {display:false} } },
-            onClick: (e, els) => {
-                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-            },
-            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-        }
-    });
-}
+drawBar
 
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
