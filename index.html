@@ -608,7 +608,7 @@ function drawBar(id, data, key, label, color, fType) {
 }
 
 /* --- 파이프라인용 적층(Stacked) 차트 --- */
-/* --- [최종 수정] 높이 30% 고정 (늘어짐 방지) 및 보기보정 기능 --- */
+/* --- [최종 수정] 상단 공백 제거 (막대 꽉 채움) + 보기보정 유지 --- */
 function drawStackedBar(id, data, groupKey, stackKey, label) {
     // 1. 데이터 가공
     const grouped = {};
@@ -637,7 +637,7 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
     const canvas = document.getElementById(id);
     const ctx = canvas.getContext('2d');
 
-    // === [버튼 UI] 토글 버튼 생성 및 상태 관리 ===
+    // === [버튼 UI] 토글 버튼 ===
     let currentMode = canvas.dataset.viewMode || 'compressed';
     const isCompressed = currentMode === 'compressed';
 
@@ -684,25 +684,24 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
     const datasets = stackLabels.map((stackName, i) => {
         const rawData = xLabels.map(hq => grouped[hq][stackName] || 0);
         
-        // [데이터 압축] 보기보정 모드일 때 값의 격차를 줄임 (네제곱근)
+        // [데이터 압축] 보기보정 모드일 때 값의 격차 줄임
         const chartData = rawData.map((val, idx) => {
             const transformed = isCompressed ? Math.pow(val, 0.25) : val;
-            stackHeights[idx] += transformed; // 누적 높이 계산
+            stackHeights[idx] += transformed;
             return transformed;
         });
 
         return {
             label: stackName,
             data: chartData,
-            rawData: rawData, // 툴팁용 원본
+            rawData: rawData,
             backgroundColor: colors[i % colors.length],
             borderRadius: 2,
             barPercentage: 0.6,
-            maxBarThickness: 60 // 막대 너비 적절히 유지
+            maxBarThickness: 60
         };
     });
 
-    // 가장 높은 막대 높이 계산
     const maxStackHeight = Math.max(...stackHeights);
 
     // 3. 차트 그리기
@@ -761,15 +760,11 @@ function drawStackedBar(id, data, groupKey, stackKey, label) {
                 },
                 y: {
                     stacked: true,
-                    display: !isCompressed, // 보기보정 모드에선 Y축 숫자 숨김
-                    grid: { 
-                        display: !isCompressed, 
-                        borderDash: [2, 4] 
-                    },
+                    display: !isCompressed,
+                    grid: { display: !isCompressed, borderDash: [2, 4] },
                     beginAtZero: true,
-                    // [핵심] 차트 전체 높이를 데이터의 3.3배로 설정 
-                    // -> 막대가 차트의 하단 30% 영역에만 그려짐 (늘어짐 방지)
-                    max: isCompressed ? Math.ceil(maxStackHeight * 3.3) : undefined,
+                    // [핵심 수정] 3.3배 -> 1.1배로 변경하여 상단 공백 제거 (꽉 채움)
+                    max: isCompressed ? Math.ceil(maxStackHeight * 1.1) : undefined,
                     grace: isCompressed ? 0 : '5%'
                 }
             }
