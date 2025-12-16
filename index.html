@@ -527,6 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [최종 수정] 범례 상단 배치 및 1:1 정비율(Square) 적용 --- */
+/* --- [최종 수정] 막대 복귀: 가로 꽉 채움 & 높이 50% 시각적 축소 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -550,9 +551,10 @@ function drawBar(id, data, key, label, color, fType) {
         keys.sort((a,b) => counts[b] - counts[a]);
     }
     
-    // 상위 10개만 표시
-    keys = keys.slice(0, 10);
+    // 상위 15개 표시
+    keys = keys.slice(0, 15);
     const values = keys.map(k => counts[k]);
+    const maxValue = Math.max(...values); // 최대값 계산 (높이 조절용)
 
     // 3. 차트 그리기
     const ctx = document.getElementById(id).getContext('2d');
@@ -561,110 +563,54 @@ function drawBar(id, data, key, label, color, fType) {
     // 파이프라인 차트 여부 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
 
-    if (isPipeChart) {
-        // === [파이프라인] 파이 차트 설정 ===
-        const pieColors = [
-            '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
-            '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', 
-            '#64748b', '#f97316'
-        ];
-
-        App.charts[id] = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: keys,
-                datasets: [{
-                    data: values,
-                    backgroundColor: pieColors,
-                    borderWidth: 2,
-                    borderColor: '#ffffff',
-                    hoverOffset: 10
-                }]
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys,
+            datasets: [{ 
+                label: label, 
+                data: values, 
+                backgroundColor: color, 
+                borderRadius: 4,
+                // [수정 1] 가로 사이즈: 막대가 얇아지지 않도록 최대 두께 해제 및 비율 확대
+                maxBarThickness: isPipeChart ? 100 : 35, // 파이프라인은 아주 굵게 허용
+                barPercentage: isPipeChart ? 0.95 : 0.8, // 간격 최소화 (거의 꽉 차게)
+                categoryPercentage: isPipeChart ? 0.95 : 0.8
+            }]
+        },
+        options: {
+            indexAxis: 'x', // 세로 막대
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    color: '#4b5563', 
+                    anchor: 'end', 
+                    align: 'top', 
+                    font: { weight: 'bold', size: 11 },
+                    formatter: (val) => val > 0 ? val : ''
+                } 
             },
-            options: {
-                responsive: true,
-                // [핵심 수정 1] 가로세로 비율을 1:1(정사각형)로 고정하여 모양 유지
-                aspectRatio: 1, 
-                maintainAspectRatio: false, 
-                
-                layout: {
-                    padding: {
-                        top: 10,
-                        bottom: 20,
-                        left: 10,
-                        right: 10
-                    }
-                },
-                plugins: {
-                    // [핵심 수정 2] 범례를 상단으로 이동
-                    legend: { 
-                        display: true, 
-                        position: 'top', 
-                        align: 'center',
-                        labels: { 
-                            font: { family: "'Pretendard', sans-serif", size: 11 },
-                            boxWidth: 12, // 범례 아이콘 크기
-                            padding: 15
-                        }
-                    },
-                    datalabels: {
-                        color: '#fff',
-                        font: { weight: 'bold', size: 11 }, // 글씨 크기 약간 조정
-                        formatter: (val, ctx) => {
-                            let sum = 0;
-                            let dataArr = ctx.chart.data.datasets[0].data;
-                            dataArr.map(data => { sum += data; });
-                            // 5% 미만은 숨김
-                            return (val*100 / sum) > 5 ? (val*100 / sum).toFixed(1)+"%" : '';
-                        }
-                    }
-                },
-                onClick: (e, els) => {
-                    if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-                },
-                onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-            }
-        });
-
-    } else {
-        // === [VOC] 기존 막대 차트 (세로형) ===
-        App.charts[id] = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: keys,
-                datasets: [{ 
-                    label: label, 
-                    data: values, 
-                    backgroundColor: color, 
-                    borderRadius: 4,
-                    maxBarThickness: 35
-                }]
+            scales: { 
+                x: { 
+                    grid: { display: false, drawBorder: false },
+                }, 
+                y: { 
+                    grid: { display: true, drawBorder: false },
+                    beginAtZero: true, 
+                    // [수정 2] 높이 축소: Y축의 최대값을 실제 데이터의 2배로 설정
+                    // 결과적으로 가장 큰 막대도 차트의 "절반 높이"까지만 그려짐
+                    max: isPipeChart ? Math.ceil(maxValue * 2) : undefined,
+                    grace: isPipeChart ? 0 : '10%' 
+                } 
             },
-            options: {
-                indexAxis: 'x',
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false }, 
-                    datalabels: { 
-                        color: '#4b5563', 
-                        anchor: 'end', 
-                        align: 'top', 
-                        font: { weight: 'bold', size: 11 },
-                        formatter: (val) => val > 0 ? val : ''
-                    } 
-                },
-                scales: { 
-                    x: { grid: { display: false } }, 
-                    y: { beginAtZero: true, grace: '10%' } 
-                },
-                onClick: (e, els) => {
-                    if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
-                },
-                onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
-            }
-        });
-    }
+            onClick: (e, els) => {
+                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
+            },
+            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+        }
+    });
 }
     
 function renderTable(id, data, cols) {
