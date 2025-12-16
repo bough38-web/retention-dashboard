@@ -526,6 +526,88 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 
+/* --- [FIXED] DrawBar Function --- */
+function drawBar(id, data, key, label, color, fType) {
+    // 1. 데이터 집계
+    const counts = {};
+    data.forEach(d => {
+        let k = d[key];
+        if (!k || (typeof k === 'string' && k.trim() === '')) {
+            k = '미입력';
+        }
+        counts[k] = (counts[k] || 0) + 1;
+    });
+    
+    // 2. 정렬 로직
+    let keys = Object.keys(counts);
+    if(key === '_branch') {
+        keys.sort((a,b) => {
+            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
+            if(ia!==-1 && ib!==-1) return ia-ib;
+            return b.localeCompare(a); 
+        });
+    } else {
+        keys.sort((a,b) => counts[b] - counts[a]);
+    }
+    keys = keys.slice(0, 15);
+
+    // 3. 차트 그리기
+    const ctx = document.getElementById(id).getContext('2d');
+    if(App.charts[id]) App.charts[id].destroy();
+
+    // [핵심] 파이프라인 차트 여부 확인
+    const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
+
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys,
+            datasets: [{ 
+                label: label, 
+                data: keys.map(k => counts[k]), 
+                backgroundColor: color, 
+                borderRadius: 4,
+                // [핵심] 막대 최대 두께 제한
+                maxBarThickness: 35, 
+            }]
+        },
+        options: {
+            // [핵심] 가로형('y') 또는 세로형('x') 설정
+            indexAxis: isPipeChart ? 'y' : 'x', 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    color: '#4b5563', 
+                    // 라벨 위치 자동 조정
+                    anchor: isPipeChart ? 'end' : 'end', 
+                    align: isPipeChart ? 'right' : 'top', 
+                    font: { weight: 'bold', size: 11 },
+                    formatter: (val) => val > 0 ? val : ''
+                } 
+            },
+            scales: { 
+                x: { 
+                    // 가로형일 때만 그리드 표시
+                    grid: { display: isPipeChart, drawBorder: false },
+                    beginAtZero: true, 
+                    grace: '10%' 
+                }, 
+                y: { 
+                    // 가로형일 때는 그리드 숨김
+                    grid: { display: !isPipeChart, drawBorder: false },
+                    ticks: { autoSkip: false }
+                } 
+            },
+            onClick: (e, els) => {
+                if(els.length > 0 && fType) toggleFilter(fType, keys[els[0].index], null);
+            },
+            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+        }
+    });
+}
+
 function renderTable(id, data, cols) {
     const tbody = document.querySelector(`#${id} tbody`);
     tbody.innerHTML = '';
