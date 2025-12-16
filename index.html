@@ -527,6 +527,7 @@ function updateMap(data) {
 }
 
 /* --- [FIXED] DrawBar Function --- */
+/* --- [수정됨] 막대 간격 조정 및 세로형 유지 --- */
 function drawBar(id, data, key, label, color, fType) {
     // 1. 데이터 집계
     const counts = {};
@@ -555,7 +556,7 @@ function drawBar(id, data, key, label, color, fType) {
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
 
-    // [핵심] 파이프라인 차트 여부 확인
+    // 파이프라인 차트인지 확인
     const isPipeChart = (id === 'chart-pipe-step' || id === 'chart-pipe-reason');
 
     App.charts[id] = new Chart(ctx, {
@@ -567,37 +568,38 @@ function drawBar(id, data, key, label, color, fType) {
                 data: keys.map(k => counts[k]), 
                 backgroundColor: color, 
                 borderRadius: 4,
-                // [핵심] 막대 최대 두께 제한
-                maxBarThickness: 35, 
+                // [수정] 파이프라인 차트일 경우 막대를 더 굵게 허용 (간격 축소 효과)
+                maxBarThickness: isPipeChart ? 80 : 35,
+                // [수정] 막대가 카테고리 영역을 차지하는 비율을 높임 (0.9 = 90%)
+                barPercentage: isPipeChart ? 0.9 : 0.8,
+                categoryPercentage: isPipeChart ? 0.9 : 0.8
             }]
         },
         options: {
-            // [핵심] 가로형('y') 또는 세로형('x') 설정
-            indexAxis: isPipeChart ? 'y' : 'x', 
+            // [설정] 세로 막대 유지 ('x')
+            indexAxis: 'x', 
             responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
                     color: '#4b5563', 
-                    // 라벨 위치 자동 조정
-                    anchor: isPipeChart ? 'end' : 'end', 
-                    align: isPipeChart ? 'right' : 'top', 
+                    anchor: 'end', 
+                    align: 'top', 
                     font: { weight: 'bold', size: 11 },
                     formatter: (val) => val > 0 ? val : ''
                 } 
             },
             scales: { 
                 x: { 
-                    // 가로형일 때만 그리드 표시
-                    grid: { display: isPipeChart, drawBorder: false },
-                    beginAtZero: true, 
-                    grace: '10%' 
+                    // 세로형이므로 X축 그리드 숨김
+                    grid: { display: false, drawBorder: false },
                 }, 
                 y: { 
-                    // 가로형일 때는 그리드 숨김
-                    grid: { display: !isPipeChart, drawBorder: false },
-                    ticks: { autoSkip: false }
+                    // Y축 그리드 표시
+                    grid: { display: true, drawBorder: false },
+                    beginAtZero: true, 
+                    grace: '10%' 
                 } 
             },
             onClick: (e, els) => {
