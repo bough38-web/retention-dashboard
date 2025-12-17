@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v37.0 Final Ultimate)</title>
+<title>KTT Premium Retention Dashboard (v38.0 Final with Step Filter)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -21,7 +21,6 @@
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
         --fail-bg: #fef2f2; --fail-text: #b91c1c;
     }
-    /* [수정] 전체 페이지 스크롤 허용 */
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     
@@ -71,10 +70,9 @@
     .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; }
 
     /* Main Content */
-    /* [수정] 메인 컨텐츠 영역에 스크롤 적용 (리스트 무한 확장을 위해) */
     .main-content { 
         flex:1; padding:24px; display:flex; flex-direction:column; 
-        overflow-y: auto; /* 핵심: 세로 스크롤 허용 */
+        overflow-y: auto; 
         height: 100vh; 
     }
     .view-panel { display:none; flex-direction:column; gap:20px; width: 100%; }
@@ -93,12 +91,12 @@
     .kpi-val { font-size:36px; font-weight:800; color:var(--text); letter-spacing:-1px; line-height: 1.2; }
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
-    /* Visualizations (Collapsible) */
+    /* Visualizations */
     .visual-section { transition: all 0.3s ease; overflow: hidden; flex: none; }
     .visual-section.collapsed { height: 0 !important; margin: 0 !important; opacity: 0; }
 
     /* Layouts */
-    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 300px; } /* 높이 300px */
+    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 300px; } 
     .pipe-section { display:flex; flex-direction:column; gap:16px; height: auto; }
     .pipe-row { display:flex; gap:16px; height: 320px; flex: none; }
     .pipe-left { flex: 0 0 320px; display:flex; flex-direction:column; }
@@ -111,12 +109,9 @@
     .map-wrapper { flex:1; border-radius:8px; overflow:hidden; background:#e2e8f0; }
     .chart-wrapper { flex:1; position:relative; min-height:0; }
 
-    /* Table - [수정] 무한 스크롤을 위해 높이 제한 제거 */
+    /* Table */
     .table-section { display:flex; flex-direction:column; min-height: auto; flex: 1 0 auto; margin-bottom: 20px; }
-    .table-wrapper { 
-        overflow: visible; /* 내부 스크롤 제거 */
-        border:1px solid var(--border); border-radius:8px; 
-    }
+    .table-wrapper { overflow: visible; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; background: #fff; }
     th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); border-bottom:1px solid var(--border); }
     td { padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); vertical-align: middle; }
@@ -150,7 +145,6 @@
             <button class="nav-tab active" onclick="switchView('voc')"><i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span></button>
             <button class="nav-tab" onclick="switchView('pipe')"><i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span></button>
         </div>
-        
         <div id="filter-container"></div>
     </div>
 </div>
@@ -285,7 +279,8 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, 
+    // [수정] step 필터 추가
+    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL', step:'ALL' }, 
     map: null, clusterer: null, markers: [], charts: {}
 };
 
@@ -362,8 +357,7 @@ function parsePipe(data) {
         else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
         else step = "진행중";
 
-        // [수정] 위험도 파싱 로직 (0.1 -> 10, 1.0 -> 100)
-        let risk = parseFloat(r["해지위험도"]||0);
+        let risk = parseFloat(r["위험도"]||0);
         if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
@@ -404,6 +398,12 @@ function initFiltersHTML() {
             <div class="filter-head" onclick="toggleSection('chips-hq')">관리본부 <i class="ph ph-caret-down"></i></div>
             <div id="chips-hq" class="chips"></div>
         </div>
+        
+        <div class="filter-box" id="fb-step" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-step')">방어단계 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-step" class="chips"></div>
+        </div>
+
         <div class="filter-box" id="fb-voc-filters">
             <div class="filter-head" onclick="toggleSection('chips-voc-branch')">지사 필터 <i class="ph ph-caret-down"></i></div>
             <div id="chips-voc-branch" class="chips"></div>
@@ -420,6 +420,8 @@ function initFiltersHTML() {
     renderChips('chips-status', ['전체','미접수','접수','처리완료'], 'status');
     renderChips('chips-channel', ['전체', 'SP', 'SC', 'AM'], 'channel');
     renderChips('chips-voc-branch', ['전체', ...BRANCH_ORDER], 'branch');
+    // [신규] 방어단계 칩 생성
+    renderChips('chips-step', ['전체', '방어성공', '방어실패', '진행중'], 'step');
 }
 
 function toggleSection(id) {
@@ -452,6 +454,7 @@ function updateDashboard() {
     const isVoc = App.view === 'voc';
     document.getElementById('fb-channel').style.display = isVoc ? 'none' : 'block';
     document.getElementById('fb-hq').style.display = isVoc ? 'none' : 'block';
+    document.getElementById('fb-step').style.display = isVoc ? 'none' : 'block'; // 방어단계 표시 제어
     document.getElementById('fb-voc-filters').style.display = isVoc ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isVoc ? 'block' : 'none';
     document.getElementById('fb-agent').style.display = isVoc ? 'block' : 'none';
@@ -462,6 +465,8 @@ function updateDashboard() {
         if(!isVoc) {
             if(App.filters.channel !== 'ALL' && (d["담당영업채널"]||"SP") !== App.filters.channel) return false;
             if(App.filters.hq !== 'ALL' && d._hq !== App.filters.hq) return false;
+            // [신규] 방어단계 필터 적용
+            if(App.filters.step !== 'ALL' && d._step !== App.filters.step) return false;
         } else {
             if(App.filters.branch !== 'ALL' && d._branch !== App.filters.branch) return false;
             if(App.filters.status !== 'ALL' && d._status !== App.filters.status) return false;
@@ -569,10 +574,8 @@ function renderPipeView() {
     drawStackedBar('chart-branch-count', 'branch', 'cnt', agg.branch, sortedBranches);
     drawStackedBar('chart-branch-amt', 'branch', 'amt', agg.branch, sortedBranches);
     
-    // [수정] 파이프라인 리스트: 주소 제거, 세부내용 추가(줄맞춤), 월정료 콤마, 위험도%
     const tbody = document.querySelector('#table-pipe tbody');
     tbody.innerHTML = '';
-    // [수정] 100개 제한 -> 전체 데이터 표시 (무한 스크롤)
     data.forEach(d => {
         const tr = document.createElement('tr');
         if(d._lat) {
@@ -754,7 +757,7 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
             App.data.voc = parseVoc(res.data);
             alert("VOC 데이터 갱신 완료");
             switchView('voc');
-        } else if(h.some(x=>x.includes('해지위험도'))) {
+        } else if(h.some(x=>x.includes('위험도'))) {
             App.data.pipe = parsePipe(res.data);
             alert("파이프라인 데이터 갱신 완료");
             switchView('pipe');
@@ -774,10 +777,8 @@ function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
-    
     // [수정] 대한민국 좌표 범위 (이상 좌표 제거)
     const valid = data.filter(d => d._lat && d._lat > 33 && d._lat < 39 && d._lng > 124 && d._lng < 132);
-    
     const bounds = new google.maps.LatLngBounds();
     valid.forEach(d => {
         const color = d._status === '처리완료' ? 'blue' : 'red';
