@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v36.0 Final Ultimate)</title>
+<title>KTT Premium Retention Dashboard (v37.0 Final Ultimate)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -150,6 +150,7 @@
             <button class="nav-tab active" onclick="switchView('voc')"><i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span></button>
             <button class="nav-tab" onclick="switchView('pipe')"><i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span></button>
         </div>
+        
         <div id="filter-container"></div>
     </div>
 </div>
@@ -259,7 +260,7 @@
             <div class="table-wrapper">
                 <table id="table-pipe">
                     <thead><tr>
-                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료</th><th>세부내용 및 공유사항</th>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(원)</th><th>세부내용 및 공유사항</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
@@ -361,8 +362,9 @@ function parsePipe(data) {
         else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
         else step = "진행중";
 
+        // [수정] 위험도 파싱 로직 (0.1 -> 10, 1.0 -> 100)
         let risk = parseFloat(r["위험도"]||0);
-        if (risk > 0 && risk <= 1) risk *= 100; // 0.1 -> 10 변환
+        if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
         if(r["위도"]) { lat=parseFloat(r["위도"]); lng=parseFloat(r["경도"]); }
@@ -524,7 +526,6 @@ function renderVocView() {
     });
 }
 
-/* RENDER: PIPELINE */
 function renderPipeView() {
     const data = App.filtered;
     const total = data.length;
@@ -571,10 +572,13 @@ function renderPipeView() {
     // [수정] 파이프라인 리스트: 주소 제거, 세부내용 추가(줄맞춤), 월정료 콤마, 위험도%
     const tbody = document.querySelector('#table-pipe tbody');
     tbody.innerHTML = '';
-    data.slice(0, 100).forEach(d => {
+    // [수정] 100개 제한 -> 전체 데이터 표시 (무한 스크롤)
+    data.forEach(d => {
         const tr = document.createElement('tr');
         if(d._lat) {
-            tr.onclick = () => alert("위치: " + d._lat + ", " + d._lng); // 지도 연동 가능 시 변경
+            tr.onclick = () => {
+                alert("위치: " + d._lat + ", " + d._lng); 
+            };
             tr.style.cursor = 'pointer';
         }
         tr.innerHTML = `
@@ -770,8 +774,10 @@ function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
+    
     // [수정] 대한민국 좌표 범위 (이상 좌표 제거)
     const valid = data.filter(d => d._lat && d._lat > 33 && d._lat < 39 && d._lng > 124 && d._lng < 132);
+    
     const bounds = new google.maps.LatLngBounds();
     valid.forEach(d => {
         const color = d._status === '처리완료' ? 'blue' : 'red';
@@ -791,6 +797,8 @@ function updateMap(data) {
         App.markers.push(m);
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
+    
+    // [수정] 데이터 없으면 서울 중심 유지
     if(App.markers.length > 0) App.map.fitBounds(bounds);
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
