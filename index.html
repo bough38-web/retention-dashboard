@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v29.0 Final Complete)</title>
+<title>KTT Premium Retention Dashboard (v30.0 Final)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -24,66 +24,97 @@
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     
-    /* Sidebar */
-    .sidebar { width:280px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); }
-    .logo { padding:20px; border-bottom:1px solid var(--border); font-size:20px; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:8px; }
-    .scroll-area { flex:1; overflow-y:auto; padding:20px; }
+    /* === Sidebar (Collapsible) === */
+    .sidebar { 
+        width:280px; background:var(--surface); border-right:1px solid var(--border); 
+        display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); 
+        transition: width 0.3s ease; position: relative;
+    }
+    .sidebar.collapsed { width: 70px; }
+    
+    .logo { 
+        padding:20px; border-bottom:1px solid var(--border); font-size:18px; font-weight:800; 
+        color:var(--primary); display:flex; align-items:center; justify-content: space-between; gap:8px; white-space: nowrap; overflow: hidden;
+    }
+    .logo-text { transition: opacity 0.2s; }
+    .sidebar.collapsed .logo-text { opacity: 0; pointer-events: none; display: none; }
+    .sidebar.collapsed .logo { justify-content: center; padding: 20px 0; }
+    
+    /* Sidebar Toggle Button */
+    .sidebar-toggle {
+        cursor: pointer; color: var(--text-sub); font-size: 20px; padding: 4px; border-radius: 4px;
+    }
+    .sidebar-toggle:hover { background: #f1f5f9; color: var(--primary); }
+    .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); position: absolute; top: 15px; left: 50%; margin-left: -14px; }
+
+    .scroll-area { flex:1; overflow-y:auto; padding:20px; overflow-x: hidden; }
+    .sidebar.collapsed .scroll-area { padding: 10px; }
+
+    /* Hide Elements in Collapsed Mode */
+    .sidebar.collapsed .upload-text, 
+    .sidebar.collapsed .nav-text,
+    .sidebar.collapsed .filter-box, 
+    .sidebar.collapsed .chips { display: none !important; }
     
     /* Upload & Tabs */
-    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:14px; text-align:center; margin-bottom:20px; cursor:pointer; transition:0.2s; }
-    .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
-    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; }
-    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-
-    /* Filters (Collapsible) */
-    .filter-box { margin-bottom:16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
-    .filter-head { 
-        display:flex; justify-content:space-between; align-items: center;
-        font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; 
-        cursor: pointer; user-select: none; transition: color 0.2s;
+    .upload-box { 
+        background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:14px; 
+        text-align:center; margin-bottom:20px; cursor:pointer; transition: 0.2s;
     }
+    .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
+    .sidebar.collapsed .upload-box { padding: 10px 0; border: none; background: transparent; }
+    .sidebar.collapsed .upload-box i { font-size: 24px; color: var(--primary); }
+
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
+    .sidebar.collapsed .nav-tabs { flex-direction: column; background: transparent; gap: 10px; }
+    
+    .nav-tab { 
+        flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; 
+        color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; 
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+    .sidebar.collapsed .nav-tab { font-size: 0; padding: 10px; } /* Hide text, keep icon if present */
+    .sidebar.collapsed .nav-tab i { font-size: 20px; }
+
+    /* Filters */
+    .filter-box { margin-bottom:16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
+    .filter-head { display:flex; justify-content:space-between; align-items: center; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; cursor: pointer; }
     .filter-head:hover { color: var(--primary); }
-    .filter-head i { transition: transform 0.3s ease; }
-    .filter-head.collapsed i { transform: rotate(-90deg); }
-    
-    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; transition: all 0.3s ease; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; transition: all 0.3s; }
     .chips.hidden { display: none; }
-    
-    .chip { padding:5px 10px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; transition: 0.15s; }
-    .chip:hover { border-color: var(--primary); color: var(--primary); }
-    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; box-shadow:0 2px 4px rgba(79, 70, 229, 0.3); }
+    .chip { padding:5px 10px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; }
 
     /* Main Content */
-    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; }
+    .main-content { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; transition: all 0.3s; }
     .view-panel { display:none; flex-direction:column; gap:20px; flex:1; }
     .view-panel.active { display:flex; }
 
-    /* Header */
+    /* Header & KPI */
     .header { display:flex; justify-content:space-between; align-items:center; flex:none; margin-bottom: 10px; }
     .header h2 { margin:0; font-size:24px; font-weight:800; }
     .action-btn { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
     
-    /* KPI Grid - Centered */
     .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; flex:none; }
     .kpi-card { 
         background:var(--surface); padding:24px; border-radius:12px; box-shadow:var(--shadow); 
-        border-left:5px solid var(--c); 
-        display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        border-left:5px solid var(--c); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; margin-bottom: 5px; }
     .kpi-val { font-size:36px; font-weight:800; color:var(--text); letter-spacing:-1px; line-height: 1.2; }
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
-    /* Layouts */
-    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 500px; flex:none; }
+    /* [수정] VOC Grid Layout (높이 축소: 350px) */
+    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 350px; flex:none; }
     
+    /* Pipeline Layout */
     .pipe-section { display:flex; flex-direction:column; gap:16px; flex:1; min-height: 0; }
     .pipe-row { display:flex; gap:16px; flex:1; min-height: 320px; }
     .pipe-left { flex: 0 0 320px; display:flex; flex-direction:column; }
     .pipe-right { flex: 1; display:flex; flex-direction:column; min-width: 0; }
 
-    /* Cards */
+    /* Card & Components */
     .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
     .card.full { flex:1; min-height:0; }
     .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
@@ -99,7 +130,6 @@
     td { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
     tr:hover td { background:#f1f5f9; }
     tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
-
     .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; }
     .bd-done { background:#dcfce7; color:#166534; } .bd-wait { background:#fee2e2; color:#991b1b; }
     
@@ -112,17 +142,21 @@
 
 <div id="loading"><div class="spinner"></div></div>
 
-<div class="sidebar">
-    <div class="logo"><i class="ph ph-chart-polar"></i> KTT Dashboard</div>
+<div class="sidebar" id="sidebar">
+    <div class="logo">
+        <span class="logo-text"><i class="ph ph-chart-polar"></i> KTT Dashboard</span>
+        <i class="ph ph-caret-double-left sidebar-toggle" onclick="toggleSidebar()"></i>
+    </div>
     <div class="scroll-area">
         <div class="upload-box" onclick="triggerUpload()">
-            <i class="ph ph-file-csv"></i> <span>파일 교체 (보안)</span>
+            <i class="ph ph-file-csv"></i> <span class="upload-text">파일 교체 (보안)</span>
             <input type="file" id="fileInput" accept=".csv" />
         </div>
         <div class="nav-tabs">
-            <button class="nav-tab active" onclick="switchView('voc')">VOC 현황</button>
-            <button class="nav-tab" onclick="switchView('pipe')">파이프라인</button>
+            <button class="nav-tab active" onclick="switchView('voc')"><i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span></button>
+            <button class="nav-tab" onclick="switchView('pipe')"><i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span></button>
         </div>
+        
         <div id="filter-container"></div>
     </div>
 </div>
@@ -136,22 +170,10 @@
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)">
-                <div class="kpi-label">총 계약</div>
-                <div class="kpi-val" id="voc-total">0</div>
-            </div>
-            <div class="kpi-card" style="--c:var(--success)">
-                <div class="kpi-label">처리 완료</div>
-                <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
-            </div>
-            <div class="kpi-card" style="--c:var(--warning)">
-                <div class="kpi-label">진행중</div>
-                <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
-            </div>
-            <div class="kpi-card" style="--c:var(--danger)">
-                <div class="kpi-label">미접수</div>
-                <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
-            </div>
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">총 계약</div><div class="kpi-val" id="voc-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">처리 완료</div><div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">진행중</div><div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">미접수</div><div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div></div>
         </div>
 
         <div class="voc-grid-3">
@@ -238,10 +260,10 @@ const HQ_ORDER = ['강남/서부', '강북/강원', '충남/충북', '전남/전
 // 고급화된 프리미엄 컬러 팔레트
 const COLORS = { '방어성공': '#2563eb', '방어실패': '#dc2626', '진행중': '#64748b', '기타': '#cbd5e1' };
 const STACK_PALETTE = [
-    '#312e81', '#1e40af', '#2563eb', '#3b82f6', // Indigo/Blue
-    '#b91c1c', '#dc2626', '#ef4444',            // Red
-    '#0f766e', '#0d9488', '#14b8a6',            // Teal
-    '#a21caf', '#c026d3', '#d946ef'             // Fuchsia
+    '#312e81', '#1e40af', '#2563eb', '#3b82f6', 
+    '#b91c1c', '#dc2626', '#ef4444',            
+    '#0f766e', '#0d9488', '#14b8a6',            
+    '#a21caf', '#c026d3', '#d946ef'             
 ];
 
 const URLS = {
@@ -253,7 +275,7 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP' },
+    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL' }, 
     map: null, clusterer: null, markers: [], charts: {}
 };
 
@@ -275,6 +297,18 @@ window.onload = async () => {
     document.getElementById('loading').style.display = 'none';
 };
 
+/* SIDEBAR TOGGLE */
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    sb.classList.toggle('collapsed');
+    // 리사이징 트리거
+    setTimeout(() => {
+        Object.values(App.charts).forEach(c => c.resize());
+        if(App.map) google.maps.event.trigger(App.map, 'resize');
+    }, 300);
+}
+
+/* DATA & PARSING */
 async function fetchCsv(url) {
     const r = await fetch(url); const t = await r.text();
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
@@ -319,7 +353,7 @@ function parsePipe(data) {
     });
 }
 
-/* FILTERS & COLLAPSE LOGIC */
+/* FILTERS & COLLAPSE SECTION */
 function initFiltersHTML() {
     const area = document.getElementById('filter-container');
     area.innerHTML = `
@@ -344,11 +378,8 @@ function initFiltersHTML() {
         </div>
     `;
     
-    // 영업채널
     const channels = ['전체', 'SP', 'SC', 'AM'];
     renderChips('chips-channel', channels, 'channel');
-
-    // VOC 지사
     renderChips('chips-voc-branch', ['전체', ...BRANCH_ORDER], 'branch');
 }
 
@@ -367,9 +398,7 @@ function renderChips(id, items, type) {
         const isAll = val==='전체' || val==='ALL';
         btn.className = `chip ${App.filters[type]===(isAll?'ALL':val) ? 'active' : ''}`;
         btn.innerText = val;
-        btn.onclick = () => {
-            toggleFilter(type, isAll?'ALL':val);
-        };
+        btn.onclick = () => toggleFilter(type, isAll?'ALL':val);
         box.appendChild(btn);
     });
 }
@@ -382,7 +411,6 @@ function toggleFilter(type, value) {
 
 function updateDashboard() {
     const isVoc = App.view === 'voc';
-    // 필터 표시 제어 (담당자 필터 추가)
     document.getElementById('fb-channel').style.display = isVoc ? 'none' : 'block';
     document.getElementById('fb-hq').style.display = isVoc ? 'none' : 'block';
     document.getElementById('fb-voc-filters').style.display = isVoc ? 'block' : 'none';
@@ -390,7 +418,6 @@ function updateDashboard() {
     
     const src = isVoc ? App.data.voc : App.data.pipe;
     
-    // 데이터 필터링
     App.filtered = src.filter(d => {
         if(!isVoc) {
             if(App.filters.channel !== 'ALL' && (d["담당영업채널"]||"SP") !== App.filters.channel) return false;
@@ -402,23 +429,20 @@ function updateDashboard() {
         return true;
     });
 
-    // 동적 필터 업데이트
     if(!isVoc) {
         const hqs = ['전체', ...new Set(App.data.pipe.map(d=>d._hq))].sort();
         renderChips('chips-hq', hqs, 'hq');
     } else {
-        // VOC 담당자 필터 업데이트
         let agentSrc = App.data.voc;
         if(App.filters.branch !== 'ALL') agentSrc = agentSrc.filter(d=>d._branch === App.filters.branch);
         const agents = ['전체', ...new Set(agentSrc.map(d=>d._agent))].sort();
         renderChips('chips-agent', agents, 'agent');
     }
 
-    if(isVoc) renderVocView();
-    else renderPipeView();
+    if(isVoc) renderVocView(); else renderPipeView();
 }
 
-/* RENDER: VOC */
+/* RENDER VIEWS */
 function renderVocView() {
     const data = App.filtered;
     const unique = new Set(data.map(d=>d["계약번호"])).size;
@@ -446,10 +470,8 @@ function renderVocView() {
     `).join('');
 }
 
-/* RENDER: PIPELINE */
 function renderPipeView() {
     const data = App.filtered;
-
     const total = data.length;
     const success = data.filter(d=>d._step==='방어성공').length;
     const fail = data.filter(d=>d._step==='방어실패').length;
@@ -469,49 +491,36 @@ function renderPipeView() {
     data.forEach(d => {
         const hq = d._hq || '기타';
         const br = d._branch || '기타';
-        const st = d._step; 
-        const fee = d._fee / 1000;
-
+        const st = d._step; const fee = d._fee / 1000;
         if(!agg.hq[hq]) agg.hq[hq] = { _total:0 };
         if(!agg.hq[hq][st]) agg.hq[hq][st] = { cnt:0, amt:0 };
-        agg.hq[hq][st].cnt += 1;
-        agg.hq[hq][st].amt += fee;
-        agg.hq[hq]._total += 1;
+        agg.hq[hq][st].cnt++; agg.hq[hq][st].amt+=fee; agg.hq[hq]._total++;
 
         if(!agg.branch[br]) agg.branch[br] = { _hq: hq, _total:0 };
         if(!agg.branch[br][st]) agg.branch[br][st] = { cnt:0, amt:0 };
-        agg.branch[br][st].cnt += 1;
-        agg.branch[br][st].amt += fee;
-        agg.branch[br]._total += 1;
+        agg.branch[br][st].cnt++; agg.branch[br][st].amt+=fee; agg.branch[br]._total++;
     });
 
     drawStackedBar('chart-hq-count', 'hq', 'cnt', agg.hq, HQ_ORDER);
     drawStackedBar('chart-hq-amt', 'hq', 'amt', agg.hq, HQ_ORDER);
     
     const sortedBranches = Object.keys(agg.branch).sort((a,b) => {
-        const hqA = agg.branch[a]._hq;
-        const hqB = agg.branch[b]._hq;
-        const idxA = HQ_ORDER.indexOf(hqA);
-        const idxB = HQ_ORDER.indexOf(hqB);
-        if(idxA !== -1 && idxB !== -1 && idxA !== idxB) return idxA - idxB;
-        return a.localeCompare(b);
+        const hqA = agg.branch[a]._hq; const hqB = agg.branch[b]._hq;
+        const idxA = HQ_ORDER.indexOf(hqA); const idxB = HQ_ORDER.indexOf(hqB);
+        return (idxA !== idxB) ? idxA - idxB : a.localeCompare(b);
     });
 
     drawStackedBar('chart-branch-count', 'branch', 'cnt', agg.branch, sortedBranches);
     drawStackedBar('chart-branch-amt', 'branch', 'amt', agg.branch, sortedBranches);
 }
 
-/* CHART: VOC (Basic) */
+/* CHART LOGIC */
 function drawVocBar(id, data, key) {
     const counts = {};
     data.forEach(d => counts[d[key]] = (counts[d[key]]||0)+1);
     let labels = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).slice(0,15);
-    if(key === '_branch') {
-        labels = labels.sort((a,b) => {
-            const ia=BRANCH_ORDER.indexOf(a), ib=BRANCH_ORDER.indexOf(b);
-            if(ia!==-1 && ib!==-1) return ia-ib; return a.localeCompare(b);
-        });
-    }
+    if(key === '_branch') labels = labels.sort((a,b) => BRANCH_ORDER.indexOf(a) - BRANCH_ORDER.indexOf(b));
+    
     const ctx = document.getElementById(id).getContext('2d');
     if(App.charts[id]) App.charts[id].destroy();
     App.charts[id] = new Chart(ctx, {
@@ -524,23 +533,20 @@ function drawVocBar(id, data, key) {
             indexAxis: 'x', responsive:true, maintainAspectRatio:false, 
             plugins:{legend:{display:false}}, 
             scales:{x:{grid:{display:false}}} ,
-            onClick: (e, els) => {
-                if(els.length > 0) toggleFilter(key==='_branch'?'branch':'agent', labels[els[0].index]);
-            }
+            onClick: (e, els) => { if(els.length > 0) toggleFilter(key==='_branch'?'branch':'agent', labels[els[0].index]); },
+            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
         }
     });
 }
 
-/* CHART: PIPELINE (Stacked + Premium Colors + Click Filter) */
 function drawStackedBar(id, type, metric, aggData, labels) {
     const ctx = document.getElementById(id).getContext('2d');
     const canvas = document.getElementById(id);
-    
     let currentMode = canvas.dataset.viewMode || 'linear'; 
     const isCompressed = currentMode === 'compressed';
+    
     const card = canvas.closest('.card');
     const header = card ? card.querySelector('.card-head') : null;
-    
     if (header) {
         header.style.flexWrap = 'wrap'; header.style.gap = '8px';
         if (!header.querySelector('.scale-toggle-btn')) {
@@ -553,11 +559,6 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                 renderPipeView(); 
             };
             header.appendChild(btn);
-        } else {
-            const btn = header.querySelector('.scale-toggle-btn');
-            btn.innerHTML = isCompressed ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정 ON` : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
-            btn.style.background = isCompressed ? '#e0e7ff' : '#fff';
-            btn.style.color = isCompressed ? '#4f46e5' : '#475569';
         }
     }
 
@@ -566,23 +567,16 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     const statuses = ['방어성공', '방어실패', '진행중'];
     const stackHeights = new Array(labels.length).fill(0);
     const datasets = statuses.map((status, i) => {
-        const rawData = labels.map(label => {
-            const item = aggData[label];
-            return (item && item[status]) ? Math.round(item[status][metric]) : 0;
-        });
+        const rawData = labels.map(label => (aggData[label] && aggData[label][status]) ? Math.round(aggData[label][status][metric]) : 0);
         const chartData = rawData.map((val, idx) => {
             const t = isCompressed ? Math.pow(val, 0.25) : val;
             stackHeights[idx] += t;
             return t;
         });
         return {
-            label: status,
-            data: chartData,
-            rawData: rawData,
-            backgroundColor: i < 3 ? COLORS[status] : STACK_PALETTE[i % STACK_PALETTE.length],
-            barPercentage: 0.7,
-            maxBarThickness: 50,
-            borderRadius: 3
+            label: status, data: chartData, rawData: rawData,
+            backgroundColor: i<3 ? COLORS[status] : STACK_PALETTE[i],
+            barPercentage: 0.7, maxBarThickness: 50, borderRadius: 3
         };
     });
 
@@ -594,13 +588,9 @@ function drawStackedBar(id, type, metric, aggData, labels) {
         data: { labels: labels, datasets: datasets },
         options: {
             indexAxis: isHorizontal ? 'y' : 'x',
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             layout: { padding: { top: 10, right: 15 } },
-            animation: {
-                duration: 800,
-                delay: (c) => c.type === 'data' && c.mode === 'default' ? c.dataIndex * 50 + c.datasetIndex * 30 : 0
-            },
+            animation: { duration: 800 },
             plugins: {
                 legend: { display: true, position: 'top', align: 'end', labels:{boxWidth:10, font:{size:11}} },
                 tooltip: {
@@ -611,38 +601,22 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                     }
                 },
                 datalabels: {
-                    color: '#fff',
-                    font: { size: 10, weight: 'bold' },
+                    color: '#fff', font: { size: 10, weight: 'bold' },
                     display: (ctx) => {
                         const val = ctx.dataset.data[ctx.dataIndex];
                         const thres = isCompressed ? 0.3 : (maxStackHeight * 0.05); 
                         return val > thres;
                     },
-                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString(),
-                    anchor: 'center', align: 'center'
+                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString()
                 }
             },
             scales: {
-                x: { 
-                    stacked: true, 
-                    grid: { display: false },
-                    ticks: { font: { size: 11, weight:'bold' }, color: '#334155' }
-                },
-                y: { 
-                    stacked: true, 
-                    display: !isCompressed, 
-                    grid: { display: !isCompressed, borderDash: [2, 4] },
-                    ticks: { font: { size: 11 } },
-                    beginAtZero: true,
-                    max: isCompressed ? maxStackHeight * 1.1 : undefined,
-                    grace: 0
-                }
+                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight:'bold' }, color: '#334155' } },
+                y: { stacked: true, display: !isCompressed, grid: { display: !isCompressed, borderDash: [2, 4] }, ticks: { font: { size: 11 } }, beginAtZero: true }
             },
-            // [복구 완료] 클릭 시 필터링
             onClick: (e, els) => {
                 if (els.length > 0) {
-                    const idx = els[0].index;
-                    const val = labels[idx];
+                    const val = labels[els[0].index];
                     if (type === 'hq') toggleFilter('hq', val);
                     if (type === 'branch') toggleFilter('branch', val);
                 }
@@ -665,9 +639,38 @@ function switchView(v) {
     }, 100);
 }
 
-function triggerUpload() { document.getElementById('fileInput').click(); }
+function triggerUpload() {
+    const p = prompt("관리자 비밀번호 입력:");
+    if(p==="3867") document.getElementById('fileInput').click();
+    else if(p!==null) alert("비밀번호 오류");
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = (evt) => {
+        const res = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
+        const h = res.meta.fields || [];
+        if(h.some(x=>x.includes('위치좌표'))) {
+            App.data.voc = parseVoc(res.data);
+            alert("VOC 데이터 갱신 완료");
+            switchView('voc');
+        } else if(h.some(x=>x.includes('위험도'))) {
+            App.data.pipe = parsePipe(res.data);
+            alert("파이프라인 데이터 갱신 완료");
+            switchView('pipe');
+        } else {
+            alert("알 수 없는 파일 형식입니다.");
+        }
+    };
+    r.readAsText(f, 'UTF-8');
+});
+
 function initMap() {
-    App.map = new google.maps.Map(document.getElementById('voc-map'), { center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true });
+    App.map = new google.maps.Map(document.getElementById('voc-map'), { 
+        center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true 
+    });
 }
 function updateMap(data) {
     if(!App.map) return;
@@ -684,10 +687,7 @@ function updateMap(data) {
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
 function animateNum(id, target) {
-    const el = document.getElementById(id);
-    const start = parseInt(el.innerText.replace(/,/g,'')) || 0;
-    if(start === target) return;
-    el.innerText = target.toLocaleString();
+    document.getElementById(id).innerText = target.toLocaleString();
 }
 </script>
 </body>
