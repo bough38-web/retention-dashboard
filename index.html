@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v31.0 Final Enhanced)</title>
+<title>KTT Premium Retention Dashboard (v32.0 Final Perfect)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -86,7 +86,7 @@
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
     /* Layouts */
-    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 350px; flex:none; } /* 높이 350px */
+    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 350px; flex:none; } 
     .pipe-section { display:flex; flex-direction:column; gap:16px; flex:1; min-height: 0; }
     .pipe-row { display:flex; gap:16px; flex:1; min-height: 320px; }
     .pipe-left { flex: 0 0 320px; display:flex; flex-direction:column; }
@@ -106,7 +106,13 @@
     th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); }
     td { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); transition:0.1s; }
     tr:hover td { background:#f1f5f9; }
+    tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
+    
+    /* Fail Row Highlight */
     tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
+    tr.row-fail:hover td { background:#fee2e2; }
+
+    /* Utils */
     .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; }
     .bd-done { background:#dcfce7; color:#166534; } .bd-wait { background:#fee2e2; color:#991b1b; }
     
@@ -181,10 +187,12 @@
         </div>
 
         <div class="card table-section">
-            <div class="card-head"><h3 class="card-title">상세 리스트</h3></div>
+            <div class="card-head"><h3 class="card-title">상세 리스트 (클릭 시 지도 이동)</h3></div>
             <div class="table-wrapper">
                 <table id="table-voc">
-                    <thead><tr><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>월정료</th><th>주소</th></tr></thead>
+                    <thead><tr>
+                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>월정료</th><th>주소</th>
+                    </tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -233,7 +241,7 @@
 /* CONFIG */
 const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
 const HQ_ORDER = ['강남/서부', '강북/강원', '충남/충북', '전남/전북', '대구/경북', '부산/경남'];
-const COLORS = { '방어성공': '#2563eb', '방어실패': '#dc2626', '진행중': '#64748b', '기타': '#cbd5e1' };
+const COLORS = { '방어성공': '#3b82f6', '방어실패': '#f97316', '진행중': '#94a3b8', '기타': '#cbd5e1' };
 const STACK_PALETTE = [
     '#312e81', '#1e40af', '#2563eb', '#3b82f6', 
     '#b91c1c', '#dc2626', '#ef4444',            
@@ -272,6 +280,7 @@ window.onload = async () => {
     document.getElementById('loading').style.display = 'none';
 };
 
+/* SIDEBAR TOGGLE */
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     sb.classList.toggle('collapsed');
@@ -281,6 +290,7 @@ function toggleSidebar() {
     }, 300);
 }
 
+/* DATA & PARSING */
 async function fetchCsv(url) {
     const r = await fetch(url); const t = await r.text();
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
@@ -297,11 +307,12 @@ function parseVoc(data) {
         }
         return {
             ...r,
-            _branch: (r["관리지사"]||"기타").replace("지사","").trim(),
-            _agent: (r["담당자"]||"미지정").trim(),
-            _status: (r["상태"]||"").trim(),
+            _branch: normStr(r["관리지사"]), _agent: (r["담당자"]||"미지정").trim(),
+            _status: (r["상태"]||"").trim(), 
             _lat: lat, _lng: lng,
-            _fee: parseInt((r["합산월정료"]||"0").replace(/,/g,''))||0
+            _fee: parseMoney(r["합산월정료"]), _desc: r["등록내용"]||"-",
+            _addr: (r["시"]||"") + " " + (r["군구"]||"") + " " + (r["읍면동"]||""), // 주소 파싱
+            _link: r["지도링크_URL"]
         };
     });
 }
@@ -324,6 +335,10 @@ function parsePipe(data) {
         };
     });
 }
+
+function normStr(s) { return (s||"기타").replace("지사","").trim(); }
+function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
+function fmtMoney(n) { return Math.round(n/1000).toLocaleString() + "천원"; }
 
 /* FILTERS */
 function initFiltersHTML() {
@@ -440,15 +455,28 @@ function renderVocView() {
     const ingData = data.filter(d => d._status === '접수');
     drawVocBar('chart-voc-agent', ingData, '_agent', '접수 건수', '#f59e0b');
 
+    // [수정] 상세 리스트: 주소 컬럼 추가 및 클릭 이벤트 연결
     const tbody = document.querySelector('#table-voc tbody');
-    tbody.innerHTML = data.slice(0, 50).map(d => `
-        <tr><td>${d._branch}</td><td>${d._agent}</td><td>${d["계약번호"]}</td>
-        <td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td>
-        <td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td></tr>
-    `).join('');
+    tbody.innerHTML = '';
+    data.slice(0, 50).forEach(d => {
+        const tr = document.createElement('tr');
+        if (d._lat) {
+            tr.style.cursor = 'pointer';
+            tr.onclick = () => {
+                App.map.panTo({lat: d._lat, lng: d._lng});
+                App.map.setZoom(14);
+                google.maps.event.trigger(d._marker, 'click');
+            };
+        }
+        tr.innerHTML = `
+            <td>${d._branch}</td><td>${d._agent}</td><td>${d["계약번호"]}</td>
+            <td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td>
+            <td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
-/* RENDER: PIPELINE */
 function renderPipeView() {
     const data = App.filtered;
     const total = data.length;
@@ -536,7 +564,8 @@ function drawVocBar(id, data, key, label, color) {
                 datalabels: { // [수정] VOC 차트 값 표시
                     color: '#4b5563', anchor: 'end', align: 'top', offset: 2,
                     font: { weight: 'bold', size: 11 },
-                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                    formatter: (val) => val
                 }
             }, 
             scales:{
@@ -569,11 +598,6 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                 renderPipeView(); 
             };
             header.appendChild(btn);
-        } else {
-            const btn = header.querySelector('.scale-toggle-btn');
-            btn.innerHTML = isCompressed ? `<i class="ph ph-arrows-in-line-vertical"></i> 보기보정 ON` : `<i class="ph ph-arrows-out-line-vertical"></i> 실제비율`;
-            btn.style.background = isCompressed ? '#e0e7ff' : '#fff';
-            btn.style.color = isCompressed ? '#4f46e5' : '#475569';
         }
     }
 
@@ -622,8 +646,7 @@ function drawStackedBar(id, type, metric, aggData, labels) {
                         const thres = isCompressed ? 0.3 : (maxStackHeight * 0.05); 
                         return val > thres;
                     },
-                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString(),
-                    anchor: 'center', align: 'center'
+                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString()
                 }
             },
             scales: {
@@ -640,6 +663,38 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
         }
     });
+}
+
+function renderTable(id, data, cols) {
+    const tbody = document.querySelector(`#${id} tbody`);
+    tbody.innerHTML = '';
+    if(!data.length) { tbody.innerHTML = `<tr><td colspan="${cols.length}" style="text-align:center;">데이터 없음</td></tr>`; return; }
+
+    data.slice(0, 100).forEach(d => {
+        const tr = document.createElement('tr');
+        if(d._risk===100 || d._step==='방어실패') tr.classList.add('row-fail');
+        cols.forEach(def => {
+            let val = d[def.k] || '';
+            if(def.fmt) val = def.fmt(val);
+            if(def.suffix) val += def.suffix;
+            if(def.badge) val = `<span class="badge ${val==='처리완료'?'bd-done':'bd-wait'}">${val}</span>`;
+            if(def.btn && val) val = `<a href="${val}" target="_blank" class="btn-map">지도확인</a>`;
+            const td = document.createElement('td');
+            td.innerHTML = val || '-';
+            tr.appendChild(td);
+        });
+        if(id==='table-voc' && d._lat) {
+            tr.onclick = () => { App.map.panTo({lat:d._lat, lng:d._lng}); App.map.setZoom(15); google.maps.event.trigger(d._marker, 'click'); };
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+function animateNum(id, target) {
+    const el = document.getElementById(id);
+    const start = parseInt(el.innerText.replace(/,/g,'')) || 0;
+    if(start === target) return;
+    el.innerText = target.toLocaleString();
 }
 
 function switchView(v) {
@@ -684,7 +739,6 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 });
 
 function initMap() {
-    // [수정] 서울시청 좌표 및 줌 레벨 고정
     App.map = new google.maps.Map(document.getElementById('voc-map'), { 
         center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true 
     });
@@ -708,9 +762,6 @@ function updateMap(data) {
         App.map.setCenter({lat: 37.5665, lng: 126.9780}); 
         App.map.setZoom(10);
     }
-}
-function animateNum(id, target) {
-    document.getElementById(id).innerText = target.toLocaleString();
 }
 </script>
 </body>
