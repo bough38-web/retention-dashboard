@@ -357,7 +357,7 @@ function parsePipe(data) {
         else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
         else step = "진행중";
 
-        let risk = parseFloat(r["위험도"]||0);
+        let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
