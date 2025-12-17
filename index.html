@@ -260,7 +260,7 @@
             <div class="table-wrapper">
                 <table id="table-pipe">
                     <thead><tr>
-                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(원)</th><th>세부내용 및 공유사항</th>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>해지위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(원)</th><th>세부내용 및 공유사항</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>
@@ -363,7 +363,7 @@ function parsePipe(data) {
         else step = "진행중";
 
         // [수정] 위험도 파싱 로직 (0.1 -> 10, 1.0 -> 100)
-        let risk = parseFloat(r["위험도"]||0);
+        let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
@@ -754,7 +754,7 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
             App.data.voc = parseVoc(res.data);
             alert("VOC 데이터 갱신 완료");
             switchView('voc');
-        } else if(h.some(x=>x.includes('위험도'))) {
+        } else if(h.some(x=>x.includes('해지위험도'))) {
             App.data.pipe = parsePipe(res.data);
             alert("파이프라인 데이터 갱신 완료");
             switchView('pipe');
