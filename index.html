@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v39.0 Final with Hub)</title>
+<title>KTT Premium Retention Dashboard (v38.0 Final with Hub Security)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -21,6 +21,7 @@
         --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
         --fail-bg: #fef2f2; --fail-text: #b91c1c;
     }
+    /* 전체 페이지 스크롤 허용 */
     body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
     * { box-sizing:border-box; outline:none; }
     
@@ -46,24 +47,29 @@
 
     .scroll-area { flex:1; overflow-y:auto; padding:20px; overflow-x: hidden; }
     .sidebar.collapsed .scroll-area { padding: 10px; }
-    .sidebar.collapsed .upload-text, .sidebar.collapsed .nav-text, .sidebar.collapsed .filter-box { display: none !important; }
     
-    .upload-box { background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:14px; text-align:center; margin-bottom:20px; cursor:pointer; transition: 0.2s; }
-    .upload-box:hover { border-color:var(--primary); background:#eef2ff; }
-    .sidebar.collapsed .upload-box { padding: 10px 0; border: none; background: transparent; }
-    .sidebar.collapsed .upload-box i { font-size: 24px; color: var(--primary); }
+    /* Action Buttons (Hub & Upload) */
+    .sidebar-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+    .sidebar.collapsed .sidebar-actions { flex-direction: column; gap: 10px; margin-bottom: 10px; }
 
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; flex-direction: column; gap: 4px; } /* 세로 배치로 변경 */
-    .sidebar.collapsed .nav-tabs { background: transparent; gap: 10px; }
-    
-    .nav-tab { 
-        width: 100%; padding:10px; border:none; background:none; font-size:13px; font-weight:700; 
-        color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; 
-        display: flex; align-items: center; justify-content: flex-start; gap: 10px; /* 왼쪽 정렬 */
+    .upload-box { 
+        background:var(--bg); border:1px dashed #94a3b8; border-radius:var(--radius); padding:12px; 
+        text-align:center; cursor:pointer; transition: 0.2s; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
     }
-    .nav-tab:hover { background: var(--surface); color: var(--primary); }
+    .upload-box:hover { border-color:var(--primary); background:#eef2ff; color: var(--primary); }
+    .upload-box i { font-size: 20px; }
+    .upload-box span { font-size: 11px; font-weight: 700; }
+    
+    .sidebar.collapsed .upload-box { padding: 10px 0; border: none; background: transparent; }
+    .sidebar.collapsed .upload-box i { font-size: 24px; }
+    .sidebar.collapsed .upload-text, .sidebar.collapsed .nav-text, .sidebar.collapsed .filter-box { display: none !important; }
+
+    /* Tabs */
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
+    .sidebar.collapsed .nav-tabs { flex-direction: column; background: transparent; gap: 10px; }
+    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-    .sidebar.collapsed .nav-tab { justify-content: center; padding: 10px; }
+    .sidebar.collapsed .nav-tab { font-size: 0; padding: 10px; }
     .sidebar.collapsed .nav-tab i { font-size: 20px; }
 
     /* Filters */
@@ -78,8 +84,7 @@
     /* Main Content */
     .main-content { 
         flex:1; padding:24px; display:flex; flex-direction:column; 
-        overflow-y: auto; 
-        height: 100vh; 
+        overflow-y: auto; height: 100vh; 
     }
     .view-panel { display:none; flex-direction:column; gap:20px; width: 100%; }
     .view-panel.active { display:flex; }
@@ -97,7 +102,7 @@
     .kpi-val { font-size:36px; font-weight:800; color:var(--text); letter-spacing:-1px; line-height: 1.2; }
     .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
 
-    /* Visualizations */
+    /* Visualizations (Collapsible) */
     .visual-section { transition: all 0.3s ease; overflow: hidden; flex: none; }
     .visual-section.collapsed { height: 0 !important; margin: 0 !important; opacity: 0; }
 
@@ -115,7 +120,7 @@
     .map-wrapper { flex:1; border-radius:8px; overflow:hidden; background:#e2e8f0; }
     .chart-wrapper { flex:1; position:relative; min-height:0; }
 
-    /* Table */
+    /* Table - 무한 스크롤 */
     .table-section { display:flex; flex-direction:column; min-height: auto; flex: 1 0 auto; margin-bottom: 20px; }
     .table-wrapper { overflow: visible; border:1px solid var(--border); border-radius:8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; background: #fff; }
@@ -143,24 +148,28 @@
         <i class="ph ph-caret-double-left sidebar-toggle" onclick="toggleSidebar()"></i>
     </div>
     <div class="scroll-area">
-        <div class="upload-box" onclick="triggerUpload()">
-            <i class="ph ph-file-csv"></i> <span class="upload-text">파일 교체 (보안)</span>
-            <input type="file" id="fileInput" accept=".csv" />
+        
+        <div class="sidebar-actions">
+            <div class="upload-box" onclick="accessHub()">
+                <i class="ph ph-share-network"></i>
+                <span class="upload-text">허브</span>
+            </div>
+            <div class="upload-box" onclick="triggerUpload()">
+                <i class="ph ph-file-csv"></i> 
+                <span class="upload-text">파일 교체</span>
+                <input type="file" id="fileInput" accept=".csv" style="display:none" />
+            </div>
         </div>
+
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="switchView('voc')"><i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span></button>
             <button class="nav-tab" onclick="switchView('pipe')"><i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span></button>
-            <button class="nav-tab" onclick="window.open('https://script.google.com/macros/s/AKfycbziXDDchdWun3sztsNZzN4CpcbYFzsxDIxE4U3rlr8hz_897bp31XkiBTYi_9tZlcTB/exec', '_blank')">
-                <i class="ph ph-share-network"></i><span class="nav-text">허브</span>
-            </button>
         </div>
-        
         <div id="filter-container"></div>
     </div>
 </div>
 
 <div class="main-content">
-
     <div id="view-voc" class="view-panel active">
         <div class="header">
             <div><h2>관리고객(VOC) 현황</h2><p>실시간 위치 기반 모니터링</p></div>
@@ -171,22 +180,10 @@
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)">
-                <div class="kpi-label">총 계약</div>
-                <div class="kpi-val" id="voc-total">0</div>
-            </div>
-            <div class="kpi-card" style="--c:var(--success)">
-                <div class="kpi-label">처리 완료</div>
-                <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
-            </div>
-            <div class="kpi-card" style="--c:var(--warning)">
-                <div class="kpi-label">접수(진행)</div>
-                <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
-            </div>
-            <div class="kpi-card" style="--c:var(--danger)">
-                <div class="kpi-label">미접수</div>
-                <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
-            </div>
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">총 계약</div><div class="kpi-val" id="voc-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">처리 완료</div><div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">접수(진행)</div><div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">미접수</div><div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div></div>
         </div>
 
         <div id="voc-visuals" class="visual-section voc-grid-3">
@@ -208,9 +205,7 @@
             <div class="card-head"><h3 class="card-title">상세 리스트 (클릭 시 지도 이동)</h3></div>
             <div class="table-wrapper">
                 <table id="table-voc">
-                    <thead><tr>
-                        <th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>월정료</th><th>주소</th>
-                    </tr></thead>
+                    <thead><tr><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>월정료</th><th>주소</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -219,10 +214,7 @@
 
     <div id="view-pipe" class="view-panel">
         <div class="header">
-            <div>
-                <h2>해지 파이프라인 분석</h2>
-                <p>본부별/지사별 건수 및 금액 현황</p>
-            </div>
+            <div><h2>해지 파이프라인 분석</h2><p>본부별/지사별 건수 및 금액 현황</p></div>
             <div class="header-actions">
                 <button class="action-btn secondary" onclick="toggleVisuals('pipe')"><i class="ph ph-arrows-in-line-vertical"></i> 시각화 접기/펼치기</button>
                 <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
@@ -297,13 +289,11 @@ Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Pretendard', sans-serif";
 Chart.defaults.color = '#64748b';
 
-/* INIT */
 window.onload = async () => {
     try {
         const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
         App.data.voc = parseVoc(v.data);
         App.data.pipe = parsePipe(p.data);
-        
         initMap();
         initFiltersHTML();
         updateDashboard();
@@ -311,7 +301,7 @@ window.onload = async () => {
     document.getElementById('loading').style.display = 'none';
 };
 
-/* TOGGLE FUNCTIONS */
+/* --- CORE FUNCTIONS --- */
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     sb.classList.toggle('collapsed');
@@ -322,11 +312,25 @@ function toggleSidebar() {
 }
 
 function toggleVisuals(view) {
-    const section = document.getElementById(view + '-visuals');
-    section.classList.toggle('collapsed');
+    document.getElementById(view + '-visuals').classList.toggle('collapsed');
 }
 
-/* DATA & PARSING */
+function accessHub() {
+    const p = prompt("허브 접속 비밀번호 입력:");
+    if(p === "3867") {
+        window.open("https://script.google.com/macros/s/AKfycbziXDDchdWun3sztsNZzN4CpcbYFzsxDIxE4U3rlr8hz_897bp31XkiBTYi_9tZlcTB/exec", "_blank");
+    } else if (p !== null) {
+        alert("비밀번호 오류");
+    }
+}
+
+function triggerUpload() {
+    const p = prompt("관리자 비밀번호 입력:");
+    if(p==="3867") document.getElementById('fileInput').click();
+    else if(p!==null) alert("비밀번호 오류");
+}
+
+/* DATA PARSING */
 async function fetchCsv(url) {
     const r = await fetch(url); const t = await r.text();
     return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
@@ -344,8 +348,7 @@ function parseVoc(data) {
         return {
             ...r,
             _branch: normStr(r["관리지사"]), _agent: (r["담당자"]||"미지정").trim(),
-            _status: (r["상태"]||"").trim(), 
-            _lat: lat, _lng: lng,
+            _status: (r["상태"]||"").trim(), _lat: lat, _lng: lng,
             _fee: parseMoney(r["합산월정료"]), _desc: r["등록내용"]||"-",
             _addr: (r["시"]||"") + " " + (r["군구"]||"") + " " + (r["읍면동"]||""),
             _link: r["지도링크_URL"],
@@ -366,7 +369,7 @@ function parsePipe(data) {
         else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
         else step = "진행중";
 
-        let risk = parseFloat(r["위험도"]||0);
+        let risk = parseFloat(r["해지위험도"]||0);
         if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
@@ -381,8 +384,7 @@ function parsePipe(data) {
             _branch: (r["관리지사"]||"기타").replace("지사","").trim(),
             _agent: (r["담당자"]||"미지정").trim(), 
             _risk: Math.round(risk),
-            _step: step, 
-            _lat: lat, _lng: lng,
+            _step: step, _lat: lat, _lng: lng,
             _fee: parseInt((r[kFee]||"0").replace(/,/g,''))||0,
             _contractId: String(r["계약번호"] || "").replace(/\.0$/, ""),
             _desc: r[kDesc] || "-",
@@ -437,7 +439,7 @@ function toggleSection(id) {
     head.classList.toggle('collapsed');
 }
 
-function renderChips(id, items, type, isDynamic=false) {
+function renderChips(id, items, type) {
     const box = document.getElementById(id);
     box.innerHTML = '';
     items.forEach(val => {
@@ -511,7 +513,6 @@ function renderVocView() {
 
     updateMap(data);
     drawVocBar('chart-voc-branch', data, '_branch', '건수', '#6366f1');
-    
     const ingData = data.filter(d => d._status === '접수');
     drawVocBar('chart-voc-agent', ingData, '_agent', '접수 건수', '#f59e0b');
 
@@ -527,11 +528,7 @@ function renderVocView() {
             }
         };
         tr.style.cursor = 'pointer';
-        tr.innerHTML = `
-            <td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
-            <td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td>
-            <td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>
-        `;
+        tr.innerHTML = `<td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td><td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td><td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>`;
         tbody.appendChild(tr);
     });
 }
@@ -584,17 +581,10 @@ function renderPipeView() {
     data.forEach(d => {
         const tr = document.createElement('tr');
         if(d._lat) {
-            tr.onclick = () => {
-                alert("위치: " + d._lat + ", " + d._lng); 
-            };
+            tr.onclick = () => alert("위치: " + d._lat + ", " + d._lng); 
             tr.style.cursor = 'pointer';
         }
-        tr.innerHTML = `
-            <td>${d._hq}</td><td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
-            <td>${d["상호"]||"-"}</td><td>${d._channel}</td><td>${d._risk}%</td>
-            <td>${d._step}</td><td>${d._date||""}</td><td>${d._fee.toLocaleString()}</td>
-            <td style="white-space: pre-wrap; word-break: break-all; min-width: 200px;">${d._desc}</td>
-        `;
+        tr.innerHTML = `<td>${d._hq}</td><td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td><td>${d["상호"]||"-"}</td><td>${d._channel}</td><td>${d._risk}%</td><td>${d._step}</td><td>${d._date||""}</td><td>${d._fee.toLocaleString()}</td><td style="white-space: pre-wrap; word-break: break-all; min-width: 200px;">${d._desc}</td>`;
         tbody.appendChild(tr);
     });
 }
@@ -619,7 +609,6 @@ function drawVocBar(id, data, key, label, color) {
     keys = keys.slice(0, 15);
     const rawValues = keys.map(k => counts[k]);
     const ctx = document.getElementById(id).getContext('2d');
-
     if(App.charts[id]) App.charts[id].destroy();
 
     App.charts[id] = new Chart(ctx, {
@@ -630,15 +619,7 @@ function drawVocBar(id, data, key, label, color) {
         },
         options: { 
             indexAxis: 'x', responsive:true, maintainAspectRatio:false, 
-            plugins:{
-                legend:{display:false},
-                datalabels: { 
-                    color: '#4b5563', anchor: 'end', align: 'top', offset: 2,
-                    font: { weight: 'bold', size: 11 },
-                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
-                    formatter: (val) => val
-                }
-            }, 
+            plugins:{ legend:{display:false}, datalabels: { color: '#4b5563', anchor: 'end', align: 'top', offset: 2, font: { weight: 'bold', size: 11 }, display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0, formatter: (val) => val } }, 
             scales:{x:{grid:{display:false}}, y:{beginAtZero: true, grace: '10%'}},
             onClick: (e, els) => { if(els.length > 0) toggleFilter(key==='_branch'?'branch':'agent', keys[els[0].index]); }
         }
@@ -650,7 +631,6 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     const canvas = document.getElementById(id);
     let currentMode = canvas.dataset.viewMode || 'linear'; 
     const isCompressed = currentMode === 'compressed';
-    
     const card = canvas.closest('.card');
     const header = card ? card.querySelector('.card-head') : null;
     if (header) {
@@ -660,14 +640,10 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             btn.className = 'scale-toggle-btn';
             btn.style.cssText = `margin-left:auto; padding:3px 8px; font-size:11px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; border-radius:6px; color:#475569; font-weight:700; white-space:nowrap;`;
             btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${isCompressed ? '압축됨' : '원본'}`;
-            btn.onclick = () => {
-                canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed';
-                renderPipeView(); 
-            };
+            btn.onclick = () => { canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed'; renderPipeView(); };
             header.appendChild(btn);
         }
     }
-
     if(App.charts[id]) App.charts[id].destroy();
 
     const statuses = ['방어성공', '방어실패', '진행중'];
@@ -745,12 +721,6 @@ function switchView(v) {
     }, 100);
 }
 
-function triggerUpload() {
-    const p = prompt("관리자 비밀번호 입력:");
-    if(p==="3867") document.getElementById('fileInput').click();
-    else if(p!==null) alert("비밀번호 오류");
-}
-
 document.getElementById('fileInput').addEventListener('change', (e) => {
     const f = e.target.files[0];
     if(!f) return;
@@ -774,37 +744,29 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 });
 
 function initMap() {
-    App.map = new google.maps.Map(document.getElementById('voc-map'), { 
-        center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true 
-    });
+    App.map = new google.maps.Map(document.getElementById('voc-map'), { center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true });
 }
 function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
-    // [수정] 대한민국 좌표 범위 (이상 좌표 제거)
     const valid = data.filter(d => d._lat && d._lat > 33 && d._lat < 39 && d._lng > 124 && d._lng < 132);
     const bounds = new google.maps.LatLngBounds();
     valid.forEach(d => {
         const color = d._status === '처리완료' ? 'blue' : 'red';
         const m = new google.maps.Marker({
-            position: {lat: d._lat, lng: d._lng},
-            title: d["상호명"]||d["상호"],
+            position: {lat: d._lat, lng: d._lng}, title: d["상호명"]||d["상호"],
             icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${color}-dot.png`,
             label: { text: d["상호명"]||d["상호"], color: "black", fontSize: "11px", fontWeight: "bold" }
         });
         m.addListener('click', () => {
-            new google.maps.InfoWindow({
-                content: `<div style="padding:5px;font-weight:bold">${d["상호명"]||d["상호"]}<br><span style="font-weight:normal;font-size:11px">${d._agent}</span></div>`
-            }).open(App.map, m);
+            new google.maps.InfoWindow({ content: `<div style="padding:5px;font-weight:bold">${d["상호명"]||d["상호"]}<br><span style="font-weight:normal;font-size:11px">${d._agent}</span></div>` }).open(App.map, m);
         });
         d._marker = m;
         bounds.extend(m.getPosition());
         App.markers.push(m);
     });
     App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
-    
-    // [수정] 데이터 없으면 서울 중심 유지
     if(App.markers.length > 0) App.map.fitBounds(bounds);
     else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
 }
