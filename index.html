@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v38.0 Final with Step Filter)</title>
+<title>KTT Premium Retention Dashboard (v39.0 Final with Hub)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -53,11 +53,17 @@
     .sidebar.collapsed .upload-box { padding: 10px 0; border: none; background: transparent; }
     .sidebar.collapsed .upload-box i { font-size: 24px; color: var(--primary); }
 
-    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; }
-    .sidebar.collapsed .nav-tabs { flex-direction: column; background: transparent; gap: 10px; }
-    .nav-tab { flex:1; padding:8px; border:none; background:none; font-size:13px; font-weight:700; color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .nav-tabs { display:flex; background:var(--bg); padding:4px; border-radius:10px; margin-bottom:20px; flex-direction: column; gap: 4px; } /* 세로 배치로 변경 */
+    .sidebar.collapsed .nav-tabs { background: transparent; gap: 10px; }
+    
+    .nav-tab { 
+        width: 100%; padding:10px; border:none; background:none; font-size:13px; font-weight:700; 
+        color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; 
+        display: flex; align-items: center; justify-content: flex-start; gap: 10px; /* 왼쪽 정렬 */
+    }
+    .nav-tab:hover { background: var(--surface); color: var(--primary); }
     .nav-tab.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-    .sidebar.collapsed .nav-tab { font-size: 0; padding: 10px; }
+    .sidebar.collapsed .nav-tab { justify-content: center; padding: 10px; }
     .sidebar.collapsed .nav-tab i { font-size: 20px; }
 
     /* Filters */
@@ -144,7 +150,11 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="switchView('voc')"><i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span></button>
             <button class="nav-tab" onclick="switchView('pipe')"><i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span></button>
+            <button class="nav-tab" onclick="window.open('https://script.google.com/macros/s/AKfycbziXDDchdWun3sztsNZzN4CpcbYFzsxDIxE4U3rlr8hz_897bp31XkiBTYi_9tZlcTB/exec', '_blank')">
+                <i class="ph ph-share-network"></i><span class="nav-text">허브</span>
+            </button>
         </div>
+        
         <div id="filter-container"></div>
     </div>
 </div>
@@ -279,7 +289,6 @@ let App = {
     view: 'voc',
     data: { voc:[], pipe:[] },
     filtered: [],
-    // [수정] step 필터 추가
     filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL', step:'ALL' }, 
     map: null, clusterer: null, markers: [], charts: {}
 };
@@ -357,7 +366,7 @@ function parsePipe(data) {
         else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
         else step = "진행중";
 
-        let risk = parseFloat(r["해지위험도"]||0);
+        let risk = parseFloat(r["위험도"]||0);
         if (risk > 0 && risk <= 1) risk *= 100;
 
         let lat=null, lng=null;
@@ -398,12 +407,10 @@ function initFiltersHTML() {
             <div class="filter-head" onclick="toggleSection('chips-hq')">관리본부 <i class="ph ph-caret-down"></i></div>
             <div id="chips-hq" class="chips"></div>
         </div>
-        
         <div class="filter-box" id="fb-step" style="display:none;">
             <div class="filter-head" onclick="toggleSection('chips-step')">방어단계 <i class="ph ph-caret-down"></i></div>
             <div id="chips-step" class="chips"></div>
         </div>
-
         <div class="filter-box" id="fb-voc-filters">
             <div class="filter-head" onclick="toggleSection('chips-voc-branch')">지사 필터 <i class="ph ph-caret-down"></i></div>
             <div id="chips-voc-branch" class="chips"></div>
@@ -420,7 +427,6 @@ function initFiltersHTML() {
     renderChips('chips-status', ['전체','미접수','접수','처리완료'], 'status');
     renderChips('chips-channel', ['전체', 'SP', 'SC', 'AM'], 'channel');
     renderChips('chips-voc-branch', ['전체', ...BRANCH_ORDER], 'branch');
-    // [신규] 방어단계 칩 생성
     renderChips('chips-step', ['전체', '방어성공', '방어실패', '진행중'], 'step');
 }
 
@@ -454,7 +460,7 @@ function updateDashboard() {
     const isVoc = App.view === 'voc';
     document.getElementById('fb-channel').style.display = isVoc ? 'none' : 'block';
     document.getElementById('fb-hq').style.display = isVoc ? 'none' : 'block';
-    document.getElementById('fb-step').style.display = isVoc ? 'none' : 'block'; // 방어단계 표시 제어
+    document.getElementById('fb-step').style.display = isVoc ? 'none' : 'block';
     document.getElementById('fb-voc-filters').style.display = isVoc ? 'block' : 'none';
     document.getElementById('fb-status').style.display = isVoc ? 'block' : 'none';
     document.getElementById('fb-agent').style.display = isVoc ? 'block' : 'none';
@@ -465,7 +471,6 @@ function updateDashboard() {
         if(!isVoc) {
             if(App.filters.channel !== 'ALL' && (d["담당영업채널"]||"SP") !== App.filters.channel) return false;
             if(App.filters.hq !== 'ALL' && d._hq !== App.filters.hq) return false;
-            // [신규] 방어단계 필터 적용
             if(App.filters.step !== 'ALL' && d._step !== App.filters.step) return false;
         } else {
             if(App.filters.branch !== 'ALL' && d._branch !== App.filters.branch) return false;
