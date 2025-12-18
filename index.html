@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>KTT Premium Retention Dashboard (v40.0 Final Integrated)</title>
+<title>KTT Premium Retention Dashboard (v41.0 Final Connected)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -47,14 +47,16 @@
 
     .scroll-area { flex:1; overflow-y:auto; padding:20px; overflow-x: hidden; }
     .sidebar.collapsed .scroll-area { padding: 10px; }
-    .sidebar.collapsed .nav-text, .sidebar.collapsed .filter-box { display: none !important; }
+    .sidebar.collapsed .nav-text, .sidebar.collapsed .filter-box, .sidebar.collapsed .group-label { display: none !important; }
 
-    /* Nav Tabs (Unified List) */
-    .nav-tabs { display:flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    /* Nav Tabs & Groups */
+    .nav-group { margin-bottom: 20px; }
+    .group-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; padding-left: 12px; letter-spacing: 0.5px; }
+    
     .nav-tab { 
         width: 100%; padding:12px; border:none; background:transparent; font-size:13px; font-weight:700; 
         color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; 
-        display: flex; align-items: center; justify-content: flex-start; gap: 12px; 
+        display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 4px;
     }
     .nav-tab:hover { background: #f1f5f9; color: var(--primary); }
     .nav-tab.active { background:var(--primary-light); color:var(--primary); }
@@ -62,6 +64,8 @@
 
     .sidebar.collapsed .nav-tab { justify-content: center; padding: 12px 0; }
     
+    .divider { height: 1px; background: var(--border); margin: 10px 0 20px 0; }
+
     /* Filters */
     .filter-box { margin-bottom:16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
     .filter-head { display:flex; justify-content:space-between; align-items: center; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; cursor: pointer; }
@@ -139,25 +143,33 @@
     </div>
     <div class="scroll-area">
         
-        <div class="nav-tabs">
+        <div class="nav-group">
+            <div class="group-label">System</div>
+            <button class="nav-tab" onclick="accessHub()">
+                <i class="ph ph-share-network"></i><span class="nav-text">허브 (Hub)</span>
+            </button>
+            <button class="nav-tab" onclick="triggerUpload()">
+                <i class="ph ph-file-csv"></i><span class="nav-text">파일 교체</span>
+                <input type="file" id="fileInput" accept=".csv" style="display:none" />
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="nav-group">
+            <div class="group-label">Dashboard</div>
             <button class="nav-tab active" onclick="switchView('voc')">
                 <i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span>
             </button>
             <button class="nav-tab" onclick="switchView('pipe')">
                 <i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span>
             </button>
-            <button class="nav-tab" onclick="switchView('stop')">
+            <button class="nav-tab" onclick="window.open('https://a-management-dashboard-6kyyf824usuawa7kdpf4vj.streamlit.app', '_blank')">
                 <i class="ph ph-warning-circle"></i><span class="nav-text">정지/부실</span>
-            </button>
-            <button class="nav-tab" onclick="accessHub()">
-                <i class="ph ph-share-network"></i><span class="nav-text">허브</span>
-            </button>
-            <button class="nav-tab" onclick="triggerUpload()">
-                <i class="ph ph-file-csv"></i><span class="nav-text">파일 교체</span>
             </button>
         </div>
         
-        <input type="file" id="fileInput" accept=".csv" style="display:none" />
+        <div class="divider"></div>
 
         <div id="filter-container"></div>
     </div>
@@ -175,10 +187,22 @@
         </div>
 
         <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">총 계약</div><div class="kpi-val" id="voc-total">0</div></div>
-            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">처리 완료</div><div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div></div>
-            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">접수(진행)</div><div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div></div>
-            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">미접수</div><div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--primary)">
+                <div class="kpi-label">총 계약</div>
+                <div class="kpi-val" id="voc-total">0</div>
+            </div>
+            <div class="kpi-card" style="--c:var(--success)">
+                <div class="kpi-label">처리 완료</div>
+                <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
+            </div>
+            <div class="kpi-card" style="--c:var(--warning)">
+                <div class="kpi-label">접수(진행)</div>
+                <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
+            </div>
+            <div class="kpi-card" style="--c:var(--danger)">
+                <div class="kpi-label">미접수</div>
+                <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
+            </div>
         </div>
 
         <div id="voc-visuals" class="visual-section voc-grid-3">
@@ -209,7 +233,10 @@
 
     <div id="view-pipe" class="view-panel">
         <div class="header">
-            <div><h2>해지 파이프라인 분석</h2><p>본부별/지사별 건수 및 금액 현황</p></div>
+            <div>
+                <h2>해지 파이프라인 분석</h2>
+                <p>본부별/지사별 건수 및 금액 현황</p>
+            </div>
             <div class="header-actions">
                 <button class="action-btn secondary" onclick="toggleVisuals('pipe')"><i class="ph ph-arrows-in-line-vertical"></i> 시각화 접기/펼치기</button>
                 <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
@@ -258,20 +285,6 @@
             </div>
         </div>
     </div>
-
-    <div id="view-stop" class="view-panel">
-        <div class="header">
-            <div><h2>정지/부실 현황</h2><p>서비스 정지 및 부실 채권 관리</p></div>
-        </div>
-        <div class="kpi-grid">
-            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">총 정지 건수</div><div class="kpi-val">0</div></div>
-            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">부실 확정</div><div class="kpi-val">0</div></div>
-        </div>
-        <div class="card full" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-            <h3><i class="ph ph-warning-circle"></i> 데이터 준비 중입니다.</h3>
-        </div>
-    </div>
-
 </div>
 
 <script>
@@ -323,7 +336,8 @@ function toggleSidebar() {
 }
 
 function toggleVisuals(view) {
-    document.getElementById(view + '-visuals').classList.toggle('collapsed');
+    const section = document.getElementById(view + '-visuals');
+    section.classList.toggle('collapsed');
 }
 
 function accessHub() {
@@ -359,7 +373,8 @@ function parseVoc(data) {
         return {
             ...r,
             _branch: normStr(r["관리지사"]), _agent: (r["담당자"]||"미지정").trim(),
-            _status: (r["상태"]||"").trim(), _lat: lat, _lng: lng,
+            _status: (r["상태"]||"").trim(), 
+            _lat: lat, _lng: lng,
             _fee: parseMoney(r["합산월정료"]), _desc: r["등록내용"]||"-",
             _addr: (r["시"]||"") + " " + (r["군구"]||"") + " " + (r["읍면동"]||""),
             _link: r["지도링크_URL"],
@@ -503,7 +518,7 @@ function updateDashboard() {
         renderChips('chips-agent', agents, 'agent');
     }
 
-    if(isVoc) renderVocView(); else if(App.view==='pipe') renderPipeView();
+    if(isVoc) renderVocView(); else renderPipeView();
 }
 
 /* RENDER: VOC */
@@ -524,6 +539,7 @@ function renderVocView() {
 
     updateMap(data);
     drawVocBar('chart-voc-branch', data, '_branch', '건수', '#6366f1');
+    
     const ingData = data.filter(d => d._status === '접수');
     drawVocBar('chart-voc-agent', ingData, '_agent', '접수 건수', '#f59e0b');
 
@@ -539,7 +555,11 @@ function renderVocView() {
             }
         };
         tr.style.cursor = 'pointer';
-        tr.innerHTML = `<td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td><td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td><td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>`;
+        tr.innerHTML = `
+            <td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
+            <td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td>
+            <td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>
+        `;
         tbody.appendChild(tr);
     });
 }
@@ -595,7 +615,12 @@ function renderPipeView() {
             tr.onclick = () => alert("위치: " + d._lat + ", " + d._lng); 
             tr.style.cursor = 'pointer';
         }
-        tr.innerHTML = `<td>${d._hq}</td><td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td><td>${d["상호"]||"-"}</td><td>${d._channel}</td><td>${d._risk}%</td><td>${d._step}</td><td>${d._date||""}</td><td>${d._fee.toLocaleString()}</td><td style="white-space: pre-wrap; word-break: break-all; min-width: 200px;">${d._desc}</td>`;
+        tr.innerHTML = `
+            <td>${d._hq}</td><td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
+            <td>${d["상호"]||"-"}</td><td>${d._channel}</td><td>${d._risk}%</td>
+            <td>${d._step}</td><td>${d._date||""}</td><td>${d._fee.toLocaleString()}</td>
+            <td style="white-space: pre-wrap; word-break: break-all; min-width: 200px;">${d._desc}</td>
+        `;
         tbody.appendChild(tr);
     });
 }
@@ -620,6 +645,7 @@ function drawVocBar(id, data, key, label, color) {
     keys = keys.slice(0, 15);
     const rawValues = keys.map(k => counts[k]);
     const ctx = document.getElementById(id).getContext('2d');
+
     if(App.charts[id]) App.charts[id].destroy();
 
     App.charts[id] = new Chart(ctx, {
@@ -630,7 +656,15 @@ function drawVocBar(id, data, key, label, color) {
         },
         options: { 
             indexAxis: 'x', responsive:true, maintainAspectRatio:false, 
-            plugins:{ legend:{display:false}, datalabels: { color: '#4b5563', anchor: 'end', align: 'top', offset: 2, font: { weight: 'bold', size: 11 }, display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0, formatter: (val) => val } }, 
+            plugins:{
+                legend:{display:false},
+                datalabels: { 
+                    color: '#4b5563', anchor: 'end', align: 'top', offset: 2,
+                    font: { weight: 'bold', size: 11 },
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                    formatter: (val) => val
+                }
+            }, 
             scales:{x:{grid:{display:false}}, y:{beginAtZero: true, grace: '10%'}},
             onClick: (e, els) => { if(els.length > 0) toggleFilter(key==='_branch'?'branch':'agent', keys[els[0].index]); }
         }
@@ -642,6 +676,7 @@ function drawStackedBar(id, type, metric, aggData, labels) {
     const canvas = document.getElementById(id);
     let currentMode = canvas.dataset.viewMode || 'linear'; 
     const isCompressed = currentMode === 'compressed';
+    
     const card = canvas.closest('.card');
     const header = card ? card.querySelector('.card-head') : null;
     if (header) {
@@ -651,10 +686,14 @@ function drawStackedBar(id, type, metric, aggData, labels) {
             btn.className = 'scale-toggle-btn';
             btn.style.cssText = `margin-left:auto; padding:3px 8px; font-size:11px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; border-radius:6px; color:#475569; font-weight:700; white-space:nowrap;`;
             btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${isCompressed ? '압축됨' : '원본'}`;
-            btn.onclick = () => { canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed'; renderPipeView(); };
+            btn.onclick = () => {
+                canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed';
+                renderPipeView(); 
+            };
             header.appendChild(btn);
         }
     }
+
     if(App.charts[id]) App.charts[id].destroy();
 
     const statuses = ['방어성공', '방어실패', '진행중'];
@@ -724,7 +763,14 @@ function switchView(v) {
     document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
     document.getElementById('view-'+v).classList.add('active');
     document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-    document.querySelector(`button[onclick="switchView('${v}')"]`).classList.add('active');
+    // 버튼 active 처리: switchView('voc') 호출 시 해당 버튼 active
+    const buttons = document.querySelectorAll('.nav-tab');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    // 간단히 순서대로 매칭 (voc:0, pipe:1, stop:2) - 혹은 onclick 속성 비교
+    if(v==='voc') buttons[2].classList.add('active'); // 0,1은 상단 시스템메뉴
+    if(v==='pipe') buttons[3].classList.add('active');
+    if(v==='stop') buttons[4].classList.add('active');
+
     updateDashboard(); 
     setTimeout(() => {
         Object.values(App.charts).forEach(c => c.resize());
@@ -761,6 +807,7 @@ function updateMap(data) {
     if(!App.map) return;
     if(App.clusterer) App.clusterer.clearMarkers();
     App.markers = [];
+    // 대한민국 좌표 범위 필터링
     const valid = data.filter(d => d._lat && d._lat > 33 && d._lat < 39 && d._lng > 124 && d._lng < 132);
     const bounds = new google.maps.LatLngBounds();
     valid.forEach(d => {
