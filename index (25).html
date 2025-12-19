@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>KTT Premium Retention Dashboard (v41.0 Final Connected)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbmyeJMsApj38SRzWvaQGrZmpqUQTooMw" defer></script>
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+
+<style>
+    :root {
+        --primary: #4f46e5; --primary-light: #e0e7ff; --bg: #f8fafc; --surface: #ffffff;
+        --text: #1e293b; --text-sub: #64748b; --border: #e2e8f0;
+        --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+        --fail-bg: #fef2f2; --fail-text: #b91c1c;
+    }
+    /* 전체 페이지 스크롤 허용 */
+    body { margin:0; font-family:'Pretendard', sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; overflow:hidden; }
+    * { box-sizing:border-box; outline:none; }
+    
+    /* === Sidebar (Collapsible) === */
+    .sidebar { 
+        width:280px; background:var(--surface); border-right:1px solid var(--border); 
+        display:flex; flex-direction:column; z-index:20; box-shadow:var(--shadow); 
+        transition: width 0.3s ease; position: relative; height: 100vh; flex: none;
+    }
+    .sidebar.collapsed { width: 70px; }
+    
+    .logo { 
+        padding:20px; border-bottom:1px solid var(--border); font-size:18px; font-weight:800; 
+        color:var(--primary); display:flex; align-items:center; justify-content: space-between; gap:8px; white-space: nowrap; overflow: hidden;
+    }
+    .logo-text { transition: opacity 0.2s; }
+    .sidebar.collapsed .logo-text { opacity: 0; pointer-events: none; display: none; }
+    .sidebar.collapsed .logo { justify-content: center; padding: 20px 0; }
+    
+    .sidebar-toggle { cursor: pointer; color: var(--text-sub); font-size: 20px; padding: 4px; border-radius: 4px; }
+    .sidebar-toggle:hover { background: #f1f5f9; color: var(--primary); }
+    .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); position: absolute; top: 15px; left: 50%; margin-left: -14px; }
+
+    .scroll-area { flex:1; overflow-y:auto; padding:20px; overflow-x: hidden; }
+    .sidebar.collapsed .scroll-area { padding: 10px; }
+    .sidebar.collapsed .nav-text, .sidebar.collapsed .filter-box, .sidebar.collapsed .group-label { display: none !important; }
+
+    /* Nav Tabs & Groups */
+    .nav-group { margin-bottom: 20px; }
+    .group-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; padding-left: 12px; letter-spacing: 0.5px; }
+    
+    .nav-tab { 
+        width: 100%; padding:12px; border:none; background:transparent; font-size:13px; font-weight:700; 
+        color:var(--text-sub); cursor:pointer; border-radius:8px; transition:0.2s; 
+        display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 4px;
+    }
+    .nav-tab:hover { background: #f1f5f9; color: var(--primary); }
+    .nav-tab.active { background:var(--primary-light); color:var(--primary); }
+    .nav-tab i { font-size: 20px; min-width: 20px; text-align: center; }
+
+    .sidebar.collapsed .nav-tab { justify-content: center; padding: 12px 0; }
+    
+    .divider { height: 1px; background: var(--border); margin: 10px 0 20px 0; }
+
+    /* Filters */
+    .filter-box { margin-bottom:16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
+    .filter-head { display:flex; justify-content:space-between; align-items: center; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; cursor: pointer; }
+    .filter-head:hover { color: var(--primary); }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto; transition: all 0.3s; }
+    .chips.hidden { display: none; }
+    .chip { padding:5px 10px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:11px; color:var(--text); cursor:pointer; }
+    .chip.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600; }
+
+    /* Main Content */
+    .main-content { 
+        flex:1; padding:24px; display:flex; flex-direction:column; 
+        overflow-y: auto; height: 100vh; 
+    }
+    .view-panel { display:none; flex-direction:column; gap:20px; width: 100%; }
+    .view-panel.active { display:flex; }
+
+    /* Header & KPI */
+    .header { display:flex; justify-content:space-between; align-items:center; flex:none; margin-bottom: 10px; }
+    .header h2 { margin:0; font-size:24px; font-weight:800; }
+    .header-actions { display: flex; gap: 10px; }
+    .action-btn { padding:8px 16px; background:#10b981; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
+    .action-btn.secondary { background:#64748b; }
+    
+    .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; flex:none; }
+    .kpi-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:var(--shadow); border-left:5px solid var(--c); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .kpi-label { font-size:13px; font-weight:600; color:var(--text-sub); text-transform:uppercase; margin-bottom: 5px; }
+    .kpi-val { font-size:36px; font-weight:800; color:var(--text); letter-spacing:-1px; line-height: 1.2; }
+    .kpi-sub { font-size:14px; color:var(--text-sub); font-weight:500; margin-left:5px; }
+
+    /* Visualizations */
+    .visual-section { transition: all 0.3s ease; overflow: hidden; flex: none; }
+    .visual-section.collapsed { height: 0 !important; margin: 0 !important; opacity: 0; }
+
+    /* Layouts */
+    .voc-grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; height: 300px; } 
+    .pipe-section { display:flex; flex-direction:column; gap:16px; height: auto; }
+    .pipe-row { display:flex; gap:16px; height: 320px; flex: none; }
+    .pipe-left { flex: 0 0 320px; display:flex; flex-direction:column; }
+    .pipe-right { flex: 1; display:flex; flex-direction:column; min-width: 0; }
+
+    .card { background:var(--surface); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; height:100%; border:1px solid var(--border); }
+    .card.full { flex:1; min-height:0; }
+    .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex:none; }
+    .card-title { font-size:16px; font-weight:700; color:var(--text); }
+    .map-wrapper { flex:1; border-radius:8px; overflow:hidden; background:#e2e8f0; }
+    .chart-wrapper { flex:1; position:relative; min-height:0; }
+
+    /* Table - 무한 스크롤 */
+    .table-section { display:flex; flex-direction:column; min-height: auto; flex: 1 0 auto; margin-bottom: 20px; }
+    .table-wrapper { overflow: visible; border:1px solid var(--border); border-radius:8px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; background: #fff; }
+    th { background:#f8fafc; padding:12px 14px; text-align:left; font-weight:700; color:var(--text-sub); border-bottom:1px solid var(--border); }
+    td { padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; color:var(--text); vertical-align: middle; }
+    tr:hover td { background:#f1f5f9; }
+    tr.active-row td { background:#e0e7ff !important; font-weight:600; color:var(--primary); }
+    tr.row-fail td { background:var(--fail-bg); color:var(--fail-text); font-weight:600; }
+    
+    .badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; display:inline-block; }
+    .bd-done { background:#dcfce7; color:#166534; } .bd-wait { background:#fee2e2; color:#991b1b; }
+    
+    #loading { position:fixed; inset:0; background:rgba(255,255,255,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; }
+    .spinner { width:40px; height:40px; border:4px solid #e0e7ff; border-top-color:var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+    @keyframes spin { 100%{transform:rotate(360deg);} }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<div class="sidebar" id="sidebar">
+    <div class="logo">
+        <span class="logo-text"><i class="ph ph-chart-polar"></i> KTT Dashboard</span>
+        <i class="ph ph-caret-double-left sidebar-toggle" onclick="toggleSidebar()"></i>
+    </div>
+    <div class="scroll-area">
+        
+        <div class="nav-group">
+            <div class="group-label">System</div>
+            <button class="nav-tab" onclick="accessHub()">
+                <i class="ph ph-share-network"></i><span class="nav-text">허브 (Hub)</span>
+            </button>
+            <button class="nav-tab" onclick="triggerUpload()">
+                <i class="ph ph-file-csv"></i><span class="nav-text">파일 교체</span>
+                <input type="file" id="fileInput" accept=".csv" style="display:none" />
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="nav-group">
+            <div class="group-label">Dashboard</div>
+            <button class="nav-tab active" onclick="switchView('voc')">
+                <i class="ph ph-list-dashes"></i><span class="nav-text">VOC 현황</span>
+            </button>
+            <button class="nav-tab" onclick="switchView('pipe')">
+                <i class="ph ph-chart-bar"></i><span class="nav-text">파이프라인</span>
+            </button>
+            <button class="nav-tab" onclick="window.open('https://a-management-dashboard-6kyyf824usuawa7kdpf4vj.streamlit.app', '_blank')">
+                <i class="ph ph-warning-circle"></i><span class="nav-text">정지/부실</span>
+            </button>
+            <button class="nav-tab" onclick="window.open('https://script.google.com/macros/s/AKfycbwkWSXQIQEBkE0DGRs6YC9ObDyyzdBHbGH48zUC7PCKHkWzEcLqBuvVH2W6WSmyuJNCAw/exec', '_blank')">
+                <i class="ph ph-warning-circle"></i><span class="nav-text">정지/부실 추이현황</span>
+            </button>
+            <button class="nav-tab" onclick="window.open('https://bough38-web-haeji-voc-dashboard-voc-dashboard-6rsolh.streamlit.app', '_blank')">
+                <i class="ph ph-warning-circle"></i><span class="nav-text">해지VOC 접수처리 관리</span>
+            </button>
+        </div>
+        
+        <div class="divider"></div>
+
+        <div id="filter-container"></div>
+    </div>
+</div>
+
+<div class="main-content">
+
+    <div id="view-voc" class="view-panel active">
+        <div class="header">
+            <div><h2>관리고객(VOC) 현황</h2><p>실시간 위치 기반 모니터링</p></div>
+            <div class="header-actions">
+                <button class="action-btn secondary" onclick="toggleVisuals('voc')"><i class="ph ph-arrows-in-line-vertical"></i> 시각화 접기/펼치기</button>
+                <button class="action-btn" onclick="exportData('voc')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--c:var(--primary)">
+                <div class="kpi-label">총 계약</div>
+                <div class="kpi-val" id="voc-total">0</div>
+            </div>
+            <div class="kpi-card" style="--c:var(--success)">
+                <div class="kpi-label">처리 완료</div>
+                <div><span class="kpi-val" id="voc-done">0</span> <span class="kpi-sub" id="voc-rate-done">(0%)</span></div>
+            </div>
+            <div class="kpi-card" style="--c:var(--warning)">
+                <div class="kpi-label">접수(진행)</div>
+                <div><span class="kpi-val" id="voc-ing">0</span> <span class="kpi-sub" id="voc-rate-ing">(0%)</span></div>
+            </div>
+            <div class="kpi-card" style="--c:var(--danger)">
+                <div class="kpi-label">미접수</div>
+                <div><span class="kpi-val" id="voc-wait">0</span> <span class="kpi-sub" id="voc-rate-wait">(0%)</span></div>
+            </div>
+        </div>
+
+        <div id="voc-visuals" class="visual-section voc-grid-3">
+            <div class="card">
+                <div class="card-head"><h3 class="card-title">지사별 처리 현황</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-voc-branch"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3 class="card-title" style="color:var(--warning)">접수(진행) 담당자 Top 10</h3></div>
+                <div class="chart-wrapper"><canvas id="chart-voc-agent"></canvas></div>
+            </div>
+            <div class="card" style="padding:0;">
+                <div style="padding:16px; border-bottom:1px solid var(--border);"><h3 class="card-title">고객 위치 (수도권)</h3></div>
+                <div id="voc-map" class="map-wrapper"></div>
+            </div>
+        </div>
+
+        <div class="card table-section">
+            <div class="card-head"><h3 class="card-title">상세 리스트 (클릭 시 지도 이동)</h3></div>
+            <div class="table-wrapper">
+                <table id="table-voc">
+                    <thead><tr><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>상태</th><th>월정료</th><th>주소</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-pipe" class="view-panel">
+        <div class="header">
+            <div>
+                <h2>해지 파이프라인 분석</h2>
+                <p>본부별/지사별 건수 및 금액 현황</p>
+            </div>
+            <div class="header-actions">
+                <button class="action-btn secondary" onclick="toggleVisuals('pipe')"><i class="ph ph-arrows-in-line-vertical"></i> 시각화 접기/펼치기</button>
+                <button class="action-btn" onclick="exportData('pipe')"><i class="ph ph-download-simple"></i> 엑셀 저장</button>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--c:var(--primary)"><div class="kpi-label">총 대상 건수</div><div class="kpi-val" id="pipe-total">0</div></div>
+            <div class="kpi-card" style="--c:var(--success)"><div class="kpi-label">방어성공</div><div><span class="kpi-val" id="pipe-success">0</span> <span class="kpi-sub" id="pipe-rate-success">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--danger)"><div class="kpi-label">방어실패</div><div><span class="kpi-val" id="pipe-fail">0</span> <span class="kpi-sub" id="pipe-rate-fail">(0%)</span></div></div>
+            <div class="kpi-card" style="--c:var(--warning)"><div class="kpi-label">진행중</div><div><span class="kpi-val" id="pipe-ing">0</span> <span class="kpi-sub" id="pipe-rate-ing">(0%)</span></div></div>
+        </div>
+
+        <div id="pipe-visuals" class="visual-section pipe-section">
+            <div class="pipe-row">
+                <div class="card pipe-left">
+                    <div class="card-head"><h3 class="card-title">관리본부별 건수 (건)</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-hq-count"></canvas></div>
+                </div>
+                <div class="card pipe-right">
+                    <div class="card-head"><h3 class="card-title">지사별 건수</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-branch-count"></canvas></div>
+                </div>
+            </div>
+            <div class="pipe-row">
+                <div class="card pipe-left">
+                    <div class="card-head"><h3 class="card-title">관리본부별 금액 (천원)</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-hq-amt"></canvas></div>
+                </div>
+                <div class="card pipe-right">
+                    <div class="card-head"><h3 class="card-title">지사별 금액</h3></div>
+                    <div class="chart-wrapper"><canvas id="chart-branch-amt"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-section">
+            <div class="card-head"><h3 class="card-title">상세 파이프라인 리스트</h3></div>
+            <div class="table-wrapper">
+                <table id="table-pipe">
+                    <thead><tr>
+                        <th>본부</th><th>지사</th><th>담당자</th><th>계약번호</th><th>상호명</th><th>채널</th><th>해지위험도</th><th>방어단계</th><th>해지예정일</th><th>월정료(원)</th><th>세부내용 및 공유사항</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* CONFIG */
+const BRANCH_ORDER = ['중앙', '강북', '서대문', '의정부', '남양주', '강릉', '원주'];
+const HQ_ORDER = ['강남/서부', '강북/강원', '충남/충북', '전남/전북', '대구/경북', '부산/경남'];
+const COLORS = { '방어성공': '#2563eb', '방어실패': '#dc2626', '진행중': '#64748b', '기타': '#cbd5e1' };
+const STACK_PALETTE = ['#312e81', '#1e40af', '#2563eb', '#3b82f6', '#b91c1c', '#dc2626', '#ef4444', '#0f766e', '#0d9488', '#14b8a6', '#a21caf', '#c026d3', '#d946ef'];
+
+const URLS = {
+    voc: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/voc.csv",
+    pipe: "https://raw.githubusercontent.com/bough38-web/retention-dashboard/main/pipeline.csv"
+};
+
+let App = {
+    view: 'voc',
+    data: { voc:[], pipe:[] },
+    filtered: [],
+    filters: { hq:'ALL', branch:'ALL', agent:'ALL', status:'ALL', channel:'SP', risk:'ALL', step:'ALL' }, 
+    map: null, clusterer: null, markers: [], charts: {}
+};
+
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family = "'Pretendard', sans-serif";
+Chart.defaults.color = '#64748b';
+
+/* INIT */
+window.onload = async () => {
+    try {
+        const [v, p] = await Promise.all([fetchCsv(URLS.voc), fetchCsv(URLS.pipe)]);
+        App.data.voc = parseVoc(v.data);
+        App.data.pipe = parsePipe(p.data);
+        
+        initMap();
+        initFiltersHTML();
+        updateDashboard();
+    } catch(e) { console.error(e); alert("데이터 로드 실패"); }
+    document.getElementById('loading').style.display = 'none';
+};
+
+/* TOGGLE FUNCTIONS */
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    sb.classList.toggle('collapsed');
+    setTimeout(() => {
+        Object.values(App.charts).forEach(c => c.resize());
+        if(App.map) google.maps.event.trigger(App.map, 'resize');
+    }, 300);
+}
+
+function toggleVisuals(view) {
+    const section = document.getElementById(view + '-visuals');
+    section.classList.toggle('collapsed');
+}
+
+function accessHub() {
+    const p = prompt("허브 접속 비밀번호 입력:");
+    if(p === "3867") {
+        window.open("https://script.google.com/macros/s/AKfycbziXDDchdWun3sztsNZzN4CpcbYFzsxDIxE4U3rlr8hz_897bp31XkiBTYi_9tZlcTB/exec", "_blank");
+    } else if (p !== null) {
+        alert("비밀번호 오류");
+    }
+}
+
+function triggerUpload() {
+    const p = prompt("관리자 비밀번호 입력:");
+    if(p==="3867") document.getElementById('fileInput').click();
+    else if(p!==null) alert("비밀번호 오류");
+}
+
+/* DATA PARSING */
+async function fetchCsv(url) {
+    const r = await fetch(url); const t = await r.text();
+    return Papa.parse(t.replace(/^\uFEFF/, ''), {header:true, skipEmptyLines:true});
+}
+
+function parseVoc(data) {
+    if(!data.length) return [];
+    const kCoord = Object.keys(data[0]).find(k=>k.includes("위치")) || "위도";
+    return data.map(r => {
+        let lat=null, lng=null;
+        if(r["위도"]) { lat=parseFloat(r["위도"]); lng=parseFloat(r["경도"]); }
+        else if(r[kCoord] && r[kCoord].includes(',')) {
+            const p=r[kCoord].split(','); lat=parseFloat(p[0]); lng=parseFloat(p[1]);
+        }
+        return {
+            ...r,
+            _branch: normStr(r["관리지사"]), _agent: (r["담당자"]||"미지정").trim(),
+            _status: (r["상태"]||"").trim(), 
+            _lat: lat, _lng: lng,
+            _fee: parseMoney(r["합산월정료"]), _desc: r["등록내용"]||"-",
+            _addr: (r["시"]||"") + " " + (r["군구"]||"") + " " + (r["읍면동"]||""),
+            _link: r["지도링크_URL"],
+            _contractId: String(r["계약번호"] || "").replace(/\.0$/, "")
+        };
+    });
+}
+
+function parsePipe(data) {
+    if(!data.length) return [];
+    const kFee = Object.keys(data[0]).find(k=>k.includes("월정료")) || "월정료";
+    const kDesc = Object.keys(data[0]).find(k=>k.includes("세부내용") || k.includes("공유사항")) || "세부내용";
+    const kCoord = Object.keys(data[0]).find(k=>k.includes("위치")) || "위도";
+
+    return data.map(r => {
+        let step = (r["방어진행단계"]||"").trim();
+        if(step.includes("성공")) step = "방어성공";
+        else if(step.includes("실패") || step.includes("해지완료")) step = "방어실패";
+        else step = "진행중";
+
+        let risk = parseFloat(r["해지위험도"]||0);
+        if (risk > 0 && risk <= 1) risk *= 100;
+
+        let lat=null, lng=null;
+        if(r["위도"]) { lat=parseFloat(r["위도"]); lng=parseFloat(r["경도"]); }
+        else if(r[kCoord] && r[kCoord].includes(',')) {
+            const p=r[kCoord].split(','); lat=parseFloat(p[0]); lng=parseFloat(p[1]);
+        }
+
+        return {
+            ...r,
+            _hq: (r["관리본부"]||"기타").trim(),
+            _branch: (r["관리지사"]||"기타").replace("지사","").trim(),
+            _agent: (r["담당자"]||"미지정").trim(), 
+            _risk: Math.round(risk),
+            _step: step, _lat: lat, _lng: lng,
+            _fee: parseInt((r[kFee]||"0").replace(/,/g,''))||0,
+            _contractId: String(r["계약번호"] || "").replace(/\.0$/, ""),
+            _desc: r[kDesc] || "-",
+            _channel: (r["담당영업채널"]||"SP").trim()
+        };
+    });
+}
+
+function normStr(s) { return (s||"기타").replace("지사","").trim(); }
+function parseMoney(s) { return parseInt(String(s).replace(/,/g,''))||0; }
+function fmtMoney(n) { return Math.round(n/1000).toLocaleString() + "천원"; }
+
+/* FILTERS */
+function initFiltersHTML() {
+    const area = document.getElementById('filter-container');
+    area.innerHTML = `
+        <div class="filter-box" id="fb-channel" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-channel')">영업채널 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-channel" class="chips"></div>
+        </div>
+        <div class="filter-box" id="fb-hq" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-hq')">관리본부 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-hq" class="chips"></div>
+        </div>
+        <div class="filter-box" id="fb-step" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-step')">방어단계 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-step" class="chips"></div>
+        </div>
+        <div class="filter-box" id="fb-voc-filters">
+            <div class="filter-head" onclick="toggleSection('chips-voc-branch')">지사 필터 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-voc-branch" class="chips"></div>
+        </div>
+        <div class="filter-box" id="fb-status" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-status')">처리 상태 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-status" class="chips"></div>
+        </div>
+        <div class="filter-box" id="fb-agent" style="display:none;">
+            <div class="filter-head" onclick="toggleSection('chips-agent')">담당자 <i class="ph ph-caret-down"></i></div>
+            <div id="chips-agent" class="chips"></div>
+        </div>
+    `;
+    renderChips('chips-status', ['전체','미접수','접수','처리완료'], 'status');
+    renderChips('chips-channel', ['전체', 'SP', 'SC', 'AM'], 'channel');
+    renderChips('chips-voc-branch', ['전체', ...BRANCH_ORDER], 'branch');
+    renderChips('chips-step', ['전체', '방어성공', '방어실패', '진행중'], 'step');
+}
+
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    const head = el.previousElementSibling;
+    el.classList.toggle('hidden');
+    head.classList.toggle('collapsed');
+}
+
+function renderChips(id, items, type, isDynamic=false) {
+    const box = document.getElementById(id);
+    box.innerHTML = '';
+    items.forEach(val => {
+        const btn = document.createElement('div');
+        const isAll = val==='전체' || val==='ALL';
+        btn.className = `chip ${App.filters[type]===(isAll?'ALL':val) ? 'active' : ''}`;
+        btn.innerText = val;
+        btn.onclick = () => toggleFilter(type, isAll?'ALL':val);
+        box.appendChild(btn);
+    });
+}
+
+function toggleFilter(type, value) {
+    App.filters[type] = value;
+    if(type==='hq') { App.filters.branch='ALL'; App.filters.agent='ALL'; }
+    updateDashboard();
+}
+
+function updateDashboard() {
+    const isVoc = App.view === 'voc';
+    document.getElementById('fb-channel').style.display = isVoc ? 'none' : 'block';
+    document.getElementById('fb-hq').style.display = isVoc ? 'none' : 'block';
+    document.getElementById('fb-step').style.display = isVoc ? 'none' : 'block';
+    document.getElementById('fb-voc-filters').style.display = isVoc ? 'block' : 'none';
+    document.getElementById('fb-status').style.display = isVoc ? 'block' : 'none';
+    document.getElementById('fb-agent').style.display = isVoc ? 'block' : 'none';
+    
+    const src = isVoc ? App.data.voc : App.data.pipe;
+    
+    App.filtered = src.filter(d => {
+        if(!isVoc) {
+            if(App.filters.channel !== 'ALL' && (d["담당영업채널"]||"SP") !== App.filters.channel) return false;
+            if(App.filters.hq !== 'ALL' && d._hq !== App.filters.hq) return false;
+            if(App.filters.step !== 'ALL' && d._step !== App.filters.step) return false;
+        } else {
+            if(App.filters.branch !== 'ALL' && d._branch !== App.filters.branch) return false;
+            if(App.filters.status !== 'ALL' && d._status !== App.filters.status) return false;
+            if(App.filters.agent !== 'ALL' && d._agent !== App.filters.agent) return false;
+        }
+        return true;
+    });
+
+    if(!isVoc) {
+        const hqs = ['전체', ...new Set(App.data.pipe.map(d=>d._hq))].sort();
+        renderChips('chips-hq', hqs, 'hq');
+    } else {
+        let agentSrc = App.data.voc;
+        if(App.filters.branch !== 'ALL') agentSrc = agentSrc.filter(d=>d._branch === App.filters.branch);
+        const agents = ['전체', ...new Set(agentSrc.map(d=>d._agent))].sort();
+        renderChips('chips-agent', agents, 'agent');
+    }
+
+    if(isVoc) renderVocView(); else renderPipeView();
+}
+
+/* RENDER: VOC */
+function renderVocView() {
+    const data = App.filtered;
+    const unique = new Set(data.map(d=>d._contractId)).size;
+    const done = data.filter(d=>d._status==='처리완료').length;
+    const ing = data.filter(d=>d._status==='접수').length;
+    const wait = data.filter(d=>d._status==='미접수').length;
+
+    animateNum('voc-total', unique);
+    animateNum('voc-done', done);
+    document.getElementById('voc-rate-done').innerText = unique ? `(${((done/unique)*100).toFixed(1)}%)` : '(0%)';
+    animateNum('voc-ing', ing);
+    document.getElementById('voc-rate-ing').innerText = unique ? `(${((ing/unique)*100).toFixed(1)}%)` : '(0%)';
+    animateNum('voc-wait', wait);
+    document.getElementById('voc-rate-wait').innerText = unique ? `(${((wait/unique)*100).toFixed(1)}%)` : '(0%)';
+
+    updateMap(data);
+    drawVocBar('chart-voc-branch', data, '_branch', '건수', '#6366f1');
+    
+    const ingData = data.filter(d => d._status === '접수');
+    drawVocBar('chart-voc-agent', ingData, '_agent', '접수 건수', '#f59e0b');
+
+    const tbody = document.querySelector('#table-voc tbody');
+    tbody.innerHTML = '';
+    data.slice(0, 50).forEach(d => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => {
+            if (d._lat) {
+                App.map.panTo({lat: d._lat, lng: d._lng});
+                App.map.setZoom(15);
+                google.maps.event.trigger(d._marker, 'click');
+            }
+        };
+        tr.style.cursor = 'pointer';
+        tr.innerHTML = `
+            <td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
+            <td>${d["상호명"]||d["상호"]}</td><td><span class="badge ${d._status==='처리완료'?'bd-done':'bd-wait'}">${d._status}</span></td>
+            <td>${d._fee.toLocaleString()}</td><td>${d._addr||""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderPipeView() {
+    const data = App.filtered;
+    const total = data.length;
+    const success = data.filter(d=>d._step==='방어성공').length;
+    const fail = data.filter(d=>d._step==='방어실패').length;
+    const ing = data.filter(d=>d._step==='진행중').length;
+
+    animateNum('pipe-total', total);
+    animateNum('pipe-success', success);
+    document.getElementById('pipe-rate-success').innerText = total ? `(${((success/total)*100).toFixed(1)}%)` : '(0%)';
+    animateNum('pipe-fail', fail);
+    document.getElementById('pipe-rate-fail').innerText = total ? `(${((fail/total)*100).toFixed(1)}%)` : '(0%)';
+    animateNum('pipe-ing', ing);
+    document.getElementById('pipe-rate-ing').innerText = total ? `(${((ing/total)*100).toFixed(1)}%)` : '(0%)';
+
+    const agg = { hq: {}, branch: {} };
+    HQ_ORDER.forEach(hq => agg.hq[hq] = { _total:0 });
+
+    data.forEach(d => {
+        const hq = d._hq || '기타';
+        const br = d._branch || '기타';
+        const st = d._step; const fee = d._fee / 1000;
+        if(!agg.hq[hq]) agg.hq[hq] = { _total:0 };
+        if(!agg.hq[hq][st]) agg.hq[hq][st] = { cnt:0, amt:0 };
+        agg.hq[hq][st].cnt++; agg.hq[hq][st].amt+=fee; agg.hq[hq]._total++;
+
+        if(!agg.branch[br]) agg.branch[br] = { _hq: hq, _total:0 };
+        if(!agg.branch[br][st]) agg.branch[br][st] = { cnt:0, amt:0 };
+        agg.branch[br][st].cnt++; agg.branch[br][st].amt+=fee; agg.branch[br]._total++;
+    });
+
+    drawStackedBar('chart-hq-count', 'hq', 'cnt', agg.hq, HQ_ORDER);
+    drawStackedBar('chart-hq-amt', 'hq', 'amt', agg.hq, HQ_ORDER);
+    
+    const sortedBranches = Object.keys(agg.branch).sort((a,b) => {
+        const hqA = agg.branch[a]._hq; const hqB = agg.branch[b]._hq;
+        const idxA = HQ_ORDER.indexOf(hqA); const idxB = HQ_ORDER.indexOf(hqB);
+        return (idxA !== idxB) ? idxA - idxB : a.localeCompare(b);
+    });
+
+    drawStackedBar('chart-branch-count', 'branch', 'cnt', agg.branch, sortedBranches);
+    drawStackedBar('chart-branch-amt', 'branch', 'amt', agg.branch, sortedBranches);
+    
+    const tbody = document.querySelector('#table-pipe tbody');
+    tbody.innerHTML = '';
+    data.forEach(d => {
+        const tr = document.createElement('tr');
+        if(d._lat) {
+            tr.onclick = () => alert("위치: " + d._lat + ", " + d._lng); 
+            tr.style.cursor = 'pointer';
+        }
+        tr.innerHTML = `
+            <td>${d._hq}</td><td>${d._branch}</td><td>${d._agent}</td><td>${d._contractId}</td>
+            <td>${d["상호"]||"-"}</td><td>${d._channel}</td><td>${d._risk}%</td>
+            <td>${d._step}</td><td>${d._date||""}</td><td>${d._fee.toLocaleString()}</td>
+            <td style="white-space: pre-wrap; word-break: break-all; min-width: 200px;">${d._desc}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function drawVocBar(id, data, key, label, color) {
+    const counts = {};
+    data.forEach(d => {
+        let k = d[key];
+        if (!k || (typeof k === 'string' && k.trim() === '')) k = '미입력';
+        counts[k] = (counts[k] || 0) + 1;
+    });
+    
+    let keys = Object.keys(counts);
+    if(key === '_branch') {
+        keys.sort((a,b) => {
+            const ia = BRANCH_ORDER.indexOf(a), ib = BRANCH_ORDER.indexOf(b);
+            if(ia!==-1 && ib!==-1) return ia-ib; return a.localeCompare(b);
+        });
+    } else {
+        keys.sort((a,b) => counts[b] - counts[a]);
+    }
+    keys = keys.slice(0, 15);
+    const rawValues = keys.map(k => counts[k]);
+    const ctx = document.getElementById(id).getContext('2d');
+
+    if(App.charts[id]) App.charts[id].destroy();
+
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys,
+            datasets: [{ label: label, data: rawValues, backgroundColor: color, borderRadius:4, maxBarThickness:35 }]
+        },
+        options: { 
+            indexAxis: 'x', responsive:true, maintainAspectRatio:false, 
+            plugins:{
+                legend:{display:false},
+                datalabels: { 
+                    color: '#4b5563', anchor: 'end', align: 'top', offset: 2,
+                    font: { weight: 'bold', size: 11 },
+                    display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+                    formatter: (val) => val
+                }
+            }, 
+            scales:{x:{grid:{display:false}}, y:{beginAtZero: true, grace: '10%'}},
+            onClick: (e, els) => { if(els.length > 0) toggleFilter(key==='_branch'?'branch':'agent', keys[els[0].index]); }
+        }
+    });
+}
+
+function drawStackedBar(id, type, metric, aggData, labels) {
+    const ctx = document.getElementById(id).getContext('2d');
+    const canvas = document.getElementById(id);
+    let currentMode = canvas.dataset.viewMode || 'linear'; 
+    const isCompressed = currentMode === 'compressed';
+    
+    const card = canvas.closest('.card');
+    const header = card ? card.querySelector('.card-head') : null;
+    if (header) {
+        header.style.flexWrap = 'wrap'; header.style.gap = '8px';
+        if (!header.querySelector('.scale-toggle-btn')) {
+            const btn = document.createElement('button');
+            btn.className = 'scale-toggle-btn';
+            btn.style.cssText = `margin-left:auto; padding:3px 8px; font-size:11px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; border-radius:6px; color:#475569; font-weight:700; white-space:nowrap;`;
+            btn.innerHTML = `<i class="ph ph-arrows-in-line-vertical"></i> ${isCompressed ? '압축됨' : '원본'}`;
+            btn.onclick = () => {
+                canvas.dataset.viewMode = canvas.dataset.viewMode==='compressed'?'linear':'compressed';
+                renderPipeView(); 
+            };
+            header.appendChild(btn);
+        }
+    }
+
+    if(App.charts[id]) App.charts[id].destroy();
+
+    const statuses = ['방어성공', '방어실패', '진행중'];
+    const stackHeights = new Array(labels.length).fill(0);
+    const datasets = statuses.map((status, i) => {
+        const rawData = labels.map(label => (aggData[label] && aggData[label][status]) ? Math.round(aggData[label][status][metric]) : 0);
+        const chartData = rawData.map((val, idx) => {
+            const t = isCompressed ? Math.pow(val, 0.25) : val;
+            stackHeights[idx] += t;
+            return t;
+        });
+        return {
+            label: status, data: chartData, rawData: rawData,
+            backgroundColor: i<3 ? COLORS[status] : STACK_PALETTE[i],
+            barPercentage: 0.7, maxBarThickness: 50, borderRadius: 3
+        };
+    });
+
+    const maxStackHeight = Math.max(...stackHeights);
+    const isHorizontal = (type === 'hq'); 
+
+    App.charts[id] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: {
+            indexAxis: isHorizontal ? 'y' : 'x',
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 10, right: 15 } },
+            animation: { duration: 800 },
+            plugins: {
+                legend: { display: true, position: 'top', align: 'end', labels:{boxWidth:10, font:{size:11}} },
+                tooltip: {
+                    mode: 'index', intersect: false,
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${ctx.dataset.rawData[ctx.dataIndex].toLocaleString()}`,
+                        footer: (items) => `합계: ${items.reduce((a,b)=>a+b.dataset.rawData[b.dataIndex],0).toLocaleString()}`
+                    }
+                },
+                datalabels: {
+                    color: '#fff', font: { size: 10, weight: 'bold' },
+                    display: (ctx) => {
+                        const val = ctx.dataset.data[ctx.dataIndex];
+                        const thres = isCompressed ? 0.3 : (maxStackHeight * 0.05); 
+                        return val > thres;
+                    },
+                    formatter: (val, ctx) => ctx.dataset.rawData[ctx.dataIndex].toLocaleString()
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight:'bold' }, color: '#334155' } },
+                y: { stacked: true, display: !isCompressed, grid: { display: !isCompressed, borderDash: [2, 4] }, ticks: { font: { size: 11 } }, beginAtZero: true }
+            },
+            onClick: (e, els) => {
+                if (els.length > 0) {
+                    const val = labels[els[0].index];
+                    if (type === 'hq') toggleFilter('hq', val);
+                    if (type === 'branch') toggleFilter('branch', val);
+                }
+            },
+            onHover: (e, els) => e.native.target.style.cursor = els.length ? 'pointer' : 'default'
+        }
+    });
+}
+
+function switchView(v) {
+    App.view = v;
+    document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    // 버튼 active 처리: switchView('voc') 호출 시 해당 버튼 active
+    const buttons = document.querySelectorAll('.nav-tab');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    // 간단히 순서대로 매칭 (voc:0, pipe:1, stop:2) - 혹은 onclick 속성 비교
+    if(v==='voc') buttons[2].classList.add('active'); // 0,1은 상단 시스템메뉴
+    if(v==='pipe') buttons[3].classList.add('active');
+    if(v==='stop') buttons[4].classList.add('active');
+
+    updateDashboard(); 
+    setTimeout(() => {
+        Object.values(App.charts).forEach(c => c.resize());
+        if(v==='voc' && App.map) google.maps.event.trigger(App.map, 'resize');
+    }, 100);
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = (evt) => {
+        const res = Papa.parse(evt.target.result, {header:true, skipEmptyLines:true});
+        const h = res.meta.fields || [];
+        if(h.some(x=>x.includes('위치좌표'))) {
+            App.data.voc = parseVoc(res.data);
+            alert("VOC 데이터 갱신 완료");
+            switchView('voc');
+        } else if(h.some(x=>x.includes('위험도'))) {
+            App.data.pipe = parsePipe(res.data);
+            alert("파이프라인 데이터 갱신 완료");
+            switchView('pipe');
+        } else {
+            alert("알 수 없는 파일 형식입니다.");
+        }
+    };
+    r.readAsText(f, 'UTF-8');
+});
+
+function initMap() {
+    App.map = new google.maps.Map(document.getElementById('voc-map'), { center: {lat: 37.5665, lng: 126.9780}, zoom: 10, disableDefaultUI: true });
+}
+function updateMap(data) {
+    if(!App.map) return;
+    if(App.clusterer) App.clusterer.clearMarkers();
+    App.markers = [];
+    // 대한민국 좌표 범위 필터링
+    const valid = data.filter(d => d._lat && d._lat > 33 && d._lat < 39 && d._lng > 124 && d._lng < 132);
+    const bounds = new google.maps.LatLngBounds();
+    valid.forEach(d => {
+        const color = d._status === '처리완료' ? 'blue' : 'red';
+        const m = new google.maps.Marker({
+            position: {lat: d._lat, lng: d._lng}, title: d["상호명"]||d["상호"],
+            icon: `http://googleusercontent.com/maps.google.com/mapfiles/ms/icons/${color}-dot.png`,
+            label: { text: d["상호명"]||d["상호"], color: "black", fontSize: "11px", fontWeight: "bold" }
+        });
+        m.addListener('click', () => {
+            new google.maps.InfoWindow({ content: `<div style="padding:5px;font-weight:bold">${d["상호명"]||d["상호"]}<br><span style="font-weight:normal;font-size:11px">${d._agent}</span></div>` }).open(App.map, m);
+        });
+        d._marker = m;
+        bounds.extend(m.getPosition());
+        App.markers.push(m);
+    });
+    App.clusterer = new markerClusterer.MarkerClusterer({ map: App.map, markers: App.markers });
+    if(App.markers.length > 0) App.map.fitBounds(bounds);
+    else { App.map.setCenter({lat: 37.5665, lng: 126.9780}); App.map.setZoom(10); }
+}
+function animateNum(id, target) {
+    const el = document.getElementById(id);
+    if(el) el.innerText = target.toLocaleString();
+}
+</script>
+</body>
+</html>
