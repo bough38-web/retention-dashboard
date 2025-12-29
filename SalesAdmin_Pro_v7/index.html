@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Admin Pro v7</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div id="loginScreen" class="login-overlay">
+        <div class="glass-panel login-box">
+            <h1 class="brand-logo">🚀 Sales Admin <span class="ver">Pro</span></h1>
+            <p class="subtitle">Premium Dashboard Solution</p>
+            
+            <div class="role-selector">
+                <label><input type="radio" name="role" value="ADMIN" checked onclick="app.setLoginMode('ADMIN')"> <span>Admin</span></label>
+                <label><input type="radio" name="role" value="BRANCH" onclick="app.setLoginMode('BRANCH')"> <span>Branch</span></label>
+                <label><input type="radio" name="role" value="STAFF" onclick="app.setLoginMode('STAFF')"> <span>Staff</span></label>
+            </div>
+
+            <div id="loginForm" class="login-form">
+                <div id="formAdmin">
+                    <input type="text" id="adminId" placeholder="Admin ID (admin)" class="input-glass">
+                    <input type="password" id="adminPw" placeholder="Password (1234)" class="input-glass">
+                </div>
+                <div id="formBranch" style="display:none;">
+                    <select id="loginBranchSelect" class="input-glass"><option>Select Branch</option></select>
+                    <input type="password" id="branchPw" placeholder="Password (1234)" class="input-glass">
+                </div>
+                <div id="formStaff" style="display:none;">
+                    <select id="loginStaffBranch" class="input-glass" onchange="app.updateLoginStaffList()"><option>Select Branch</option></select>
+                    <input type="text" id="loginStaffName" placeholder="Name (e.g. 김의겸)" class="input-glass">
+                    <input type="password" id="staffPw" placeholder="Phone Last 4 Digits" class="input-glass">
+                </div>
+                <button onclick="app.login()" class="btn-gradient full-width">Sign In</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container" style="display:none;">
+        <nav class="sidebar glass-panel">
+            <div class="brand">🚀 Sales Admin <span class="ver">v7</span></div>
+            
+            <div class="user-profile">
+                <div class="avatar">👤</div>
+                <div class="info" id="displayUserInfo">Loading...</div>
+            </div>
+
+            <div class="menu-label">ANALYTICS</div>
+            <button class="nav-item active" onclick="app.showTab('dashboard')">
+                <span class="icon">📊</span> 통합 대시보드
+            </button>
+            <button class="nav-item" onclick="app.showTab('list')">
+                <span class="icon">📝</span> 실적 관리
+            </button>
+            
+            <div class="menu-label admin-only">ADMINISTRATION</div>
+            <button class="nav-item admin-only" onclick="app.showTab('settings')">
+                <span class="icon">⚙️</span> 시스템 설정
+            </button>
+
+            <div class="spacer"></div>
+            
+            <div class="bottom-actions">
+                <button onclick="app.toggleTheme()" class="btn-icon" title="테마 변경">🌓</button>
+                <button onclick="app.logout()" class="btn-icon logout" title="로그아웃">🚪</button>
+            </div>
+        </nav>
+
+        <main class="content">
+            <section id="dashboard" class="page active">
+                <div class="header-row">
+                    <div>
+                        <h2>Dashboard Overview</h2>
+                        <p class="date-badge" id="todayDate"></p>
+                    </div>
+                    <div class="kpi-group">
+                        <span class="kpi-badge">Total Revenue: <b id="headRevenue">0</b></span>
+                    </div>
+                </div>
+                
+                <div class="cards-grid">
+                    <div class="card glass-panel">
+                        <div class="card-icon blue">🔵</div>
+                        <h3>신규 달성률</h3>
+                        <div class="progress-circle" id="progNew" style="--p:0">
+                            <span id="rateNew">0%</span>
+                        </div>
+                        <p class="sub-stat"><span id="txtNewAct">0</span> / <span id="txtNewTarget">0</span></p>
+                    </div>
+                    <div class="card glass-panel">
+                        <div class="card-icon red">🔴</div>
+                        <h3>해지 방어율</h3>
+                        <div class="progress-circle" id="progCancel" style="--p:0; --c:#f54a45;">
+                            <span id="rateCancel">0%</span>
+                        </div>
+                        <p class="sub-stat"><span id="txtCancelAct">0</span> / <span id="txtCancelTarget">0</span></p>
+                    </div>
+                    <div class="card glass-panel">
+                        <div class="card-icon purple">💎</div>
+                        <h3>예상 인센티브</h3>
+                        <p class="big-text" id="estIncentive">0원</p>
+                        <p class="sub-stat">성과 기반 추정</p>
+                    </div>
+                    <div class="card glass-panel">
+                        <div class="card-icon green">💰</div>
+                        <h3>순매출 영향</h3>
+                        <p class="big-text" id="totalMoney">0</p>
+                        <p class="sub-stat">신규 - 해지 차감</p>
+                    </div>
+                </div>
+                
+                <div class="chart-container glass-panel">
+                    <h3>📈 지사별 목표 대비 실적 분석</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="list" class="page">
+                <div class="header-row">
+                    <h2>Performance Records</h2>
+                    <div class="actions">
+                        <input type="text" id="searchInput" placeholder="Search..." class="input-search" onkeyup="app.filterList()">
+                        <select id="filterBranch" onchange="app.filterList()" class="input-select">
+                            <option value="ALL">All Branches</option>
+                        </select>
+                        <button onclick="app.downloadCSV()" class="btn-outline">📥 Export CSV</button>
+                    </div>
+                </div>
+
+                <div class="table-container glass-panel">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th onclick="app.sortList('branch')">지사 ↕</th>
+                                <th onclick="app.sortList('manager')">담당자 ↕</th>
+                                <th onclick="app.sortList('rate')">신규 달성률 ↕</th>
+                                <th>해지 현황</th>
+                                <th>리텐션</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div id="inputModal" class="modal-overlay" style="display:none;">
+                <div class="modal-content glass-panel">
+                    <div class="modal-header">
+                        <h3>Update Performance</h3>
+                        <button onclick="app.closeModal()" class="btn-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editId">
+                        <div class="info-tag" id="modalInfo"></div>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>🔵 신규 건수</label>
+                                <input type="number" id="inpNew" class="input-glass">
+                            </div>
+                            <div class="form-group">
+                                <label>🔴 해지 건수</label>
+                                <input type="number" id="inpCancel" class="input-glass">
+                            </div>
+                            <div class="form-group">
+                                <label>⛔ 정지 건수</label>
+                                <input type="number" id="inpSuspend" class="input-glass">
+                            </div>
+                            <div class="form-group">
+                                <label>💎 리텐션P</label>
+                                <input type="number" id="inpRetention" class="input-glass">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>비고</label>
+                            <input type="text" id="inpNote" class="input-glass" placeholder="Memo...">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="incentive-preview">예상 인센티브: <span id="previewInc">0</span>원</div>
+                        <button onclick="app.saveModalData()" class="btn-gradient">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+
+            <section id="settings" class="page">
+                <h2>System Settings</h2>
+                <div class="settings-grid">
+                    <div class="form-box glass-panel">
+                        <h3>🔄 Data Management</h3>
+                        <p>월초 데이터를 초기화하거나 백업합니다.</p>
+                        <div class="btn-group">
+                            <button onclick="app.initializeData()" class="btn-primary">Initialize (Reset)</button>
+                            <button onclick="app.backupData()" class="btn-outline">Backup JSON</button>
+                            <button onclick="document.getElementById('fileRestore').click()" class="btn-outline">Restore</button>
+                            <input type="file" id="fileRestore" style="display:none" onchange="app.restoreData(this)">
+                        </div>
+                    </div>
+                    <div class="form-box glass-panel">
+                        <h3>💰 Unit Price</h3>
+                        <label>건당 단가 (천원)</label>
+                        <div class="row">
+                            <input type="number" id="inpFee" class="input-glass">
+                            <button onclick="app.updateFee()" class="btn-primary">Update</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
