@@ -13,7 +13,10 @@ def _inject_kt_security_css():
             .stApp {
                 background-color: #F3F4F6 !important; /* Tailwind gray-100 */
                 font-family: 'Noto Sans KR', sans-serif !important;
-                color: #1F2937;
+                color: #1F2937 !important;
+            }
+            .stApp * {
+                color: #1F2937 !important; /* FORCE DARK TEXT EVERYWHERE */
             }
             .block-container { 
                 padding: 1rem !important; 
@@ -22,7 +25,7 @@ def _inject_kt_security_css():
                 flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
-                height: 100vh !important;
+                min-height: 100vh !important;
             }
 
             /* 🧱 Layout Containers */
@@ -41,12 +44,14 @@ def _inject_kt_security_css():
             div[data-testid="stHorizontalBlock"] {
                 width: 100% !important;
                 max-width: 1000px !important;
+                min-width: 320px !important;
                 background-color: #FFFFFF !important;
                 border-radius: 1rem !important;
                 box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
                 overflow: hidden !important;
                 gap: 0 !important;
-                margin: 0 auto !important; /* Key fix */
+                margin: auto !important; /* Key fix */
+                align-self: center !important;
                 display: flex !important;
                 flex-direction: row !important;
             }
